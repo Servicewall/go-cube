@@ -270,7 +270,7 @@ func TestLoadNotInitialized(t *testing.T) {
 	handler = nil
 	defer func() { handler = origHandler }()
 
-	_, err := Load(context.Background(), &QueryRequest{Dimensions: []string{"AccessView.id"}})
+	_, err := Load(context.Background(), `{"dimensions":["AccessView.id"]}`)
 	if err == nil {
 		t.Error("expected error when Load called without Init")
 	}

@@ -67,18 +67,14 @@ if err != nil {
     log.Fatal(err)
 }
 
-// 执行 cubejs-graph 查询（与 /load?query=... HTTP 接口参数格式相同）
-resp, err := api.Load(context.Background(), &api.QueryRequest{
-    Dimensions: []string{"AccessView.ts", "AccessView.ip", "AccessView.host"},
-    Filters: []api.Filter{
-        {Member: "AccessView.ip", Operator: "equals", Values: []interface{}{"1.2.3.4"}},
-    },
-    TimeDimensions: []api.TimeDimension{
-        {Dimension: "AccessView.ts", DateRange: api.DateRange{V: "from 15 minutes ago to now"}},
-    },
-    Order: api.OrderMap{"AccessView.ts": "desc"},
-    Limit: 50,
-})
+// 执行 cubejs-graph 查询（与 /load?query=... HTTP 接口 JSON 格式相同）
+resp, err := api.Load(context.Background(), `{
+    "dimensions": ["AccessView.ts", "AccessView.ip", "AccessView.host"],
+    "filters": [{"member": "AccessView.ip", "operator": "equals", "values": ["1.2.3.4"]}],
+    "timeDimensions": [{"dimension": "AccessView.ts", "dateRange": "from 15 minutes ago to now"}],
+    "order": {"AccessView.ts": "desc"},
+    "limit": 50
+}`)
 if err != nil {
     log.Fatal(err)
 }

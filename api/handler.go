@@ -41,12 +41,17 @@ func Init(cfg *Config) error {
 }
 
 // Load executes a cube query and returns the result.
+// queryJSON 与 /load?query=... 接口的 JSON 格式相同。
 // Init must be called before using this function.
-func Load(ctx context.Context, req *QueryRequest) (*QueryResponse, error) {
+func Load(ctx context.Context, queryJSON string) (*QueryResponse, error) {
 	if handler == nil {
 		return nil, fmt.Errorf("go-cube not initialized: call Init first")
 	}
-	return handler.load(ctx, req)
+	var req QueryRequest
+	if err := json.Unmarshal([]byte(queryJSON), &req); err != nil {
+		return nil, fmt.Errorf("invalid query JSON: %w", err)
+	}
+	return handler.load(ctx, &req)
 }
 
 func RegisterHandler() http.Handler {
