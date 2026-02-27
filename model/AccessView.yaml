@@ -266,3 +266,8 @@ cube:
       sql: sumMap([toUnixTimestamp(toStartOfMinute(ts))], [1])
       type: string
       title: 分钟访问量
+
+    hourCountArray:
+      sql: sumMap([toUnixTimestamp(toStartOfHour(ts))], [1])
+      type: string
+      title: 小时访问量
