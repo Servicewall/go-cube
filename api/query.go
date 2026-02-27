@@ -81,9 +81,22 @@ type QueryResult struct {
 
 type RowData = map[string]interface{}
 
-func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, error) {
+// resolveCompileContext 将 SQL 模板中的 ${COMPILE_CONTEXT["key"]} 占位符替换为实际值
+func resolveCompileContext(sqlExpr string, ctx map[string]string) string {
+	for k, v := range ctx {
+		placeholder := fmt.Sprintf(`${COMPILE_CONTEXT["%s"]}`, k)
+		sqlExpr = strings.ReplaceAll(sqlExpr, placeholder, v)
+	}
+	return sqlExpr
+}
+
+func BuildQuery(req *QueryRequest, cube *model.Cube, compileContext map[string]string) (string, []interface{}, error) {
 	var sql strings.Builder
 	var params []interface{}
+
+	resolve := func(sqlExpr string) string {
+		return resolveCompileContext(sqlExpr, compileContext)
+	}
 
 	// SELECT
 	sql.WriteString("SELECT ")
@@ -96,7 +109,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				if !firstField {
 					sql.WriteString(", ")
 				}
-				fmt.Fprintf(&sql, "%s AS \"%s\"", field.SQL, name)
+				fmt.Fprintf(&sql, "%s AS \"%s\"", resolve(field.SQL), name)
 				firstField = false
 			}
 			// 如果字段不存在于模型中，则跳过（不生成到 SQL 中）
@@ -123,7 +136,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		fieldName := extractFieldName(filter.Member)
 		fieldSQL := filter.Member
 		if field, ok := cube.GetField(fieldName); ok {
-			fieldSQL = field.SQL
+			fieldSQL = resolve(field.SQL)
 		}
 
 		// 如果字段名为空，跳过此 filter
@@ -167,20 +180,21 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	// 处理 timeDimensions 的 dateRange
 	for _, td := range req.TimeDimensions {
 		if field, ok := cube.GetField(extractFieldName(td.Dimension)); ok {
+			fieldSQL := resolve(field.SQL)
 			if td.DateRange.V != nil {
 				if dateRangeArr, ok := td.DateRange.V.([]string); ok && len(dateRangeArr) == 2 {
 					// 日期范围：[start, end]
-					whereConditions = append(whereConditions, fmt.Sprintf("%s >= ? AND %s <= ?", field.SQL, field.SQL))
+					whereConditions = append(whereConditions, fmt.Sprintf("%s >= ? AND %s <= ?", fieldSQL, fieldSQL))
 					params = append(params, dateRangeArr[0], dateRangeArr[1])
 				} else if dateRangeStr, ok := td.DateRange.V.(string); ok && dateRangeStr != "" {
 					// 处理相对时间范围字符串，如 "from 15 minutes ago to 15 minutes from now"
 					if startExpr, endExpr, isRange := parseRelativeTimeRange(dateRangeStr); isRange {
 						// 直接嵌入 ClickHouse 时间表达式
-						whereConditions = append(whereConditions, fmt.Sprintf("%s >= %s AND %s <= %s", field.SQL, startExpr, field.SQL, endExpr))
+						whereConditions = append(whereConditions, fmt.Sprintf("%s >= %s AND %s <= %s", fieldSQL, startExpr, fieldSQL, endExpr))
 					} else {
 						// 单个日期字符串（如 "today", "yesterday"）
 						expr := convertToClickHouseTimeExpr(dateRangeStr)
-						whereConditions = append(whereConditions, fmt.Sprintf("toDate(%s) = %s", field.SQL, expr))
+						whereConditions = append(whereConditions, fmt.Sprintf("toDate(%s) = %s", fieldSQL, expr))
 					}
 				}
 			}
@@ -200,7 +214,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				sql.WriteString(", ")
 			}
 			if field, ok := cube.GetField(extractFieldName(dim)); ok {
-				sql.WriteString(field.SQL)
+				sql.WriteString(resolve(field.SQL))
 			} else {
 				sql.WriteString(dim)
 			}
@@ -216,7 +230,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				sql.WriteString(", ")
 			}
 			if f, ok := cube.GetField(extractFieldName(field)); ok {
-				sql.WriteString(f.SQL)
+				sql.WriteString(resolve(f.SQL))
 			} else {
 				sql.WriteString(field)
 			}

@@ -7,12 +7,21 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Servicewall/go-cube/config"
 	"github.com/Servicewall/go-cube/model"
 	"github.com/Servicewall/go-cube/sql"
 )
+
+// customKeyPattern 只允许字母、数字、下划线、连字符
+var customKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+// customKeyDelimiter 是 Custom-Key 请求头中参数名在 SQL 模板中使用的分隔符，
+// 与 AccessView.yaml customData 维度的 splitByString 分隔符保持一致
+const customKeyDelimiter = "|-|"
 
 type Config struct {
 	Server struct {
@@ -116,8 +125,20 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 构建编译上下文：从 Custom-Key 请求头中获取自定义参数名
+	compileContext := map[string]string{}
+	if customKey := r.Header.Get("Custom-Key"); customKey != "" {
+		// 验证 Custom-Key 只含字母、数字、下划线、连字符，防止 SQL 注入
+		if !customKeyPattern.MatchString(customKey) {
+			h.writeError(w, http.StatusBadRequest, "invalid_custom_key", "Custom-Key header contains invalid characters")
+			return
+		}
+		// Custom-Key 头以 - 分隔参数名，SQL 模板使用 customKeyDelimiter 作为分隔符
+		compileContext["custom-key"] = strings.ReplaceAll(customKey, "-", customKeyDelimiter)
+	}
+
 	// 构建SQL
-	query, params, err := BuildQuery(&queryReq, m)
+	query, params, err := BuildQuery(&queryReq, m, compileContext)
 	if err != nil {
 		h.writeError(w, http.StatusBadRequest, "query_build_failed", fmt.Sprintf("Failed to build query: %v", err))
 		return
