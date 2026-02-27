@@ -9,16 +9,17 @@ import (
 )
 
 type QueryRequest struct {
-	Ungrouped      bool            `json:"ungrouped"`
-	Measures       []string        `json:"measures"`
-	TimeDimensions []TimeDimension `json:"timeDimensions"`
-	Order          OrderMap        `json:"order"`
-	Filters        []Filter        `json:"filters"`
-	Dimensions     []string        `json:"dimensions"`
-	Limit          int             `json:"limit"`
-	Offset         int             `json:"offset"`
-	Segments       []string        `json:"segments"`
-	Timezone       string          `json:"timezone"`
+	Ungrouped      bool                   `json:"ungrouped"`
+	Measures       []string               `json:"measures"`
+	TimeDimensions []TimeDimension        `json:"timeDimensions"`
+	Order          OrderMap               `json:"order"`
+	Filters        []Filter               `json:"filters"`
+	Dimensions     []string               `json:"dimensions"`
+	Limit          int                    `json:"limit"`
+	Offset         int                    `json:"offset"`
+	Segments       []string               `json:"segments"`
+	Timezone       string                 `json:"timezone"`
+	CustomData     map[string]interface{} `json:"customData,omitempty"`
 }
 
 // DateRange 支持字符串或字符串数组格式
