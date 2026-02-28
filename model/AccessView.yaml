@@ -1,119 +1,124 @@
 cube:
   name: AccessView
   sql_table: default.access
-  
+
   dimensions:
     id:
       sql: id
       type: string
       primary_key: true
       title: ID
-    
+
     ts:
       sql: ts
       type: time
       title: 时间
-    
+
     tsMs:
       sql: ts_ms
       type: number
       title: 时间戳
-    
+
     nameGroup:
       sql: dictGet('default.name_group_dict', 'groups', ip)
       type: string
       title: 名单分组
-    
+
     sid:
       sql: sid
       type: string
       title: 设备ID
-    
+
     uid:
       sql: uid
       type: string
       title: 用户标识
-    
+
     ip:
       sql: ip
       type: string
       title: IP
-    
+
     ipGeoCity:
       sql: ip_geo[3]
       type: string
       title: 城市
-    
+
     ipGeoProvince:
       sql: ip_geo[2]
       type: string
       title: 省份
-    
+
     ipGeoCountry:
       sql: ip_geo[1]
       type: string
       title: 国家
 
+    ipWithGeo:
+      sql: "If(length(multiIf(length(ip_geo)=0, '', ip_geo[1]<>'中国', ip_geo[1], ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3], format('{0}{1}', ip_geo[2], ip_geo[3]), ip_geo[2]<>'', ip_geo[2], ip_geo[1]))=0, ip, format('{0}({1})', ip, multiIf(length(ip_geo)=0, '', ip_geo[1]<>'中国', ip_geo[1], ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3], format('{0}{1}', ip_geo[2], ip_geo[3]), ip_geo[2]<>'', ip_geo[2], ip_geo[1])))"
+      type: string
+      title: IP(位置)
+
     resultRisk:
       sql: arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)
       type: string
       title: 命中规则
-    
+
     resultType:
       sql: if(result='protect', '保护', '放行')
       type: string
       title: 处理结果
-    
+
     resultAction:
       sql: result_action
       type: string
       title: 防护动作
-    
+
     reason:
       sql: reason
       type: string
       title: 原因
-    
+
     channel:
       sql: channel
       type: string
       title: 应用
-    
+
     host:
       sql: host
       type: string
       title: 域名
-    
+
     method:
       sql: method
       type: string
       title: 请求方式
-    
+
     url:
       sql: url
       type: string
       title: URL
-    
+
     urlRoute:
       sql: multiIf(url_route != '', url_route, countSubstrings(url, '/') < 2, url, arrayStringConcat(arrayMap(x -> if(countMatches(x, '[0-9a-fA-F-]') > 0.8 * length(x), '{parameter}', x), splitByChar('/', url)), '/'))
       type: string
       title: URL路由
-    
+
     status:
       sql: status
       type: string
       title: 响应状态
-    
+
     uaName:
       sql: multiIf(visitParamHas(dev_data, 'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','OsInfo',3), visitParamHas(dev_data, 'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','HwMachine'), visitParamHas(dev_data,'HarmonyDeviceInfo'), JSONExtractString(dev_data, 'HarmonyDeviceInfo', 'OsInfo', 1), ua_info[2])
       type: string
       title: 终端
-    
+
     uaOs:
       sql: ua_info[5]
       type: string
       title: 操作系统
-    
+
     uaOsVersion:
       sql: ua_info[6]
       type: string
@@ -123,12 +128,12 @@ cube:
       sql: ext_id[5]
       type: string
       title: 设备指纹
-    
+
     nodeIp:
       sql: data[1]
       type: string
       title: 节点IP
-    
+
     nodeName:
       sql: data[2]
       type: string
@@ -143,11 +148,16 @@ cube:
       sql: req_reason
       type: string
       title: 原因
-    
+
     protocol:
       sql: multiIf(simpleJSONHas(req, 'authority'), 'HTTP2', position(method,'|')>0, substringIndex(method,'|',1), 'HTTP')
       type: string
       title: 协议
+
+    reqSensKV:
+      sql: "if(empty(req_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(req_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(req_sens_k, req_sens_v))), ','), arrayDistinct(req_sens_k)))))"
+      type: string
+      title: 请求敏感数据
 
     # 关联展开搜索
     reqSensKey:
@@ -249,6 +259,36 @@ cube:
       sql: if(notEmpty(res_sens_k),100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.privacy_dict','score',x),arrayDistinct(res_sens_k))),0)
       type: number
       title: 敏感得分
+
+    resSensKV:
+      sql: "if(empty(res_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(res_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(res_sens_k, res_sens_v))), ','), arrayDistinct(res_sens_k)))))"
+      type: string
+      title: 响应敏感数据
+
+    dbType:
+      sql: "if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')"
+      type: string
+      title: 数据库类型
+
+    dbName:
+      sql: "if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-2], '')"
+      type: string
+      title: 数据库名
+
+    tableName:
+      sql: "if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-1], '')"
+      type: string
+      title: 表名
+
+    dbInfo:
+      sql: "if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), format('{0}.{1}({2})', if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-2], ''), if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-1], ''), if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), '')"
+      type: string
+      title: 数据库信息
+
+    dbSensKV:
+      sql: "if(empty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')) OR empty(res_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(res_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(res_sens_k, res_sens_v))), ','), arrayDistinct(res_sens_k)))))"
+      type: string
+      title: 数据库敏感数据
 
     # --- filter 专用字段（数组类型，用 has/hasAny 过滤）---
     riskFilterTag:
