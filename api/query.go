@@ -81,11 +81,27 @@ type QueryResult struct {
 
 type RowData = map[string]interface{}
 
-// resolveCompileContext 将 SQL 模板中的 ${COMPILE_CONTEXT["key"]} 占位符替换为实际值
+// resolveCompileContext 将 SQL 模板中的 ${COMPILE_CONTEXT["key"]} 占位符替换为实际值。
+// 若上下文中不存在对应键，占位符替换为空字符串，避免残留占位符导致 SQL 语法错误。
 func resolveCompileContext(sqlExpr string, ctx map[string]string) string {
+	// 先替换上下文中有值的键
 	for k, v := range ctx {
 		placeholder := fmt.Sprintf(`${COMPILE_CONTEXT["%s"]}`, k)
 		sqlExpr = strings.ReplaceAll(sqlExpr, placeholder, v)
+	}
+	// 将剩余未替换的占位符替换为空字符串，占位符格式为 ${COMPILE_CONTEXT["key"]}
+	const prefix = `${COMPILE_CONTEXT["`
+	const suffix = `"]}`
+	for {
+		start := strings.Index(sqlExpr, prefix)
+		if start < 0 {
+			break
+		}
+		end := strings.Index(sqlExpr[start+len(prefix):], suffix)
+		if end < 0 {
+			break
+		}
+		sqlExpr = sqlExpr[:start] + "''" + sqlExpr[start+len(prefix)+end+len(suffix):]
 	}
 	return sqlExpr
 }
