@@ -32,21 +32,30 @@ type Config struct {
 
 var handler *Handler
 var modelLoader *model.Loader
-var chClient *sql.Client
 
 func Init(cfg *Config) error {
 	chClient, err := sql.NewClient(&cfg.ClickHouse)
 	if err != nil {
 		return err
 	}
-
 	modelLoader = model.NewLoader(model.InternalFS)
 	if _, err = modelLoader.LoadAll(); err != nil {
-		log.Printf("Warning: load models: %v", err)
+		log.Printf("加载模型失败: %v", err)
 	}
-
 	handler = NewHandler(modelLoader, chClient)
 	return nil
+}
+
+// Load 执行 cube 查询，queryJSON 与 /load?query=... 接口的 JSON 格式相同
+func Load(ctx context.Context, queryJSON string) (*QueryResponse, error) {
+	if handler == nil {
+		return nil, fmt.Errorf("go-cube 未初始化，请先调用 Init")
+	}
+	var req QueryRequest
+	if err := json.Unmarshal([]byte(queryJSON), &req); err != nil {
+		return nil, err
+	}
+	return handler.load(ctx, &req)
 }
 
 func RegisterHandler() http.Handler {
@@ -62,67 +71,56 @@ type Handler struct {
 }
 
 func NewHandler(modelLoader *model.Loader, chClient *sql.Client) *Handler {
-	return &Handler{
-		modelLoader: modelLoader,
-		chClient:    chClient,
-	}
+	return &Handler{modelLoader: modelLoader, chClient: chClient}
 }
 
 func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	// 解析查询：GET 从 ?query= 读取，POST 从 body 读取，格式相同
 	var body []byte
 	if r.Method == http.MethodPost {
-		var err error
-		body, err = io.ReadAll(r.Body)
-		if err != nil {
-			h.writeError(w, http.StatusBadRequest, "body_read_failed", fmt.Sprintf("Failed to read request body: %v", err))
-			return
-		}
-		defer r.Body.Close()
+		body, _ = io.ReadAll(r.Body)
 	} else {
 		body = []byte(r.URL.Query().Get("query"))
 	}
-	if len(body) == 0 {
-		h.writeError(w, http.StatusBadRequest, "query_required", "Query is required")
+
+	var req QueryRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var queryReq QueryRequest
-	if err := json.Unmarshal(body, &queryReq); err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid_query_format", fmt.Sprintf("Invalid query format: %v", err))
+	resp, err := h.load(ctx, &req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// 验证查询
-	if err := validateQuery(&queryReq); err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid_query", fmt.Sprintf("Invalid query: %v", err))
-		return
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *Handler) load(ctx context.Context, req *QueryRequest) (*QueryResponse, error) {
+	if err := validateQuery(req); err != nil {
+		return nil, err
 	}
 
-	// 获取模型（从 dimensions、measures 或 filters 中提取）
 	modelName := ""
-	if len(queryReq.Dimensions) > 0 {
-		modelName = extractModelName(queryReq.Dimensions[0])
-	} else if len(queryReq.Measures) > 0 {
-		modelName = extractModelName(queryReq.Measures[0])
-	} else if len(queryReq.Filters) > 0 {
-		// 从 filters 中提取模型名
-		modelName = extractModelName(queryReq.Filters[0].Member)
+	if len(req.Dimensions) > 0 {
+		modelName = extractModelName(req.Dimensions[0])
+	} else if len(req.Measures) > 0 {
+		modelName = extractModelName(req.Measures[0])
+	} else if len(req.Filters) > 0 {
+		modelName = extractModelName(req.Filters[0].Member)
 	}
-
 	if modelName == "" {
-		h.writeError(w, http.StatusBadRequest, "model_not_determined", "Cannot determine model from query")
-		return
+		return nil, fmt.Errorf("无法从查询中确定模型")
 	}
 
-	// 加载模型
 	m, err := h.modelLoader.Load(modelName)
 	if err != nil {
-		h.writeError(w, http.StatusNotFound, "model_not_found", fmt.Sprintf("Model '%s' not found: %v", modelName, err))
-		return
+		return nil, err
 	}
 
 	// 构建编译上下文：从 Custom-Key 请求头中获取自定义参数名
@@ -140,43 +138,22 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	// 构建SQL
 	query, params, err := BuildQuery(&queryReq, m, compileContext)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "query_build_failed", fmt.Sprintf("Failed to build query: %v", err))
-		return
+		return nil, err
 	}
+	log.Printf("SQL: %s %v", query, params)
 
-	// 打印生成的SQL（调试用）
-	log.Printf("Generated SQL: %s", query)
-	log.Printf("Params: %v", params)
-
-	// 执行查询
 	data, err := h.chClient.Query(ctx, query, params...)
 	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, "query_execution_failed", fmt.Sprintf("Query execution failed: %v", err))
-		return
+		return nil, err
 	}
 
-	// 构建响应
-	response := QueryResponse{
+	return &QueryResponse{
 		QueryType: "regularQuery",
-		Results: []QueryResult{
-			{
-				Query: queryReq,
-				Data:  data,
-			},
-		},
-	}
-
-	// 返回JSON响应
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, fmt.Sprintf("encode response: %v", err), http.StatusInternalServerError)
-		return
-	}
+		Results:   []QueryResult{{Query: *req, Data: data}},
+	}, nil
 }
 
 func extractModelName(field string) string {
-	// 简化：假设字段名格式为 "ModelName.fieldName"
-	// 例如: "AccessView.id" -> "AccessView"
 	for i, ch := range field {
 		if ch == '.' {
 			return field[:i]
@@ -185,27 +162,13 @@ func extractModelName(field string) string {
 	return field
 }
 
-func (h *Handler) writeError(w http.ResponseWriter, status int, errorType, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"error":   errorType,
-		"message": message,
-		"status":  status,
-	})
-}
-
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-
 	if err := h.chClient.Ping(ctx); err != nil {
-		http.Error(w, fmt.Sprintf("clickhouse ping failed: %v", err), http.StatusServiceUnavailable)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
-	})
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

@@ -39,25 +39,10 @@ func (dr *DateRange) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("dateRange must be a string or array of strings")
 }
 
-func (dr DateRange) String() string {
-	if str, ok := dr.V.(string); ok {
-		return str
-	}
-	if arr, ok := dr.V.([]string); ok {
-		return strings.Join(arr, ",")
-	}
-	return ""
-}
-
 type TimeDimension struct {
 	Dimension   string    `json:"dimension"`
 	DateRange   DateRange `json:"dateRange"`
 	Granularity string    `json:"granularity,omitempty"`
-}
-
-type Order struct {
-	ID   string `json:"id"`
-	Desc bool   `json:"desc"`
 }
 
 type OrderMap map[string]string
@@ -116,27 +101,22 @@ func BuildQuery(req *QueryRequest, cube *model.Cube, compileContext map[string]s
 
 	// SELECT
 	sql.WriteString("SELECT ")
-
-	firstField := true
+	first := true
 	writeFields := func(names []string) {
 		for _, name := range names {
-			fieldName := extractFieldName(name)
+			_, fieldName := splitMemberName(name)
 			if field, ok := cube.GetField(fieldName); ok {
-				if !firstField {
+				if !first {
 					sql.WriteString(", ")
 				}
 				fmt.Fprintf(&sql, "%s AS \"%s\"", resolve(field.SQL), name)
 				firstField = false
 			}
-			// 如果字段不存在于模型中，则跳过（不生成到 SQL 中）
 		}
 	}
-
 	writeFields(req.Dimensions)
 	writeFields(req.Measures)
-
-	// 如果没有有效字段，添加默认值避免 SQL 语法错误
-	if firstField {
+	if first {
 		sql.WriteString("1")
 	}
 
@@ -145,9 +125,17 @@ func BuildQuery(req *QueryRequest, cube *model.Cube, compileContext map[string]s
 	sql.WriteString(cube.GetSQLTable())
 
 	// WHERE
-	whereConditions := []string{}
+	var where []string
 
-	// 处理 filters
+	// segments
+	for _, seg := range req.Segments {
+		_, segName := splitMemberName(seg)
+		if s, ok := cube.Segments[segName]; ok && s.SQL != "" {
+			where = append(where, s.SQL)
+		}
+	}
+
+	// filters
 	for _, filter := range req.Filters {
 		fieldName := extractFieldName(filter.Member)
 		fieldSQL := filter.Member
@@ -155,45 +143,45 @@ func BuildQuery(req *QueryRequest, cube *model.Cube, compileContext map[string]s
 			fieldSQL = resolve(field.SQL)
 		}
 
-		// 如果字段名为空，跳过此 filter
-		if fieldSQL == "" {
+		// set/notSet 对所有类型统一处理
+		switch filter.Operator {
+		case "set":
+			where = append(where, fmt.Sprintf("notEmpty(%s)", field.SQL))
+			continue
+		case "notSet":
+			where = append(where, fmt.Sprintf("empty(%s)", field.SQL))
 			continue
 		}
 
-		sqlOperator := convertOperator(filter.Operator)
-
-		// set 和 notSet 不需要 values，统一使用 notEmpty()/empty()
-		if filter.Operator == "set" || filter.Operator == "notSet" {
-			if filter.Operator == "set" {
-				whereConditions = append(whereConditions, fmt.Sprintf("notEmpty(%s)", fieldSQL))
-			} else {
-				whereConditions = append(whereConditions, fmt.Sprintf("empty(%s)", fieldSQL))
-			}
+		valuesArr, _ := filter.Values.([]interface{})
+		if len(valuesArr) == 0 && filter.Values != nil {
+			valuesArr = []interface{}{filter.Values}
+		}
+		if len(valuesArr) == 0 {
 			continue
 		}
 
-		// 处理 values（可能是数组或单个值）
-		if valuesArr, ok := filter.Values.([]interface{}); ok && len(valuesArr) > 0 {
-			// 数组值：对于 equals/notEquals 使用 IN/NOT IN
-			if filter.Operator == "equals" || filter.Operator == "notEquals" {
-				clause, clauseParams := buildInClause(fieldSQL, filter.Operator, valuesArr)
-				whereConditions = append(whereConditions, clause)
-				params = append(params, clauseParams...)
-			} else {
-				// 其他情况，只使用第一个值
-				value := processFilterValue(valuesArr[0], filter.Operator)
-				whereConditions = append(whereConditions, fmt.Sprintf("%s %s ?", fieldSQL, sqlOperator))
-				params = append(params, value)
-			}
+		if field.Type == "array" {
+			clause, p := buildArrayClause(field.SQL, filter.Operator, valuesArr)
+			where = append(where, clause)
+			params = append(params, p...)
+			continue
+		}
+
+		// 普通字段
+		if filter.Operator == "equals" || filter.Operator == "notEquals" {
+			clause, p := buildInClause(field.SQL, filter.Operator, valuesArr)
+			where = append(where, clause)
+			params = append(params, p...)
 		} else {
-			// 单个值
-			value := processFilterValue(filter.Values, filter.Operator)
-			whereConditions = append(whereConditions, fmt.Sprintf("%s %s ?", fieldSQL, sqlOperator))
+			sqlOp := convertOperator(filter.Operator)
+			value := processFilterValue(valuesArr[0], filter.Operator)
+			where = append(where, fmt.Sprintf("%s %s ?", field.SQL, sqlOp))
 			params = append(params, value)
 		}
 	}
 
-	// 处理 timeDimensions 的 dateRange
+	// timeDimensions
 	for _, td := range req.TimeDimensions {
 		if field, ok := cube.GetField(extractFieldName(td.Dimension)); ok {
 			fieldSQL := resolve(field.SQL)
@@ -217,9 +205,9 @@ func BuildQuery(req *QueryRequest, cube *model.Cube, compileContext map[string]s
 		}
 	}
 
-	if len(whereConditions) > 0 {
+	if len(where) > 0 {
 		sql.WriteString(" WHERE ")
-		sql.WriteString(strings.Join(whereConditions, " AND "))
+		sql.WriteString(strings.Join(where, " AND "))
 	}
 
 	// GROUP BY
@@ -241,14 +229,14 @@ func BuildQuery(req *QueryRequest, cube *model.Cube, compileContext map[string]s
 	if len(req.Order) > 0 {
 		sql.WriteString(" ORDER BY ")
 		i := 0
-		for field, direction := range req.Order {
+		for member, direction := range req.Order {
 			if i > 0 {
 				sql.WriteString(", ")
 			}
 			if f, ok := cube.GetField(extractFieldName(field)); ok {
 				sql.WriteString(resolve(f.SQL))
 			} else {
-				sql.WriteString(field)
+				sql.WriteString(member)
 			}
 			if direction == "desc" {
 				sql.WriteString(" DESC")
@@ -272,48 +260,56 @@ func validateQuery(req *QueryRequest) error {
 	if len(req.Dimensions) == 0 && len(req.Measures) == 0 {
 		return fmt.Errorf("query must have at least one dimension or measure")
 	}
-
 	if req.Limit < 0 {
 		return fmt.Errorf("limit must be non-negative")
 	}
-
 	if req.Offset < 0 {
 		return fmt.Errorf("offset must be non-negative")
 	}
-
 	return nil
 }
 
-func extractFieldName(fullName string) string {
-	// 提取字段名，去掉模型名前缀
-	// 例如: "AccessView.id" -> "id"
-	parts := strings.Split(fullName, ".")
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return fullName
-}
-
-// buildInClause 构建 IN/NOT IN 子句
+// buildInClause 构建普通字段的 IN/NOT IN 子句
 func buildInClause(fieldSQL string, operator string, values []interface{}) (string, []interface{}) {
 	placeholders := strings.Repeat("?,", len(values))
 	placeholders = placeholders[:len(placeholders)-1]
-
-	var params []interface{}
-	for _, v := range values {
-		params = append(params, processFilterValue(v, operator))
+	params := make([]interface{}, len(values))
+	for i, v := range values {
+		params[i] = v
 	}
-
 	if operator == "notEquals" {
 		return fmt.Sprintf("%s NOT IN (%s)", fieldSQL, placeholders), params
 	}
 	return fmt.Sprintf("%s IN (%s)", fieldSQL, placeholders), params
 }
 
-// operatorMap 定义 CubeJS operator 到 SQL operator 的映射
+// buildArrayClause 针对数组类型字段生成 has/hasAll/hasAny 条件
+// 单值：has(arr, ?)
+// 多值：equals -> hasAll，contains -> hasAny
+func buildArrayClause(fieldSQL string, operator string, values []interface{}) (string, []interface{}) {
+	params := make([]interface{}, len(values))
+	for i, v := range values {
+		params[i] = v
+	}
+	negate := operator == "notEquals" || operator == "notContains"
+	neg := ""
+	if negate {
+		neg = "NOT "
+	}
+	if len(values) == 1 {
+		return fmt.Sprintf("%shas(%s, ?)", neg, fieldSQL), params
+	}
+	placeholders := strings.Repeat("?,", len(values))
+	placeholders = placeholders[:len(placeholders)-1]
+	fn := "hasAny"
+	if operator == "equals" || operator == "notEquals" {
+		fn = "hasAll"
+	}
+	return fmt.Sprintf("%s%s(%s, [%s])", neg, fn, fieldSQL, placeholders), params
+}
+
+// operatorMap CubeJS operator -> SQL operator（用于普通字段非 equals 情况）
 var operatorMap = map[string]string{
-	"equals":      "=",
-	"notEquals":   "!=",
 	"contains":    "LIKE",
 	"notContains": "NOT LIKE",
 	"startsWith":  "LIKE",
@@ -322,117 +318,84 @@ var operatorMap = map[string]string{
 	"gte":         ">=",
 	"lt":          "<",
 	"lte":         "<=",
-	"in":          "IN",
-	"notIn":       "NOT IN",
 }
 
-// convertOperator 将 CubeJS 的 operator 转换为 SQL operator
 func convertOperator(op string) string {
 	if sqlOp, ok := operatorMap[op]; ok {
 		return sqlOp
 	}
-	// 如果已经是 SQL operator，直接返回
 	return op
 }
 
-// parseRelativeTimeRange 解析相对时间范围字符串并转换为 ClickHouse 表达式
-// 支持格式: "from X to Y" 或 "X to Y"
-// 返回 startExpr, endExpr, isRange (ClickHouse SQL 表达式)
+// processFilterValue 为 LIKE 类 operator 添加通配符
+func processFilterValue(value interface{}, operator string) interface{} {
+	s, ok := value.(string)
+	if !ok {
+		return value
+	}
+	switch operator {
+	case "contains", "notContains":
+		return "%" + s + "%"
+	case "startsWith":
+		return s + "%"
+	case "endsWith":
+		return "%" + s
+	}
+	return value
+}
+
+// parseRelativeTimeRange 解析 "from X to Y" 格式为 ClickHouse 时间表达式对
 func parseRelativeTimeRange(s string) (string, string, bool) {
 	s = strings.TrimSpace(s)
-	// 尝试匹配 "from ... to ..." 或 "... to ..." 格式
-	if strings.HasPrefix(s, "from ") {
-		s = s[5:] // 去掉 "from " 前缀
+	switch s {
+	case "this month":
+		return "toStartOfMonth(now())", "toStartOfMonth(now() + INTERVAL 1 MONTH)", true
+	case "last month":
+		return "toStartOfMonth(now() - INTERVAL 1 MONTH)", "toStartOfMonth(now())", true
 	}
-
-	// 查找 "to" 分隔符
+	s = strings.TrimPrefix(s, "from ")
 	if idx := strings.LastIndex(s, " to "); idx > 0 {
-		start := strings.TrimSpace(s[:idx])
-		end := strings.TrimSpace(s[idx+4:])
+		start, end := strings.TrimSpace(s[:idx]), strings.TrimSpace(s[idx+4:])
 		if start != "" && end != "" {
 			return convertToClickHouseTimeExpr(start), convertToClickHouseTimeExpr(end), true
 		}
 	}
-
 	return "", "", false
 }
 
-// convertToClickHouseTimeExpr 将相对时间字符串转换为 ClickHouse 时间表达式
-// 支持: "now", "today", "yesterday", "X minutes ago", "X hours ago", "X days ago", "X minutes from now" 等
+// convertToClickHouseTimeExpr 将相对时间字符串转为 ClickHouse 表达式
 func convertToClickHouseTimeExpr(s string) string {
 	s = strings.TrimSpace(strings.ToLower(s))
-
-	// 处理 "now"
-	if s == "now" {
+	switch s {
+	case "now":
 		return "now()"
-	}
-	// 处理 "today"
-	if s == "today" {
+	case "today":
 		return "today()"
-	}
-	// 处理 "yesterday"
-	if s == "yesterday" {
+	case "yesterday":
 		return "yesterday()"
 	}
-
-	// 处理 "X units ago" 格式 (e.g., "15 minutes ago")
 	if strings.HasSuffix(s, " ago") {
-		parts := strings.Fields(s[:len(s)-4]) // 去掉 " ago"
-		if len(parts) == 2 {
+		if parts := strings.Fields(strings.TrimSuffix(s, " ago")); len(parts) == 2 {
 			return fmt.Sprintf("now() - INTERVAL %s %s", parts[0], convertUnit(parts[1]))
 		}
 	}
-
-	// 处理 "X units from now" 格式 (e.g., "15 minutes from now")
 	if strings.HasSuffix(s, " from now") {
-		parts := strings.Fields(s[:len(s)-9]) // 去掉 " from now"
-		if len(parts) == 2 {
+		if parts := strings.Fields(strings.TrimSuffix(s, " from now")); len(parts) == 2 {
 			return fmt.Sprintf("now() + INTERVAL %s %s", parts[0], convertUnit(parts[1]))
 		}
 	}
-
-	// 默认返回原始值（假设是标准日期格式）
 	return s
 }
 
-// unitMap 定义时间单位到 ClickHouse 格式的映射
 var unitMap = map[string]string{
-	"second": "SECOND",
-	"minute": "MINUTE",
-	"hour":   "HOUR",
-	"day":    "DAY",
-	"week":   "WEEK",
-	"month":  "MONTH",
-	"year":   "YEAR",
+	"second": "SECOND", "minute": "MINUTE", "hour": "HOUR",
+	"day": "DAY", "week": "WEEK", "month": "MONTH", "year": "YEAR",
 }
 
-// convertUnit 转换时间单位到 ClickHouse 格式
 func convertUnit(unit string) string {
-	// 处理复数形式
 	unit = strings.TrimSuffix(unit, "s")
 	if u, ok := unitMap[unit]; ok {
 		return u
 	}
 	return strings.ToUpper(unit)
-}
-
-// processFilterValue 根据 operator 处理 filter 的值（例如 LIKE 操作符需要添加通配符）
-func processFilterValue(value interface{}, operator string) interface{} {
-	valueStr, ok := value.(string)
-	if !ok {
-		return value
-	}
-
-	switch operator {
-	case "contains":
-		return "%" + valueStr + "%"
-	case "notContains":
-		return "%" + valueStr + "%"
-	case "startsWith":
-		return valueStr + "%"
-	case "endsWith":
-		return "%" + valueStr
-	default:
-		return value
-	}
 }

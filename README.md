@@ -4,12 +4,16 @@ Cube.js的Go语言最小替换实现，专注于ClickHouse性能和简洁性。
 
 ## 特性
 
+**Cube.js 兼容**
 - ✅ 兼容Cube.js REST API (`/load`)
 - ✅ 官方YAML格式模型定义
-- ✅ ClickHouse原生性能优化
-- ✅ 简洁SQL拼接，无复杂抽象
-- ✅ 单二进制部署，无外部依赖
 - ✅ 基本查询功能：dimensions, measures, filters, order, limit/offset
+
+**Go-Cube 增强**
+- ⚡ ClickHouse原生性能优化，直接SQL拼接无模板引擎开销
+- ⚡ 数组类型字段支持，filter 自动使用 `has`/`hasAll`/`hasAny` 替代 `LIKE`
+- ⚡ 单二进制部署，无Node.js依赖，无外部依赖
+- ⚡ 可作为Go库直接嵌入调用，无需独立HTTP服务
 
 ## 架构设计
 
@@ -42,7 +46,52 @@ cd go-cube
 go build -o go-cube .
 ```
 
-### 2. 配置
+### 2. 作为库嵌入使用（v2推荐方式）
+
+go-cube 可以作为Go库直接嵌入到您的应用中，无需启动独立的HTTP服务（端口4000）：
+
+```go
+import (
+    "context"
+    "github.com/Servicewall/go-cube/api"
+    "github.com/Servicewall/go-cube/config"
+)
+
+// 初始化（只需调用一次）
+err := api.Init(&api.Config{
+    ClickHouse: config.ClickHouseConfig{
+        Hosts:    []string{"localhost:9000"},
+        Database: "default",
+        Username: "default",
+        Password: "",
+    },
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+// 执行 cubejs-graph 查询（与 /load?query=... HTTP 接口 JSON 格式相同）
+resp, err := api.Load(context.Background(), `{
+    "dimensions": ["AccessView.ts", "AccessView.ip", "AccessView.host"],
+    "filters": [{"member": "AccessView.ip", "operator": "equals", "values": ["1.2.3.4"]}],
+    "timeDimensions": [{"dimension": "AccessView.ts", "dateRange": "from 15 minutes ago to now"}],
+    "order": {"AccessView.ts": "desc"},
+    "limit": 50
+}`)
+if err != nil {
+    log.Fatal(err)
+}
+// resp.Results[0].Data 包含查询结果
+```
+
+如果同时需要保留 HTTP 接口，可以挂载内置处理器：
+
+```go
+mux := http.NewServeMux()
+mux.Handle("/cube/", http.StripPrefix("/cube", api.RegisterHandler()))
+```
+
+### 3. 配置
 
 创建 `config.yaml`:
 
@@ -121,7 +170,7 @@ curl "http://localhost:4000/load?query=%7B%22dimensions%22%3A%5B%22AccessView.id
 
 - `dimensions`: 维度字段列表
 - `measures`: 度量字段列表  
-- `filters`: 过滤条件（简化实现）
+- `filters`: 过滤条件，支持普通字段和数组类型字段高性能过滤
 - `order`: 排序规则
 - `limit`: 返回行数限制
 - `offset`: 偏移量
@@ -145,6 +194,37 @@ curl "http://localhost:4000/load?query=%7B%22dimensions%22%3A%5B%22AccessView.id
 }
 ```
 
+## 数组字段过滤
+
+模型中 `type: array` 的字段（如风险规则、敏感数据Key等）在 filter 时自动使用 ClickHouse 原生数组函数，
+避免 `arrayStringConcat + LIKE` 的低效字符串扫描。
+
+### 生成规则
+
+| operator | 单值 | 多值 |
+|---|---|---|
+| `equals` | `has(arr, ?)` | `hasAll(arr, [?,?,...])` — 全部匹配 |
+| `contains` | `has(arr, ?)` | `hasAny(arr, [?,?,...])` — 任意匹配 |
+| `notEquals` | `NOT has(arr, ?)` | `NOT hasAll(arr, [?,?,...])` |
+| `notContains` | `NOT has(arr, ?)` | `NOT hasAny(arr, [?,?,...])` |
+
+### 模型定义示例
+
+```yaml
+dimensions:
+  riskFilterTag:
+    sql: arrayConcat(req_risk, res_risk)
+    type: array        # 标记为数组类型，filter 自动走 has/hasAll/hasAny
+    title: 风险规则过滤器
+
+  reqSensKey:
+    sql: req_sens_k
+    type: array
+    title: 请求敏感数据Key
+```
+
+**注意**：无需为 filter 单独创建 `arrayStringConcat` 版本的字段，直接在原始数组字段上定义 `type: array` 即可复用。
+
 ## 与Cube.js的区别
 
 ### 简化功能
@@ -159,6 +239,7 @@ curl "http://localhost:4000/load?query=%7B%22dimensions%22%3A%5B%22AccessView.id
 - ✅ ClickHouse连接池
 - ✅ 简单HTTP服务器，无中间件
 - ✅ 最小化内存占用
+- ✅ 数组字段用 `has`/`hasAll`/`hasAny` 替代 `LIKE`，充分利用 ClickHouse 数组索引
 
 ### 部署优势
 - ✅ 单二进制文件

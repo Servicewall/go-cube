@@ -176,8 +176,8 @@ cube:
       title: 请求大小
 
     responseRisk:
-      sql: res_risk
-      type: string
+      sql: arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,res_risk)
+      type: array
       title: 响应风险
 
     responseAction:
@@ -258,6 +258,31 @@ cube:
         arrayMap(x -> if(indexOf(key, x) > 0, x || '|-|' || data[indexOf(key, x)], ''), splitByString('|-|', '${COMPILE_CONTEXT["custom-key"]}'))
       type: string
       title: 自定义参数
+    # --- filter 专用字段（数组类型，用 has/hasAny 过滤）---
+    riskFilterTag:
+      sql: arrayConcat(req_risk, res_risk)
+      type: array
+      title: 风险规则过滤器
+
+    reqRiskFilterTag:
+      sql: req_risk
+      type: array
+      title: 请求风险规则过滤器
+
+    resRiskFilterTag:
+      sql: res_risk
+      type: array
+      title: 响应风险规则过滤器
+
+    sensKeyFilterTag:
+      sql: arrayConcat(req_sens_k, res_sens_k)
+      type: array
+      title: 敏感数据类型标签
+
+    weakKeyFilterTag:
+      sql: weak_k
+      type: array
+      title: 弱项Key过滤器
 
   segments:
     org:
