@@ -250,6 +250,15 @@ cube:
       type: number
       title: 敏感得分
 
+    # 自定义参数查询：从 Custom-Key 请求头获取参数名列表（以 |-| 分隔），
+    # 查找各参数在 key 数组中的位置，返回 "参数名|-|参数值" 格式的数组。
+    # 使用 if(indexOf(key, x) > 0, ...) 避免未找到时 indexOf 返回 0 导致越界访问。
+    customData:
+      sql: >-
+        arrayMap(x -> if(indexOf(key, x) > 0, x || '|-|' || data[indexOf(key, x)], ''), splitByString('|-|', '${COMPILE_CONTEXT["custom-key"]}'))
+      type: string
+      title: 自定义参数
+
     # --- filter 专用字段（数组类型，用 has/hasAny 过滤）---
     riskFilterTag:
       sql: arrayConcat(req_risk, res_risk)

@@ -82,6 +82,14 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 从请求头提取 Custom-Key，注入编译上下文供 SQL 模板使用
+	if customKey := r.Header.Get("Custom-Key"); customKey != "" {
+		if req.CustomData == nil {
+			req.CustomData = make(map[string]interface{})
+		}
+		req.CustomData["custom-key"] = customKey
+	}
+
 	resp, err := h.load(ctx, &req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

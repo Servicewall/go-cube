@@ -483,6 +483,70 @@ func TestLoadNotInitialized(t *testing.T) {
 	}
 }
 
+func TestResolveCompileContext_Known(t *testing.T) {
+	ctx := map[string]string{"custom-key": "param1|-|param2"}
+	input := `${COMPILE_CONTEXT["custom-key"]}`
+	got := resolveCompileContext(input, ctx)
+	if got != "param1|-|param2" {
+		t.Errorf("resolveCompileContext with known key = %q, want %q", got, "param1|-|param2")
+	}
+}
+
+func TestResolveCompileContext_Unknown(t *testing.T) {
+	ctx := map[string]string{}
+	input := `${COMPILE_CONTEXT["missing-key"]}`
+	got := resolveCompileContext(input, ctx)
+	if got != "''" {
+		t.Errorf("resolveCompileContext with unknown key = %q, want %q", got, "''")
+	}
+}
+
+func TestBuildQuery_CompileContextResolve(t *testing.T) {
+	cube := testCube()
+	cube.Dimensions["customData"] = model.Dimension{
+		SQL:  `arrayMap(x -> if(indexOf(key, x) > 0, x || '|-|' || data[indexOf(key, x)], ''), splitByString('|-|', '${COMPILE_CONTEXT["custom-key"]}'))`,
+		Type: "string",
+	}
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.customData"},
+		CustomData: map[string]interface{}{"custom-key": "param1|-|param2"},
+	}
+
+	sqlStr, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sqlStr, "param1|-|param2") {
+		t.Errorf("expected compile context resolved in SQL, got: %s", sqlStr)
+	}
+	if contains(sqlStr, "${COMPILE_CONTEXT") {
+		t.Errorf("expected no unresolved placeholders, got: %s", sqlStr)
+	}
+}
+
+func TestBuildQuery_CompileContextMissing(t *testing.T) {
+	// 未提供 CustomData 时，${COMPILE_CONTEXT["key"]} 占位符应被替换为 ''
+	cube := testCube()
+	cube.Dimensions["customData"] = model.Dimension{
+		SQL:  `splitByString('|-|', '${COMPILE_CONTEXT["custom-key"]}')`,
+		Type: "string",
+	}
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.customData"},
+	}
+
+	sqlStr, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(sqlStr, "${COMPILE_CONTEXT") {
+		t.Errorf("expected no unresolved placeholders, got: %s", sqlStr)
+	}
+	if !contains(sqlStr, "''") {
+		t.Errorf("expected empty string placeholder '', got: %s", sqlStr)
+	}
+}
+
 // contains reports whether s contains substr.
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)

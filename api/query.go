@@ -9,16 +9,17 @@ import (
 )
 
 type QueryRequest struct {
-	Ungrouped      bool            `json:"ungrouped"`
-	Measures       []string        `json:"measures"`
-	TimeDimensions []TimeDimension `json:"timeDimensions"`
-	Order          OrderMap        `json:"order"`
-	Filters        []Filter        `json:"filters"`
-	Dimensions     []string        `json:"dimensions"`
-	Limit          int             `json:"limit"`
-	Offset         int             `json:"offset"`
-	Segments       []string        `json:"segments"`
-	Timezone       string          `json:"timezone"`
+	Ungrouped      bool                   `json:"ungrouped"`
+	Measures       []string               `json:"measures"`
+	TimeDimensions []TimeDimension        `json:"timeDimensions"`
+	Order          OrderMap               `json:"order"`
+	Filters        []Filter               `json:"filters"`
+	Dimensions     []string               `json:"dimensions"`
+	Limit          int                    `json:"limit"`
+	Offset         int                    `json:"offset"`
+	Segments       []string               `json:"segments"`
+	Timezone       string                 `json:"timezone"`
+	CustomData     map[string]interface{} `json:"customData,omitempty"`
 }
 
 // DateRange 支持字符串或字符串数组格式
@@ -71,9 +72,45 @@ func splitMemberName(s string) (string, string) {
 	return cube, field
 }
 
+// resolveCompileContext 将 SQL 模板中的 ${COMPILE_CONTEXT["key"]} 占位符替换为实际值。
+// 若上下文中不存在对应键，占位符替换为空字符串，避免残留占位符导致 SQL 语法错误。
+func resolveCompileContext(sqlExpr string, ctx map[string]string) string {
+	// 先替换上下文中有值的键
+	for k, v := range ctx {
+		placeholder := fmt.Sprintf(`${COMPILE_CONTEXT["%s"]}`, k)
+		sqlExpr = strings.ReplaceAll(sqlExpr, placeholder, v)
+	}
+	// 将剩余未替换的占位符替换为空字符串
+	const prefix = `${COMPILE_CONTEXT["`
+	const suffix = `"]}`
+	for {
+		start := strings.Index(sqlExpr, prefix)
+		if start < 0 {
+			break
+		}
+		end := strings.Index(sqlExpr[start+len(prefix):], suffix)
+		if end < 0 {
+			break
+		}
+		sqlExpr = sqlExpr[:start] + "''" + sqlExpr[start+len(prefix)+end+len(suffix):]
+	}
+	return sqlExpr
+}
+
 func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, error) {
 	var sql strings.Builder
 	var params []interface{}
+
+	// 从 CustomData 构建编译上下文，用于解析 SQL 模板中的 ${COMPILE_CONTEXT["key"]} 占位符
+	compileContext := make(map[string]string)
+	for k, v := range req.CustomData {
+		if s, ok := v.(string); ok {
+			compileContext[k] = s
+		}
+	}
+	resolve := func(sqlExpr string) string {
+		return resolveCompileContext(sqlExpr, compileContext)
+	}
 
 	// SELECT
 	sql.WriteString("SELECT ")
@@ -85,7 +122,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				if !first {
 					sql.WriteString(", ")
 				}
-				fmt.Fprintf(&sql, "%s AS \"%s\"", field.SQL, name)
+				fmt.Fprintf(&sql, "%s AS \"%s\"", resolve(field.SQL), name)
 				first = false
 			}
 		}
@@ -122,10 +159,10 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		// set/notSet 对所有类型统一处理
 		switch filter.Operator {
 		case "set":
-			where = append(where, fmt.Sprintf("notEmpty(%s)", field.SQL))
+			where = append(where, fmt.Sprintf("notEmpty(%s)", resolve(field.SQL)))
 			continue
 		case "notSet":
-			where = append(where, fmt.Sprintf("empty(%s)", field.SQL))
+			where = append(where, fmt.Sprintf("empty(%s)", resolve(field.SQL)))
 			continue
 		}
 
@@ -138,7 +175,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		}
 
 		if field.Type == "array" {
-			clause, p := buildArrayClause(field.SQL, filter.Operator, valuesArr)
+			clause, p := buildArrayClause(resolve(field.SQL), filter.Operator, valuesArr)
 			where = append(where, clause)
 			params = append(params, p...)
 			continue
@@ -146,13 +183,13 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 
 		// 普通字段
 		if filter.Operator == "equals" || filter.Operator == "notEquals" {
-			clause, p := buildInClause(field.SQL, filter.Operator, valuesArr)
+			clause, p := buildInClause(resolve(field.SQL), filter.Operator, valuesArr)
 			where = append(where, clause)
 			params = append(params, p...)
 		} else {
 			sqlOp := convertOperator(filter.Operator)
 			value := processFilterValue(valuesArr[0], filter.Operator)
-			where = append(where, fmt.Sprintf("%s %s ?", field.SQL, sqlOp))
+			where = append(where, fmt.Sprintf("%s %s ?", resolve(field.SQL), sqlOp))
 			params = append(params, value)
 		}
 	}
@@ -164,18 +201,19 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		if !ok || td.DateRange.V == nil {
 			continue
 		}
+		fieldSQL := resolve(field.SQL)
 		switch v := td.DateRange.V.(type) {
 		case []string:
 			if len(v) == 2 {
-				where = append(where, fmt.Sprintf("%s >= ? AND %s <= ?", field.SQL, field.SQL))
+				where = append(where, fmt.Sprintf("%s >= ? AND %s <= ?", fieldSQL, fieldSQL))
 				params = append(params, v[0], v[1])
 			}
 		case string:
 			if v != "" {
 				if start, end, ok := parseRelativeTimeRange(v); ok {
-					where = append(where, fmt.Sprintf("%s >= %s AND %s <= %s", field.SQL, start, field.SQL, end))
+					where = append(where, fmt.Sprintf("%s >= %s AND %s <= %s", fieldSQL, start, fieldSQL, end))
 				} else {
-					where = append(where, fmt.Sprintf("toDate(%s) = %s", field.SQL, convertToClickHouseTimeExpr(v)))
+					where = append(where, fmt.Sprintf("toDate(%s) = %s", fieldSQL, convertToClickHouseTimeExpr(v)))
 				}
 			}
 		}
@@ -195,7 +233,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			}
 			_, fieldName := splitMemberName(dim)
 			if field, ok := cube.GetField(fieldName); ok {
-				sql.WriteString(field.SQL)
+				sql.WriteString(resolve(field.SQL))
 			} else {
 				sql.WriteString(dim)
 			}
@@ -212,7 +250,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			}
 			_, fieldName := splitMemberName(member)
 			if f, ok := cube.GetField(fieldName); ok {
-				sql.WriteString(f.SQL)
+				sql.WriteString(resolve(f.SQL))
 			} else {
 				sql.WriteString(member)
 			}
