@@ -341,7 +341,7 @@ cube:
       title: XFF
 
     customParamMap:
-      sql: toJSONString(mapFromArrays(arraySlice(key,4),arraySlice(data,4)))
+      sql: mapFromArrays(key,data,4)
       type: string
       title: 自定义参数
 
@@ -526,30 +526,10 @@ cube:
       type: string
       title: 风险级别
 
-    riskTag:
-      sql: "arrayStringConcat(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk),',')"
-      type: string
-      title: 风险规则
-
-    risk:
-      sql: "arrayJoin(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk))"
-      type: string
-      title: 风险
-
-    riskAction:
-      sql: "arrayJoin(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x.1)!=0,arrayZip(req_risk,req_action,if(notEmpty(req_reason),req_reason,req_risk)))).2"
-      type: string
-      title: 防护动作
-
     maskRule:
       sql: "arrayFilter(x -> position(x,'脱敏')>0, res_risk)"
       type: array
       title: 脱敏规则
-
-    resRiskExt:
-      sql: arrayJoin(res_risk)
-      type: string
-      title: 响应风险展开
 
     isSens:
       sql: "multiIf(notEmpty(req_sens_k),'request',notEmpty(res_sens_k),'response','')"
@@ -631,86 +611,6 @@ cube:
       type: string
       title: 敏感数据采样(响应)
 
-    reqSensKeyExt:
-      sql: arrayJoin(req_sens_k)
-      type: string
-      title: 敏感数据名称(请求)展开
-
-    reqSensValExt:
-      sql: arrayJoin(req_sens_v)
-      type: string
-      title: 敏感数据值(请求)展开
-
-    respSensKeyExt:
-      sql: arrayJoin(res_sens_k)
-      type: string
-      title: 敏感数据名称(响应)展开
-
-    respSensValExt:
-      sql: arrayJoin(res_sens_v)
-      type: string
-      title: 敏感数据值(响应)展开
-
-    reqSensKeyFilterTag:
-      sql: "arrayStringConcat(req_sens_k,',')"
-      type: string
-      title: 请求敏感数据key过滤器
-
-    reqSensValFilterTag:
-      sql: "arrayStringConcat(req_sens_v,',')"
-      type: string
-      title: 请求敏感数据val过滤器
-
-    respSensKeyFilterTag:
-      sql: "arrayStringConcat(res_sens_k,',')"
-      type: string
-      title: 响应敏感数据key过滤器
-
-    respSensValFilterTag:
-      sql: "arrayStringConcat(res_sens_v,',')"
-      type: string
-      title: 响应敏感数据val过滤器
-
-    sensKeyExt:
-      sql: "arrayJoin(arrayConcat(req_sens_k,res_sens_k))"
-      type: string
-      title: 敏感数据Key展开(请求+响应)
-
-    sensValueExt:
-      sql: "arrayJoin(arrayConcat(req_sens_v,res_sens_v))"
-      type: string
-      title: 敏感数据值展开(请求+响应)
-
-    reqSensPosKey:
-      sql: "'Request.Body.' || replaceRegexpAll(arrayJoin(JSONExtractKeysAndValuesRaw(req_body)).1,'\\[|\\]\\.','.')"
-      type: string
-      title: 请求敏感数据位置Key
-
-    reqSensPosShortKey:
-      sql: "splitByChar('.',arrayJoin(JSONExtractKeysAndValuesRaw(req_body)).1)[-1]"
-      type: string
-      title: 请求敏感数据位置短Key
-
-    reqSensPosValue:
-      sql: "arrayJoin(JSONExtractKeysAndValuesRaw(req_body)).2"
-      type: string
-      title: 请求敏感数据位置值
-
-    resSensPosKey:
-      sql: "'Response.Body.' || replaceRegexpAll(arrayJoin(JSONExtractKeysAndValuesRaw(res_body)).1,'\\[|\\]\\.','.')"
-      type: string
-      title: 响应敏感数据位置Key
-
-    resSensPosShortKey:
-      sql: "splitByChar('.',arrayJoin(JSONExtractKeysAndValuesRaw(res_body)).1)[-1]"
-      type: string
-      title: 响应敏感数据位置短Key
-
-    resSensPosValue:
-      sql: "arrayJoin(JSONExtractKeysAndValuesRaw(res_body)).2"
-      type: string
-      title: 响应敏感数据位置值
-
     resContentType:
       sql: content_type
       type: string
@@ -766,55 +666,10 @@ cube:
       type: string
       title: 目标节点端口
 
-    weakKeyExt:
-      sql: arrayJoin(weak_k)
-      type: string
-      title: 弱点名称展开
-
-    weakKeyFilterTag:
-      sql: "arrayStringConcat(weak_k,',')"
-      type: string
-      title: 弱点名称过滤器
-
     weakVal:
       sql: weak_v
       type: string
       title: 弱点
-
-    standard:
-      sql: "splitByChar(':',arrayJoin(splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',arrayJoin(res_sens_k))))))[1]"
-      type: string
-      title: 规范名称
-
-    category:
-      sql: "splitByChar(':',arrayJoin(splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',arrayJoin(res_sens_k))))))[2]"
-      type: string
-      title: 规范类别
-
-    grade:
-      sql: "splitByChar(':',arrayJoin(splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',arrayJoin(res_sens_k))))))[3]"
-      type: string
-      title: 规范分级
-
-    sensKeyCombineExt:
-      sql: "arrayJoin(arrayFilter(x->x.3!='',arrayZip(arrayConcat(req_sens_k,res_sens_k),arrayConcat(req_sens_v,res_sens_v),arrayMap(k->if(dictGetString('default.privacy_dict','enabled_standard',k)='通用','通用',arrayStringConcat(arraySlice(splitByChar(':',arrayFilter(fullLevel->startsWith(fullLevel,dictGetString('default.privacy_dict','enabled_standard',k)),splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',k))))[1]),2),':')),arrayConcat(req_sens_k,res_sens_k)),arrayMap(k->dictGetInt64('default.privacy_dict','score',k),arrayConcat(req_sens_k,res_sens_k))))).1"
-      type: string
-      title: 数据类型
-
-    sensValCombineExt:
-      sql: "arrayJoin(arrayFilter(x->x.3!='',arrayZip(arrayConcat(req_sens_k,res_sens_k),arrayConcat(req_sens_v,res_sens_v),arrayMap(k->if(dictGetString('default.privacy_dict','enabled_standard',k)='通用','通用',arrayStringConcat(arraySlice(splitByChar(':',arrayFilter(fullLevel->startsWith(fullLevel,dictGetString('default.privacy_dict','enabled_standard',k)),splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',k))))[1]),2),':')),arrayConcat(req_sens_k,res_sens_k)),arrayMap(k->dictGetInt64('default.privacy_dict','score',k),arrayConcat(req_sens_k,res_sens_k))))).2"
-      type: string
-      title: 数据值
-
-    sensPrivacyCombineExt:
-      sql: "arrayJoin(arrayFilter(x->x.3!='',arrayZip(arrayConcat(req_sens_k,res_sens_k),arrayConcat(req_sens_v,res_sens_v),arrayMap(k->if(dictGetString('default.privacy_dict','enabled_standard',k)='通用','通用',arrayStringConcat(arraySlice(splitByChar(':',arrayFilter(fullLevel->startsWith(fullLevel,dictGetString('default.privacy_dict','enabled_standard',k)),splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',k))))[1]),2),':')),arrayConcat(req_sens_k,res_sens_k)),arrayMap(k->dictGetInt64('default.privacy_dict','score',k),arrayConcat(req_sens_k,res_sens_k))))).3"
-      type: string
-      title: 数据分类
-
-    sensScoreCombineExt:
-      sql: "arrayJoin(arrayFilter(x->x.3!='',arrayZip(arrayConcat(req_sens_k,res_sens_k),arrayConcat(req_sens_v,res_sens_v),arrayMap(k->if(dictGetString('default.privacy_dict','enabled_standard',k)='通用','通用',arrayStringConcat(arraySlice(splitByChar(':',arrayFilter(fullLevel->startsWith(fullLevel,dictGetString('default.privacy_dict','enabled_standard',k)),splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',k))))[1]),2),':')),arrayConcat(req_sens_k,res_sens_k)),arrayMap(k->dictGetInt64('default.privacy_dict','score',k),arrayConcat(req_sens_k,res_sens_k))))).4"
-      type: number
-      title: 数据级别分数
 
   segments:
     org:
@@ -1137,20 +992,10 @@ cube:
       type: number
       title: 响应敏感信息次数(去重)
 
-    aggResSensKeyFilterTag:
-      sql: "arrayStringConcat(groupUniqArrayArray(res_sens_k),',')"
-      type: string
-      title: 聚合响应敏感Key过滤器
-
     aggSensKey:
       sql: "groupUniqArrayArray(arrayConcat(req_sens_k,res_sens_k))"
       type: string
       title: 聚合敏感数据
-
-    aggSensKeyFilterTag:
-      sql: "arrayStringConcat(arrayConcat(req_sens_k,res_sens_k),',')"
-      type: string
-      title: 聚合敏感数据过滤
 
     aggSensValNum:
       sql: "uniqHLL12Array(arrayConcat(req_sens_v,res_sens_v))"
@@ -1182,26 +1027,6 @@ cube:
       type: number
       title: 隐私文件种类
 
-    resSensCountMapKey:
-      sql: "splitByChar(';',(arrayJoin(arrayZip((sumMap(arrayMap((x,y)->x||';'||y,res_sens_k,res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1,sensMap.2)).1))[1]"
-      type: string
-      title: 响应敏感值Key
-
-    resSensCountMapVal:
-      sql: "splitByChar(';',(arrayJoin(arrayZip((sumMap(arrayMap((x,y)->x||';'||y,res_sens_k,res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1,sensMap.2)).1))[2]"
-      type: string
-      title: 响应敏感值
-
-    resSensCountMapNum:
-      sql: "arrayJoin(arrayZip((sumMap(arrayMap((x,y)->x||';'||y,res_sens_k,res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1,sensMap.2)).2"
-      type: number
-      title: 响应敏感值出现次数
-
-    sensValRepeatability:
-      sql: "round(arrayJoin(arrayZip((sumMap(arrayMap((x,y)->x||';'||y,res_sens_k,res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1,sensMap.2)).2/count(),3)"
-      type: number
-      title: 敏感值重复度
-
     resSensCountMapValExcluded:
       sql: "0"
       type: number
@@ -1221,11 +1046,6 @@ cube:
       sql: "groupUniqArrayArray(if(notEmpty(url_action[6]),arrayFilter(x->notEmpty(x),splitByChar(',',url_action[6])),if((url_action[2]='api' OR url_action[2]='auto') and notEmpty(url_action[1]),[url_action[1]],[])))"
       type: string
       title: 自动分组标签集合
-
-    sensCombineCount:
-      sql: "uniq(arrayJoin(arrayFilter(x->x.3!='',arrayZip(arrayConcat(req_sens_k,res_sens_k),arrayConcat(req_sens_v,res_sens_v),arrayMap(k->if(dictGetString('default.privacy_dict','enabled_standard',k)='通用','通用',arrayStringConcat(arraySlice(splitByChar(':',arrayFilter(fullLevel->startsWith(fullLevel,dictGetString('default.privacy_dict','enabled_standard',k)),splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',k))))[1]),2),':')),arrayConcat(req_sens_k,res_sens_k)),arrayMap(k->dictGetInt64('default.privacy_dict','score',k),arrayConcat(req_sens_k,res_sens_k))))).1||arrayJoin(arrayFilter(x->x.3!='',arrayZip(arrayConcat(req_sens_k,res_sens_k),arrayConcat(req_sens_v,res_sens_v),arrayMap(k->if(dictGetString('default.privacy_dict','enabled_standard',k)='通用','通用',arrayStringConcat(arraySlice(splitByChar(':',arrayFilter(fullLevel->startsWith(fullLevel,dictGetString('default.privacy_dict','enabled_standard',k)),splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict','level',k))))[1]),2),':')),arrayConcat(req_sens_k,res_sens_k)),arrayMap(k->dictGetInt64('default.privacy_dict','score',k),arrayConcat(req_sens_k,res_sens_k))))).2)"
-      type: number
-      title: 敏感数去重
 
     srcMid:
       sql: "arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es',''),if(countIf(url='/raft/probing' or position(lower(ua),'etcd')>0)>0,'etcd',''),if(countIf(position(lower(ua),'hbase')>0)>0,'hbase',''),if(countIf(position(lower(ua),'mongodb')>0)>0,'mongodb',''),if(countIf(position(lower(ua),'clickhouse')>0)>0,'clickhouse',''),if(countIf(position(lower(ua),'nacos')>0 and position(lower(ua),'client')=0)>0,'nacos',''),if(countIf(position(lower(ua),'eureka')>0 and position(lower(ua),'client')=0)>0,'eureka',''),if(countIf(position(lower(ua),'rabbitmq')>0)>0,'rabbitmq',''),if(countIf(position(lower(ua),'activemq')>0)>0,'activemq',''),if(countIf(position(lower(ua),'kafka')>0)>0,'kafka',''),if(countIf(position(lower(ua),'consul')>0)>0,'consul',''),if(countIf(position(lower(ua),'prometheus')>0)>0,'prometheus',''),if(countIf(position(lower(ua),'hadoop')>0)>0,'hadoop','')))),',')"
