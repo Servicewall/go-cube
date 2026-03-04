@@ -215,6 +215,16 @@ cube:
       type: number
       title: 响应大小
 
+    request:
+      sql: "jsonMergePatch(req, toJSONString(map('Body', if(substr(JSONExtractString(req,'Method'),-3) IN ['C2S','S2C','TCP','WS'], tryBase64Decode(JSONExtractString(req,'Body')), subStr(JSONExtractString(req,'Body'),1,100000)))))"
+      type: string
+      title: 请求报文
+
+    response:
+      sql: "jsonMergePatch(res, toJSONString(map('Body', subStr(JSONExtractString(res, 'Body'), 1, 100000))))"
+      type: string
+      title: 响应报文
+
     fileName:
       sql: JSONExtractString(file, 'name')
       type: string
@@ -226,9 +236,59 @@ cube:
       title: 文件类型
 
     fileDirection:
-      sql: if(JSONExtractString(file, 'name') != '', '下载', if(JSONExtractString(file, 'content') != '', '上传', ''))
+      sql: "if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')"
       type: string
       title: 动作
+
+    fileMd5:
+      sql: "if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'md5'), JSONExtractString(file,1,'md5'))"
+      type: string
+      title: 文件MD5
+
+    fileSha1:
+      sql: "if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'sha1'), JSONExtractString(file,1,'sha1'))"
+      type: string
+      title: 文件SHA1
+
+    fileCategory:
+      sql: "multiIf((if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')='下载' and notEmpty(res_sens_k)) or (if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')='上传' and notEmpty(req_sens_k)), '隐私文件', if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'encrypt'), JSONExtractString(file,1,'encrypt')) = 'true', '加密文件', '普通文件')"
+      type: string
+      title: 文件分类
+
+    fileSensKey:
+      sql: "if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k)"
+      type: array
+      title: 文件敏感数据Key
+
+    fileSensVal:
+      sql: "if(JSONExtractString(file, 'name') != '', res_sens_v, req_sens_v)"
+      type: array
+      title: 文件敏感数据值
+
+    fileSensKeyExt:
+      sql: "if(JSONExtractString(file, 'name') != '', arrayJoin(res_sens_k), arrayJoin(req_sens_k))"
+      type: string
+      title: 文件敏感数据Key展开
+
+    fileSensValExt:
+      sql: "if(JSONExtractString(file, 'name') != '', arrayJoin(res_sens_v), arrayJoin(req_sens_v))"
+      type: string
+      title: 文件敏感数据值展开
+
+    fileSampleKey:
+      sql: "arraySlice(if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k), 1, 1000)"
+      type: string
+      title: 文件隐私名称采样
+
+    fileSampleVal:
+      sql: "arraySlice(if(JSONExtractString(file, 'name') != '', res_sens_v, req_sens_v), 1, 1000)"
+      type: string
+      title: 文件隐私采样
+
+    fileSensKeyNum:
+      sql: "toJSONString(arrayReduce('sumMap', arrayMap(x -> map(x, 1), if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k))))"
+      type: string
+      title: 文件敏感数据统计
 
     resultScore:
       sql: multiIf(arrayExists(x -> dictGetInt64('default.risk_dict', 'score', x) = -100, req_risk), -100, notEmpty(req_risk), 100 - (100 * arrayProduct(arrayMap(x -> 1 - dictGetInt64('default.risk_dict', 'score', x) * 0.01, req_risk))), 0)
@@ -321,10 +381,10 @@ cube:
       type: array
       title: 敏感数据类型标签
 
-    weakKeyFilterTag:
+    weakKey:
       sql: weak_k
       type: array
-      title: 弱项Key过滤器
+      title: 弱点名称
 
     customData:
       sql: data[indexOf(key, '{key}')]
