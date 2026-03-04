@@ -401,6 +401,11 @@ cube:
       type: array
       title: 敏感数据类型标签
 
+    sensValueExt:
+      sql: arrayConcat(req_sens_v, res_sens_v)
+      type: array
+      title: 敏感数据值标签
+
     weakKey:
       sql: weak_k
       type: array
