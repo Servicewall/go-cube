@@ -101,7 +101,7 @@ func (h *Handler) load(ctx context.Context, body []byte) (*QueryResponse, error)
 	} else if len(req.Measures) > 0 {
 		modelName = extractModelName(req.Measures[0])
 	} else if len(req.Filters) > 0 {
-		modelName = extractModelName(req.Filters[0].Member)
+		modelName = extractModelName(filterMember(req.Filters[0]))
 	}
 	if modelName == "" {
 		return nil, fmt.Errorf("无法从查询中确定模型")
@@ -136,6 +136,17 @@ func extractModelName(field string) string {
 		}
 	}
 	return field
+}
+
+// filterMember 返回 filter 的 Member 字段；若为 or 复合条件则取第一个子条件的 Member。
+func filterMember(f Filter) string {
+	if f.Member != "" {
+		return f.Member
+	}
+	if len(f.Or) > 0 {
+		return filterMember(f.Or[0])
+	}
+	return ""
 }
 
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
