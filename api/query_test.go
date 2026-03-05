@@ -618,3 +618,90 @@ func TestHandleLoad_GetQuery(t *testing.T) {
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
+
+func TestBuildQuery_OrFilter(t *testing.T) {
+	// or 过滤：request 或 response 包含 '李生'，生成 (request LIKE ? OR response LIKE ?)
+	cube := testCube()
+	cube.Dimensions["request"] = model.Dimension{SQL: "request", Type: "string"}
+	cube.Dimensions["response"] = model.Dimension{SQL: "response", Type: "string"}
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Filters: []Filter{
+			{
+				Or: []Filter{
+					{Member: "AccessView.request", Operator: "contains", Values: []interface{}{"李生"}},
+					{Member: "AccessView.response", Operator: "contains", Values: []interface{}{"李生"}},
+				},
+			},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "(request LIKE ? OR response LIKE ?)") {
+		t.Errorf("expected OR clause, got: %s", sql)
+	}
+	if len(params) != 2 || params[0] != "%李生%" || params[1] != "%李生%" {
+		t.Errorf("expected 2 wildcard params, got: %v", params)
+	}
+}
+
+func TestBuildQuery_OrFilterUnknownFieldSkipped(t *testing.T) {
+	// or 中有未知字段，只有已知字段生成子句
+	cube := testCube()
+	cube.Dimensions["request"] = model.Dimension{SQL: "request", Type: "string"}
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Filters: []Filter{
+			{
+				Or: []Filter{
+					{Member: "AccessView.request", Operator: "contains", Values: []interface{}{"test"}},
+					{Member: "AccessView.notExist", Operator: "contains", Values: []interface{}{"test"}},
+				},
+			},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// 仅有一个已知字段，退化为单条件（无 OR）
+	if !contains(sql, "WHERE") || !contains(sql, "request LIKE ?") {
+		t.Errorf("expected single clause from or filter, got: %s", sql)
+	}
+	if contains(sql, "notExist") {
+		t.Errorf("unknown field should not appear in SQL, got: %s", sql)
+	}
+	if len(params) != 1 || params[0] != "%test%" {
+		t.Errorf("expected 1 param, got: %v", params)
+	}
+}
+
+func TestBuildQuery_OrFilterAllUnknownSkipped(t *testing.T) {
+	// or 中所有字段均未知，整个 or 条件跳过，不生成 WHERE
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Filters: []Filter{
+			{
+				Or: []Filter{
+					{Member: "AccessView.notExist1", Operator: "contains", Values: []interface{}{"x"}},
+					{Member: "AccessView.notExist2", Operator: "contains", Values: []interface{}{"x"}},
+				},
+			},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(sql, "WHERE") {
+		t.Errorf("no WHERE expected when all or sub-filters are unknown, got: %s", sql)
+	}
+	if len(params) != 0 {
+		t.Errorf("expected no params, got: %v", params)
+	}
+}

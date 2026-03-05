@@ -50,6 +50,7 @@ type Filter struct {
 	Member   string      `json:"member"`
 	Operator string      `json:"operator"`
 	Values   interface{} `json:"values"`
+	Or       []Filter    `json:"or,omitempty"`
 }
 
 type QueryResponse struct {
@@ -115,48 +116,30 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 
 	// filters
 	for _, filter := range req.Filters {
-		_, fieldName, subKey := splitMemberName(filter.Member)
-		field, ok := cube.GetField(fieldName, subKey)
-		if !ok || field.SQL == "" {
+		if len(filter.Or) > 0 {
+			// or 过滤：将子条件用 OR 连接；当 Or 非空时忽略同级 Member/Operator/Values 字段
+			var orClauses []string
+			for _, sub := range filter.Or {
+				clause, p, ok := buildSingleFilterClause(sub, cube)
+				if !ok {
+					continue
+				}
+				orClauses = append(orClauses, clause)
+				params = append(params, p...)
+			}
+			if len(orClauses) == 1 {
+				where = append(where, orClauses[0])
+			} else if len(orClauses) > 1 {
+				where = append(where, "("+strings.Join(orClauses, " OR ")+")")
+			}
 			continue
 		}
-
-		// set/notSet 对所有类型统一处理
-		switch filter.Operator {
-		case "set":
-			where = append(where, fmt.Sprintf("notEmpty(%s)", field.SQL))
-			continue
-		case "notSet":
-			where = append(where, fmt.Sprintf("empty(%s)", field.SQL))
+		clause, p, ok := buildSingleFilterClause(filter, cube)
+		if !ok {
 			continue
 		}
-
-		valuesArr, _ := filter.Values.([]interface{})
-		if len(valuesArr) == 0 && filter.Values != nil {
-			valuesArr = []interface{}{filter.Values}
-		}
-		if len(valuesArr) == 0 {
-			continue
-		}
-
-		if field.Type == "array" {
-			clause, p := buildArrayClause(field.SQL, filter.Operator, valuesArr)
-			where = append(where, clause)
-			params = append(params, p...)
-			continue
-		}
-
-		// 普通字段
-		if filter.Operator == "equals" || filter.Operator == "notEquals" {
-			clause, p := buildInClause(field.SQL, filter.Operator, valuesArr)
-			where = append(where, clause)
-			params = append(params, p...)
-		} else {
-			sqlOp := convertOperator(filter.Operator)
-			value := processFilterValue(valuesArr[0], filter.Operator)
-			where = append(where, fmt.Sprintf("%s %s ?", field.SQL, sqlOp))
-			params = append(params, value)
-		}
+		where = append(where, clause)
+		params = append(params, p...)
 	}
 
 	// timeDimensions
@@ -378,4 +361,44 @@ func convertUnit(unit string) string {
 		return u
 	}
 	return strings.ToUpper(unit)
+}
+
+// buildSingleFilterClause 将单个 Filter（不含 or 字段）转为 SQL 子句及参数。
+// 若字段不存在或无法构建则返回 ok=false。
+func buildSingleFilterClause(filter Filter, cube *model.Cube) (clause string, params []interface{}, ok bool) {
+	_, fieldName, subKey := splitMemberName(filter.Member)
+	field, found := cube.GetField(fieldName, subKey)
+	if !found || field.SQL == "" {
+		return "", nil, false
+	}
+
+	// set/notSet 对所有类型统一处理
+	switch filter.Operator {
+	case "set":
+		return fmt.Sprintf("notEmpty(%s)", field.SQL), nil, true
+	case "notSet":
+		return fmt.Sprintf("empty(%s)", field.SQL), nil, true
+	}
+
+	valuesArr, _ := filter.Values.([]interface{})
+	if len(valuesArr) == 0 && filter.Values != nil {
+		valuesArr = []interface{}{filter.Values}
+	}
+	if len(valuesArr) == 0 {
+		return "", nil, false
+	}
+
+	if field.Type == "array" {
+		c, p := buildArrayClause(field.SQL, filter.Operator, valuesArr)
+		return c, p, true
+	}
+
+	// 普通字段
+	if filter.Operator == "equals" || filter.Operator == "notEquals" {
+		c, p := buildInClause(field.SQL, filter.Operator, valuesArr)
+		return c, p, true
+	}
+	sqlOp := convertOperator(filter.Operator)
+	value := processFilterValue(valuesArr[0], filter.Operator)
+	return fmt.Sprintf("%s %s ?", field.SQL, sqlOp), []interface{}{value}, true
 }
