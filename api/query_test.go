@@ -484,6 +484,28 @@ func TestBuildQuery_OrFilterAllUnknown(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_OrFilterMutualExclusion(t *testing.T) {
+	// or 与普通条件字段不能同时存在，应返回错误
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Filters: []Filter{
+			{
+				Member:   "AccessView.ip",
+				Operator: "contains",
+				Values:   []interface{}{"192"},
+				Or: []Filter{
+					{Member: "AccessView.id", Operator: "contains", Values: []interface{}{"192"}},
+				},
+			},
+		},
+	}
+
+	_, _, err := BuildQuery(req, testCube())
+	if err == nil {
+		t.Error("expected error when or and member/operator/values are both set")
+	}
+}
+
 func TestValidateQuery_Valid(t *testing.T) {
 	req := &QueryRequest{Dimensions: []string{"AccessView.id"}}
 	if err := validateQuery(req); err != nil {

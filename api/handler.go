@@ -138,13 +138,16 @@ func extractModelName(field string) string {
 	return field
 }
 
-// filterMember 返回 filter 的 Member 字段；若为 or 复合条件则取第一个子条件的 Member。
+// filterMember 返回 filter 的 Member 字段；
+// 若为 OR 复合条件则遍历子条件，返回第一个非空的 Member（递归处理嵌套 OR）。
 func filterMember(f Filter) string {
 	if f.Member != "" {
 		return f.Member
 	}
-	if len(f.Or) > 0 {
-		return filterMember(f.Or[0])
+	for _, sub := range f.Or {
+		if m := filterMember(sub); m != "" {
+			return m
+		}
 	}
 	return ""
 }

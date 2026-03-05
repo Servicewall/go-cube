@@ -118,6 +118,10 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	for _, filter := range req.Filters {
 		// or 复合条件：将子条件以 OR 拼接后用括号包裹
 		if len(filter.Or) > 0 {
+			// or 与普通条件字段互斥，不允许同时存在
+			if filter.Member != "" || filter.Operator != "" || filter.Values != nil {
+				return "", nil, fmt.Errorf("filter 不能同时包含 or 和 member/operator/values 字段")
+			}
 			var orClauses []string
 			for _, sub := range filter.Or {
 				clause, p := buildFilterClause(sub, cube)
