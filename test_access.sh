@@ -109,10 +109,10 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22Acc
 check "AccessView count by risk" "$result"
 
 echo ""
-echo "=== 11. EventView count by risk (owasp segment, limit 10) ==="
-# cube: EventView, measures: [count], dimensions: [risk], segments: org+owasp, limit: 10
-result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22EventView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22EventView.ts%22%2C%22dateRange%22%3A%22from+60+minutes+ago+to+60+minutes+from+now%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22EventView.risk%22%5D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22EventView.org%22%2C%22EventView.owasp%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
-check "EventView count by risk (owasp segment)" "$result"
+echo "=== 11. AccessView count by risk limit 10 ==="
+# measures: [count], dimensions: [risk], segments: org+black, limit: 10
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%20%5B%22AccessView.count%22%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22AccessView.ts%22%2C%20%22dateRange%22%3A%20%22from%2060%20minutes%20ago%20to%2060%20minutes%20from%20now%22%7D%5D%2C%20%22filters%22%3A%20%5B%5D%2C%20%22dimensions%22%3A%20%5B%22AccessView.risk%22%5D%2C%20%22limit%22%3A%2010%2C%20%22segments%22%3A%20%5B%22AccessView.org%22%2C%20%22AccessView.black%22%5D%2C%20%22timezone%22%3A%20%22Asia%2FShanghai%22%7D")
+check "AccessView count by risk limit 10" "$result"
 
 echo ""
 echo "========================================"
