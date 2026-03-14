@@ -67,15 +67,6 @@ func (h *Handler) Query(ctx context.Context, req *QueryRequest) (*QueryResponse,
 	}, nil
 }
 
-// Load 执行一次 cube 查询，接受 JSON 字节，保持向后兼容。
-func (h *Handler) Load(ctx context.Context, body []byte) (*QueryResponse, error) {
-	req, err := parseQueryRequest(body)
-	if err != nil {
-		return nil, err
-	}
-	return h.Query(ctx, req)
-}
-
 // HandleLoad 是 HTTP 入口，供注册到路由器使用。
 func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
