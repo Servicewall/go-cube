@@ -11,7 +11,7 @@ cube:
                    arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet(host_dict, 'info',
                                                                                  splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*'))[2],
                    host)          as app_name,
-           argMax(host, ts)       as last_host,
+           argMax(host, ts)       as host,
            groupUniqArray(host)   as host_list,
            max(ts)                as max_ts,
            min(first_ts)          as first_ts,
@@ -32,7 +32,8 @@ cube:
            if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), tuple([], []), sumMap(weak_count)) as weak_count,
            if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), tuple([], []), sumMap(metric_count)) as metric_count,
            if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), map(), uniqMapMerge(req_sens_uniq)) as req_sens_uniq_map,
-           if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), map(), uniqMapMerge(res_sens_uniq)) as res_sens_uniq_map
+           if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), map(), uniqMapMerge(res_sens_uniq)) as res_sens_uniq_map,
+           max_ts as ts
     FROM (
       select coalesce (org, '') as org, coalesce (ts, toDateTime(0)) as ts, coalesce (first_ts, toDateTime(0)) as first_ts, url, req_key,
       coalesce (a.host, b.host) as host, method, url_action, channel, coalesce (count, 0) as count, type, source,
@@ -199,12 +200,12 @@ cube:
       title: 配置标签
     
     riskKeyScoreTuple:
-      sql: if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), tuple([], []), sumMap(risk_count))
+      sql: risk_count
       type: string
       title: 风险键值元组
     
     weakKeyScoreTuple:
-      sql: if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), tuple([], []), sumMap(weak_count))
+      sql: weak_count
       type: string
       title: 弱点键值元组
     
@@ -214,12 +215,12 @@ cube:
       title: 当前请求键
     
     reqSensScoreTupleRaw:
-      sql: toJSONString(if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), map(), uniqMapMerge(req_sens_uniq)))
+      sql: toJSONString(req_sens_uniq_map)
       type: string
       title: 请求敏感分数原始元组
     
     resSensScoreTupleRaw:
-      sql: toJSONString(if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), map(), uniqMapMerge(res_sens_uniq)))
+      sql: toJSONString(res_sens_uniq_map)
       type: string
       title: 响应敏感分数原始元组
     
@@ -288,17 +289,17 @@ cube:
       title: 弱点应用数
     
     uniqApiCount:
-      sql: uniqExactIf(method, multiIf(arrayExists(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host)))[2], arrayExists(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*'))[2], host), url, url_action[2] != 'res' and url_action[2] != 'file')
+      sql: uniqExactIf(method, app_name, url, url_action[2] != 'res' and url_action[2] != 'file')
       type: number
       title: API数
     
     uniqWeakApiCount:
-      sql: uniqExactIf(method, multiIf(arrayExists(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host)))[2], arrayExists(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*'))[2], host), url, arraySum(weak_count.2) > 0 and url_action[2] != 'res' and url_action[2] != 'file')
+      sql: uniqExactIf(method, app_name, url, arraySum(weak_count.2) > 0 and url_action[2] != 'res' and url_action[2] != 'file')
       type: number
       title: 弱点API数
     
     uniqApiRespSensCount:
-      sql: uniqExactIf(method, multiIf(arrayExists(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host)))[2], arrayExists(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*'))[2], host), url, length(mapKeys(if(toStartOfDay(max(ts)) + toIntervalDay(1) <= today(), map(), uniqMapMerge(res_sens_uniq)))) > 0 and url_action[2] != 'res' and url_action[2] != 'file')
+      sql: uniqExactIf(method, app_name, url, length(mapKeys(res_sens_uniq_map)) > 0 and url_action[2] != 'res' and url_action[2] != 'file')
       type: number
       title: 响应涉敏API数
     
@@ -318,7 +319,7 @@ cube:
       title: 聚合成功率
     
     hostSet:
-      sql: groupUniqArrayArray(groupUniqArray(host))
+      sql: groupUniqArrayArray(host_list)
       type: string
       title: 域名举例
     
@@ -328,7 +329,7 @@ cube:
       title: 网络类型
     
     aggSensScore:
-      sql: if(notEmpty(groupUniqArrayArray(if(url_action[5] != '外发', mapKeys(if(toStartOfDay(max(ts)) + toIntervalDay(1) <= today(), map(), uniqMapMerge(res_sens_uniq))), mapKeys(if(toStartOfDay(max(ts)) + toIntervalDay(1) <= today(), map(), uniqMapMerge(req_sens_uniq)))))), floor(100 - 100 * arrayProduct(arrayMap(x -> 1 - 0.01 * dictGetInt64('default.privacy_dict', 'score', x), groupUniqArrayArray(if(url_action[5] != '外发', mapKeys(if(toStartOfDay(max(ts)) + toIntervalDay(1) <= today(), map(), uniqMapMerge(res_sens_uniq))), mapKeys(if(toStartOfDay(max(ts)) + toIntervalDay(1) <= today(), map(), uniqMapMerge(req_sens_uniq))))))), 2), 0)
+      sql: if(notEmpty(groupUniqArrayArray(if(url_action[5] != '外发', mapKeys(res_sens_uniq_map), mapKeys(req_sens_uniq_map)))), floor(100 - 100 * arrayProduct(arrayMap(x -> 1 - 0.01 * dictGetInt64('default.privacy_dict', 'score', x), groupUniqArrayArray(if(url_action[5] != '外发', mapKeys(res_sens_uniq_map), mapKeys(req_sens_uniq_map))))), 2), 0)
       type: number
       title: 聚合敏感分
     
