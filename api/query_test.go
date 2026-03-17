@@ -794,3 +794,45 @@ func TestBuildQuery_MeasureFilterGoesToHaving(t *testing.T) {
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
+
+func TestBugMeasuresOnlyNoGroupBy(t *testing.T) {
+// Reproduces: measures=["ApiView.customRuleTagSet", "ApiView.configTagSet"] 
+// with dimensions=[] should return actual measure values, not {"1": 1}
+cube := &model.Cube{
+Name:     "ApiView",
+SQLTable: "default.api",
+Dimensions: map[string]model.Dimension{
+"id": {SQL: "id", Type: "string"},
+},
+Measures: map[string]model.Measure{
+"customRuleTagSet": {SQL: "groupUniqArray(rule_tag)", Type: "string"},
+"configTagSet":     {SQL: "groupUniqArray(config_tag)", Type: "string"},
+},
+}
+
+req := &QueryRequest{
+Measures: []string{"ApiView.customRuleTagSet", "ApiView.configTagSet"},
+// NO dimensions - this is the key part of the bug
+}
+
+sql, params, err := BuildQuery(req, cube)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+
+t.Logf("Generated SQL: %s", sql)
+t.Logf("Params: %v", params)
+
+// Check that we have SELECT with both measures with their aliases
+if !contains(sql, `groupUniqArray(rule_tag) AS "ApiView.customRuleTagSet"`) {
+t.Errorf("expected customRuleTagSet with alias in SELECT, got: %s", sql)
+}
+if !contains(sql, `groupUniqArray(config_tag) AS "ApiView.configTagSet"`) {
+t.Errorf("expected configTagSet with alias in SELECT, got: %s", sql)
+}
+
+// Should NOT have GROUP BY when there are no dimensions
+if contains(sql, "GROUP BY") {
+t.Errorf("should not have GROUP BY without dimensions, got: %s", sql)
+}
+}
