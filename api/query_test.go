@@ -63,10 +63,35 @@ func TestBuildQuery_MeasuresWithGroupBy(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	for _, substr := range []string{"GROUP BY", "count()", "ip"} {
+	for _, substr := range []string{"GROUP BY", "count()", `"AccessView.ip"`} {
 		if !contains(sql, substr) {
 			t.Errorf("expected SQL to contain %q, got: %s", substr, sql)
 		}
+	}
+}
+
+func TestBuildQuery_LiteralDimensionGroupByAlias(t *testing.T) {
+	// 维度 SQL 是字面量 0 时，GROUP BY / ORDER BY 应使用列别名，
+	// 避免 ClickHouse 将 0 当作位置引用导致 BAD_ARGUMENTS 错误。
+	cube := testCube()
+	cube.Dimensions["isFavorite"] = model.Dimension{SQL: "0", Type: "number"}
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.ip", "AccessView.isFavorite"},
+		Measures:   []string{"AccessView.count"},
+		Order:      OrderMap{"AccessView.isFavorite": "desc"},
+	}
+
+	sql, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// GROUP BY 应使用别名而非字面量 0
+	if !contains(sql, `GROUP BY "AccessView.ip", "AccessView.isFavorite"`) {
+		t.Errorf("expected GROUP BY with aliases, got: %s", sql)
+	}
+	// ORDER BY 应使用别名而非字面量 0
+	if !contains(sql, `"AccessView.isFavorite" DESC`) {
+		t.Errorf("expected ORDER BY with alias, got: %s", sql)
 	}
 }
 
@@ -140,8 +165,8 @@ func TestBuildQuery_OrderBy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "ORDER BY") || !contains(sql, "DESC") {
-		t.Errorf("expected ORDER BY ts DESC, got: %s", sql)
+	if !contains(sql, `"AccessView.ts" DESC`) {
+		t.Errorf("expected ORDER BY alias DESC, got: %s", sql)
 	}
 }
 
@@ -657,8 +682,9 @@ func TestBuildQuery_CustomDataSubKeyOrderBy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, `data[indexOf(key, 'UserToken')] DESC`) {
-		t.Errorf("expected subKey substitution in ORDER BY, got: %s", sql)
+	// ORDER BY 使用列别名而非原始 SQL 表达式
+	if !contains(sql, `"AccessView.customData.UserToken" DESC`) {
+		t.Errorf("expected alias in ORDER BY, got: %s", sql)
 	}
 }
 
@@ -677,12 +703,12 @@ func TestBuildQuery_CustomDataSubKeyGroupBy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// GROUP BY 应出现两次（SELECT 和 GROUP BY 各一次）
 	if !contains(sql, "GROUP BY") {
 		t.Errorf("expected GROUP BY clause, got: %s", sql)
 	}
-	if !contains(sql, `data[indexOf(key, 'UserToken')]`) {
-		t.Errorf("expected subKey substitution in GROUP BY, got: %s", sql)
+	// GROUP BY 使用列别名而非原始 SQL 表达式
+	if !contains(sql, `"AccessView.customData.UserToken"`) {
+		t.Errorf("expected alias in GROUP BY, got: %s", sql)
 	}
 }
 

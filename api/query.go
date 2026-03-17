@@ -216,7 +216,8 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString(strings.Join(where, " AND "))
 	}
 
-	// GROUP BY
+	// GROUP BY — 使用 SELECT 列别名，避免字面量（如 0）被当作位置引用，
+	// 同时避免复杂表达式被 ClickHouse 展开为聚合函数导致 ILLEGAL_AGGREGATION。
 	if len(req.Measures) > 0 && (len(req.Dimensions) > 0 || len(granCols) > 0) {
 		sql.WriteString(" GROUP BY ")
 		groupFirst := true
@@ -224,24 +225,19 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if !groupFirst {
 				sql.WriteString(", ")
 			}
-			_, fieldName, subKey := splitMemberName(dim)
-			if field, ok := cube.GetField(fieldName, subKey); ok {
-				sql.WriteString(field.SQL)
-			} else {
-				sql.WriteString(dim)
-			}
+			fmt.Fprintf(&sql, "\"%s\"", dim)
 			groupFirst = false
 		}
 		for _, gc := range granCols {
 			if !groupFirst {
 				sql.WriteString(", ")
 			}
-			sql.WriteString(gc.expr)
+			fmt.Fprintf(&sql, "\"%s\"", gc.alias)
 			groupFirst = false
 		}
 	}
 
-	// ORDER BY
+	// ORDER BY — 同样使用 SELECT 列别名，避免位置引用歧义和聚合函数重复。
 	if len(req.Order) > 0 {
 		sql.WriteString(" ORDER BY ")
 		i := 0
@@ -249,12 +245,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if i > 0 {
 				sql.WriteString(", ")
 			}
-			_, fieldName, subKey := splitMemberName(member)
-			if f, ok := cube.GetField(fieldName, subKey); ok {
-				sql.WriteString(f.SQL)
-			} else {
-				sql.WriteString(member)
-			}
+			fmt.Fprintf(&sql, "\"%s\"", member)
 			if direction == "desc" {
 				sql.WriteString(" DESC")
 			}
