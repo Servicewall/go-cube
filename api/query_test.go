@@ -63,15 +63,19 @@ func TestBuildQuery_MeasuresWithGroupBy(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	for _, substr := range []string{"GROUP BY", "count()", `"AccessView.ip"`} {
+	for _, substr := range []string{"GROUP BY", "count()", "ip"} {
 		if !contains(sql, substr) {
 			t.Errorf("expected SQL to contain %q, got: %s", substr, sql)
 		}
 	}
+	// GROUP BY 应使用位置引用
+	if !contains(sql, "GROUP BY 1") {
+		t.Errorf("expected GROUP BY with positional ref, got: %s", sql)
+	}
 }
 
 func TestBuildQuery_LiteralDimensionGroupByAlias(t *testing.T) {
-	// 维度 SQL 是字面量 0 时，GROUP BY / ORDER BY 应使用列别名，
+	// 维度 SQL 是字面量 0 时，GROUP BY / ORDER BY 应使用位置引用，
 	// 避免 ClickHouse 将 0 当作位置引用导致 BAD_ARGUMENTS 错误。
 	cube := testCube()
 	cube.Dimensions["isFavorite"] = model.Dimension{SQL: "0", Type: "number"}
@@ -85,13 +89,13 @@ func TestBuildQuery_LiteralDimensionGroupByAlias(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// GROUP BY 应使用别名而非字面量 0
-	if !contains(sql, `GROUP BY "AccessView.ip", "AccessView.isFavorite"`) {
-		t.Errorf("expected GROUP BY with aliases, got: %s", sql)
+	// GROUP BY 应使用位置引用而非字面量 0
+	if !contains(sql, "GROUP BY 1, 2") {
+		t.Errorf("expected GROUP BY with positional refs, got: %s", sql)
 	}
-	// ORDER BY 应使用别名而非字面量 0
-	if !contains(sql, `"AccessView.isFavorite" DESC`) {
-		t.Errorf("expected ORDER BY with alias, got: %s", sql)
+	// ORDER BY 应使用位置引用而非字面量 0
+	if !contains(sql, "2 DESC") {
+		t.Errorf("expected ORDER BY with positional ref, got: %s", sql)
 	}
 }
 
@@ -165,8 +169,8 @@ func TestBuildQuery_OrderBy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, `"AccessView.ts" DESC`) {
-		t.Errorf("expected ORDER BY alias DESC, got: %s", sql)
+	if !contains(sql, "1 DESC") {
+		t.Errorf("expected ORDER BY with positional ref DESC, got: %s", sql)
 	}
 }
 
@@ -682,9 +686,9 @@ func TestBuildQuery_CustomDataSubKeyOrderBy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// ORDER BY 使用列别名而非原始 SQL 表达式
-	if !contains(sql, `"AccessView.customData.UserToken" DESC`) {
-		t.Errorf("expected alias in ORDER BY, got: %s", sql)
+	// ORDER BY 使用位置引用
+	if !contains(sql, "1 DESC") {
+		t.Errorf("expected positional ref in ORDER BY, got: %s", sql)
 	}
 }
 
@@ -706,9 +710,8 @@ func TestBuildQuery_CustomDataSubKeyGroupBy(t *testing.T) {
 	if !contains(sql, "GROUP BY") {
 		t.Errorf("expected GROUP BY clause, got: %s", sql)
 	}
-	// GROUP BY 使用列别名而非原始 SQL 表达式
-	if !contains(sql, `"AccessView.customData.UserToken"`) {
-		t.Errorf("expected alias in GROUP BY, got: %s", sql)
+	if !contains(sql, "GROUP BY 1") {
+		t.Errorf("expected positional ref in GROUP BY, got: %s", sql)
 	}
 }
 

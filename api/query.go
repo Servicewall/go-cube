@@ -114,9 +114,11 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		granCols = append(granCols, granularityCol{alias: alias, expr: expr})
 	}
 
-	// SELECT
+	// SELECT — 同时记录每个列在 SELECT 中的位置（1-based），供 GROUP BY / ORDER BY 使用位置引用
 	sql.WriteString("SELECT ")
 	first := true
+	selectPos := 0
+	memberPos := make(map[string]int)
 	writeFields := func(names []string) {
 		for _, name := range names {
 			_, fieldName, subKey := splitMemberName(name)
@@ -126,6 +128,8 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				}
 				fmt.Fprintf(&sql, "%s AS \"%s\"", field.SQL, name)
 				first = false
+				selectPos++
+				memberPos[name] = selectPos
 			}
 		}
 	}
@@ -138,6 +142,8 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		}
 		fmt.Fprintf(&sql, "%s AS \"%s\"", gc.expr, gc.alias)
 		first = false
+		selectPos++
+		memberPos[gc.alias] = selectPos
 	}
 	if first {
 		sql.WriteString("1")
@@ -216,28 +222,33 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString(strings.Join(where, " AND "))
 	}
 
-	// GROUP BY — 使用 SELECT 列别名，避免字面量（如 0）被当作位置引用，
-	// 同时避免复杂表达式被 ClickHouse 展开为聚合函数导致 ILLEGAL_AGGREGATION。
+	// GROUP BY — 使用位置引用（1, 2, 3…），避免字面量（如 0）被当作位置引用、
+	// 复杂表达式被 ClickHouse 展开为聚合函数导致 ILLEGAL_AGGREGATION，
+	// 以及别名解析在不同 ClickHouse 版本/配置下的兼容性问题。
 	if len(req.Measures) > 0 && (len(req.Dimensions) > 0 || len(granCols) > 0) {
 		sql.WriteString(" GROUP BY ")
 		groupFirst := true
 		for _, dim := range req.Dimensions {
-			if !groupFirst {
-				sql.WriteString(", ")
+			if pos, ok := memberPos[dim]; ok {
+				if !groupFirst {
+					sql.WriteString(", ")
+				}
+				fmt.Fprintf(&sql, "%d", pos)
+				groupFirst = false
 			}
-			fmt.Fprintf(&sql, "\"%s\"", dim)
-			groupFirst = false
 		}
 		for _, gc := range granCols {
-			if !groupFirst {
-				sql.WriteString(", ")
+			if pos, ok := memberPos[gc.alias]; ok {
+				if !groupFirst {
+					sql.WriteString(", ")
+				}
+				fmt.Fprintf(&sql, "%d", pos)
+				groupFirst = false
 			}
-			fmt.Fprintf(&sql, "\"%s\"", gc.alias)
-			groupFirst = false
 		}
 	}
 
-	// ORDER BY — 同样使用 SELECT 列别名，避免位置引用歧义和聚合函数重复。
+	// ORDER BY — 同样使用位置引用，避免聚合函数重复和字面量歧义。
 	if len(req.Order) > 0 {
 		sql.WriteString(" ORDER BY ")
 		i := 0
@@ -245,7 +256,17 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if i > 0 {
 				sql.WriteString(", ")
 			}
-			fmt.Fprintf(&sql, "\"%s\"", member)
+			if pos, ok := memberPos[member]; ok {
+				fmt.Fprintf(&sql, "%d", pos)
+			} else {
+				// 不在 SELECT 中的字段回退到原始 SQL
+				_, fieldName, subKey := splitMemberName(member)
+				if f, ok := cube.GetField(fieldName, subKey); ok {
+					sql.WriteString(f.SQL)
+				} else {
+					sql.WriteString(member)
+				}
+			}
 			if direction == "desc" {
 				sql.WriteString(" DESC")
 			}
