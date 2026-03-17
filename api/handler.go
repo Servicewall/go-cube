@@ -68,6 +68,19 @@ func (h *Handler) Query(ctx context.Context, req *QueryRequest) (*QueryResponse,
 		return nil, err
 	}
 
+	// 对有 granularity 的 timeDimension，每行补写 "Cube.field" = "Cube.field.granularity" 的值
+	for _, td := range req.TimeDimensions {
+		if td.Granularity == "" {
+			continue
+		}
+		granKey := td.Dimension + "." + td.Granularity
+		for _, row := range data {
+			if v, ok := row[granKey]; ok {
+				row[td.Dimension] = v
+			}
+		}
+	}
+
 	return &QueryResponse{
 		QueryType: "regularQuery",
 		Results:   []QueryResult{{Query: *req, Data: data}},
