@@ -55,7 +55,7 @@ cube:
       title: 国家
 
     ipWithGeo:
-      sql: "If(length(multiIf(length(ip_geo)=0, '', ip_geo[1]<>'中国', ip_geo[1], ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3], format('{0}{1}', ip_geo[2], ip_geo[3]), ip_geo[2]<>'', ip_geo[2], ip_geo[1]))=0, ip, format('{0}({1})', ip, multiIf(length(ip_geo)=0, '', ip_geo[1]<>'中国', ip_geo[1], ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3], format('{0}{1}', ip_geo[2], ip_geo[3]), ip_geo[2]<>'', ip_geo[2], ip_geo[1])))"
+      sql: If(length(multiIf(length(ip_geo)=0, '', ip_geo[1]<>'中国', ip_geo[1], ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3], format('{0}{1}', ip_geo[2], ip_geo[3]), ip_geo[2]<>'', ip_geo[2], ip_geo[1]))=0, ip, format('{0}({1})', ip, multiIf(length(ip_geo)=0, '', ip_geo[1]<>'中国', ip_geo[1], ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3], format('{0}{1}', ip_geo[2], ip_geo[3]), ip_geo[2]<>'', ip_geo[2], ip_geo[1])))
       type: string
       title: IP(位置)
 
@@ -155,7 +155,7 @@ cube:
       title: 协议
 
     reqSensKV:
-      sql: "if(empty(req_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(req_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(req_sens_k, req_sens_v))), ','), arrayDistinct(req_sens_k)))))"
+      sql: if(empty(req_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(req_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(req_sens_k, req_sens_v))), ','), arrayDistinct(req_sens_k)))))
       type: string
       title: 请求敏感数据
 
@@ -216,12 +216,12 @@ cube:
       title: 响应大小
 
     request:
-      sql: "jsonMergePatch(req, toJSONString(map('Body', if(substr(JSONExtractString(req,'Method'),-3) IN ['C2S','S2C','TCP','WS'], tryBase64Decode(JSONExtractString(req,'Body')), subStr(JSONExtractString(req,'Body'),1,100000)))))"
+      sql: jsonMergePatch(req, toJSONString(map('Body', if(substr(JSONExtractString(req,'Method'),-3) IN ['C2S','S2C','TCP','WS'], tryBase64Decode(JSONExtractString(req,'Body')), subStr(JSONExtractString(req,'Body'),1,100000)))))
       type: string
       title: 请求报文
 
     response:
-      sql: "jsonMergePatch(res, toJSONString(map('Body', subStr(JSONExtractString(res, 'Body'), 1, 100000))))"
+      sql: jsonMergePatch(res, toJSONString(map('Body', subStr(JSONExtractString(res, 'Body'), 1, 100000))))
       type: string
       title: 响应报文
 
@@ -236,57 +236,57 @@ cube:
       title: 文件类型
 
     fileDirection:
-      sql: "if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')"
+      sql: if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')
       type: string
       title: 动作
 
     fileMd5:
-      sql: "if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'md5'), JSONExtractString(file,1,'md5'))"
+      sql: if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'md5'), JSONExtractString(file,1,'md5'))
       type: string
       title: 文件MD5
 
     fileSha1:
-      sql: "if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'sha1'), JSONExtractString(file,1,'sha1'))"
+      sql: if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'sha1'), JSONExtractString(file,1,'sha1'))
       type: string
       title: 文件SHA1
 
     fileCategory:
-      sql: "multiIf((if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')='下载' and notEmpty(res_sens_k)) or (if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')='上传' and notEmpty(req_sens_k)), '隐私文件', if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'encrypt'), JSONExtractString(file,1,'encrypt')) = 'true', '加密文件', '普通文件')"
+      sql: multiIf((if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')='下载' and notEmpty(res_sens_k)) or (if(notEmpty(file), if(JSONExtractString(file, 'name')!='', '下载', '上传'), '')='上传' and notEmpty(req_sens_k)), '隐私文件', if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'encrypt'), JSONExtractString(file,1,'encrypt')) = 'true', '加密文件', '普通文件')
       type: string
       title: 文件分类
 
     fileSensKey:
-      sql: "if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k)"
+      sql: if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k)
       type: array
       title: 文件敏感数据Key
 
     fileSensVal:
-      sql: "if(JSONExtractString(file, 'name') != '', res_sens_v, req_sens_v)"
+      sql: if(JSONExtractString(file, 'name') != '', res_sens_v, req_sens_v)
       type: array
       title: 文件敏感数据值
 
     fileSensKeyExt:
-      sql: "if(JSONExtractString(file, 'name') != '', arrayJoin(res_sens_k), arrayJoin(req_sens_k))"
+      sql: if(JSONExtractString(file, 'name') != '', arrayJoin(res_sens_k), arrayJoin(req_sens_k))
       type: string
       title: 文件敏感数据Key展开
 
     fileSensValExt:
-      sql: "if(JSONExtractString(file, 'name') != '', arrayJoin(res_sens_v), arrayJoin(req_sens_v))"
+      sql: if(JSONExtractString(file, 'name') != '', arrayJoin(res_sens_v), arrayJoin(req_sens_v))
       type: string
       title: 文件敏感数据值展开
 
     fileSampleKey:
-      sql: "arraySlice(if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k), 1, 1000)"
+      sql: arraySlice(if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k), 1, 1000)
       type: string
       title: 文件隐私名称采样
 
     fileSampleVal:
-      sql: "arraySlice(if(JSONExtractString(file, 'name') != '', res_sens_v, req_sens_v), 1, 1000)"
+      sql: arraySlice(if(JSONExtractString(file, 'name') != '', res_sens_v, req_sens_v), 1, 1000)
       type: string
       title: 文件隐私采样
 
     fileSensKeyNum:
-      sql: "toJSONString(arrayReduce('sumMap', arrayMap(x -> map(x, 1), if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k))))"
+      sql: toJSONString(arrayReduce('sumMap', arrayMap(x -> map(x, 1), if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k))))
       type: string
       title: 文件敏感数据统计
 
@@ -351,32 +351,32 @@ cube:
       title: 敏感得分
 
     resSensKV:
-      sql: "if(empty(res_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(res_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(res_sens_k, res_sens_v))), ','), arrayDistinct(res_sens_k)))))"
+      sql: if(empty(res_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(res_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(res_sens_k, res_sens_v))), ','), arrayDistinct(res_sens_k)))))
       type: string
       title: 响应敏感数据
 
     dbType:
-      sql: "if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')"
+      sql: if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')
       type: string
       title: 数据库类型
 
     dbName:
-      sql: "if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-2], '')"
+      sql: if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-2], '')
       type: string
       title: 数据库名
 
     tableName:
-      sql: "if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-1], '')"
+      sql: if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-1], '')
       type: string
       title: 表名
 
     dbInfo:
-      sql: "if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), format('{0}.{1}({2})', if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-2], ''), if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-1], ''), if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), '')"
+      sql: if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), format('{0}.{1}({2})', if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-2], ''), if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-1], ''), if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), '')
       type: string
       title: 数据库信息
 
     dbSensKV:
-      sql: "if(empty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')) OR empty(res_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(res_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(res_sens_k, res_sens_v))), ','), arrayDistinct(res_sens_k)))))"
+      sql: if(empty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')) OR empty(res_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(res_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(res_sens_k, res_sens_v))), ','), arrayDistinct(res_sens_k)))))
       type: string
       title: 数据库敏感数据
 
@@ -417,7 +417,7 @@ cube:
       title: 自定义数据
 
     hostUrl:
-      sql: "concat(host, multiIf(url_route != '', url_route, countSubstrings(url, '/') < 2, url, arrayStringConcat(arrayMap(x -> if(countMatches(x, '[0-9a-fA-F-]') > 0.8 * length(x), '{parameter}', x), splitByChar('/', url)), '/')))"
+      sql: concat(host, multiIf(url_route != '', url_route, countSubstrings(url, '/') < 2, url, arrayStringConcat(arrayMap(x -> if(countMatches(x, '[0-9a-fA-F-]') > 0.8 * length(x), '{parameter}', x), splitByChar('/', url)), '/')))
       type: string
       title: 域名URL
 
@@ -452,22 +452,22 @@ cube:
       title: 设备数据
 
     devRealIp:
-      sql: "JSONExtractString(dev_data, 'WebDeviceInfo', 'WebRTC', 1)"
+      sql: JSONExtractString(dev_data, 'WebDeviceInfo', 'WebRTC', 1)
       type: string
       title: 设备真实IP
 
     devType:
-      sql: "multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),'Android',visitParamHas(dev_data,'IOSDeviceInfo'),'iOS',visitParamHas(dev_data,'WebDeviceInfo'),'H5',visitParamHas(dev_data,'WechatMpDeviceInfo'),'小程序',visitParamHas(dev_data,'HarmonyDeviceInfo'),'Harmony','')"
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),'Android',visitParamHas(dev_data,'IOSDeviceInfo'),'iOS',visitParamHas(dev_data,'WebDeviceInfo'),'H5',visitParamHas(dev_data,'WechatMpDeviceInfo'),'小程序',visitParamHas(dev_data,'HarmonyDeviceInfo'),'Harmony','')
       type: string
       title: 平台
 
     isProxy:
-      sql: "if(JSONExtractString(dev_data,'WebDeviceInfo','WebRTC',1)!='' and JSONExtractString(dev_data,'WebDeviceInfo','WebRTC',1)!=ip, '是', '否')"
+      sql: if(JSONExtractString(dev_data,'WebDeviceInfo','WebRTC',1)!='' and JSONExtractString(dev_data,'WebDeviceInfo','WebRTC',1)!=ip, '是', '否')
       type: string
       title: 是否使用代理
 
     isBot:
-      sql: "if(arraySum(x -> dictGetInt64('default.risk_dict','score',x), req_risk)!=0, 'bad', '')"
+      sql: if(arraySum(x -> dictGetInt64('default.risk_dict','score',x), req_risk)!=0, 'bad', '')
       type: string
       title: 机器人
 
@@ -477,22 +477,22 @@ cube:
       title: 应用标识
 
     customAppDesc:
-      sql: "dictGetString('default.custom_app_dict', 'desc', ext_id[7])"
+      sql: dictGetString('default.custom_app_dict', 'desc', ext_id[7])
       type: string
       title: 应用描述
 
     appName:
-      sql: "multiIf(arrayExists(x -> position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x -> position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x -> startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x -> startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*'))[2],host)"
+      sql: multiIf(arrayExists(x -> position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x -> position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x -> startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x -> startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*'))[2],host)
       type: string
       title: 应用
 
     assetLevel:
-      sql: "if(url_action[4]='2','高危','一般')"
+      sql: if(url_action[4]='2','高危','一般')
       type: string
       title: 威胁等级
 
     assetType:
-      sql: "multiIf(url_action[2]='res','资源',url_action[2]='file','文件','API')"
+      sql: multiIf(url_action[2]='res','资源',url_action[2]='file','文件','API')
       type: string
       title: 业务类别
 
@@ -512,57 +512,57 @@ cube:
       title: 组织
 
     ipInfo:
-      sql: "dictGetString('default.ip_dict', 'info', ip)"
+      sql: dictGetString('default.ip_dict', 'info', ip)
       type: string
       title: IP情报
 
     deviceInfo:
-      sql: "dictGetString('default.device_dict', 'info', sid)"
+      sql: dictGetString('default.device_dict', 'info', sid)
       type: string
       title: 设备情报
 
     resultLevel:
-      sql: "multiIf(multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=80,'高风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=50,'中风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=20,'低风险','无风险')"
+      sql: multiIf(multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=80,'高风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=50,'中风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=20,'低风险','无风险')
       type: string
       title: 风险级别
 
     maskRule:
-      sql: "arrayFilter(x -> position(x,'脱敏')>0, res_risk)"
+      sql: arrayFilter(x -> position(x,'脱敏')>0, res_risk)
       type: array
       title: 脱敏规则
 
     isSens:
-      sql: "multiIf(notEmpty(req_sens_k),'request',notEmpty(res_sens_k),'response','')"
+      sql: multiIf(notEmpty(req_sens_k),'request',notEmpty(res_sens_k),'response','')
       type: string
       title: 是否含敏感数据
 
     isReqSens:
-      sql: "if(notEmpty(req_sens_k),'request','')"
+      sql: if(notEmpty(req_sens_k),'request','')
       type: string
       title: 请求含敏感数据
 
     isResSens:
-      sql: "if(notEmpty(res_sens_k),'response','')"
+      sql: if(notEmpty(res_sens_k),'response','')
       type: string
       title: 响应含敏感数据
 
     isApi:
-      sql: "url_action[2] = 'api'"
+      sql: url_action[2] = 'api'
       type: string
       title: 是否API
 
     isEncrypted:
-      sql: "if(JSONExtractString(file,'name')!='',JSONExtractString(file,'encrypt'),JSONExtractString(file,1,'encrypt'))"
+      sql: if(JSONExtractString(file,'name')!='',JSONExtractString(file,'encrypt'),JSONExtractString(file,1,'encrypt'))
       type: string
       title: 是否加密
 
     isFile:
-      sql: "if(notEmpty(file),'file','')"
+      sql: if(notEmpty(file),'file','')
       type: string
       title: 是否文件
 
     isFileSens:
-      sql: "if(notEmpty(if(JSONExtractString(file,'name')!='',res_sens_k,req_sens_k)),'sensFile','')"
+      sql: if(notEmpty(if(JSONExtractString(file,'name')!='',res_sens_k,req_sens_k)),'sensFile','')
       type: string
       title: 是否敏感文件
 
@@ -604,12 +604,12 @@ cube:
       title: 响应类型
 
     reqEncryptMethod:
-      sql: "splitByChar('|',ext_id[6])[1]"
+      sql: splitByChar('|',ext_id[6])[1]
       type: string
       title: 请求加解密算法
 
     respEncryptMethod:
-      sql: "splitByChar('|',ext_id[6])[2]"
+      sql: splitByChar('|',ext_id[6])[2]
       type: string
       title: 响应加解密算法
 
@@ -639,17 +639,17 @@ cube:
       title: 请求令牌
 
     analysis:
-      sql: "multiIf(result='protect','保护',result='failed','失败',result='pass','放行',result='success','成功','')"
+      sql: multiIf(result='protect','保护',result='failed','失败',result='pass','放行',result='success','成功','')
       type: string
       title: 结果分析
 
     srcNode:
-      sql: "if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1])"
+      sql: if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1])
       type: string
       title: 源节点地址
 
     dstPort:
-      sql: "if(countSubstrings(upstream,':')=0 OR position(splitByChar(':',upstream)[-1],']')>0,'80',splitByChar(':',upstream)[-1])"
+      sql: if(countSubstrings(upstream,':')=0 OR position(splitByChar(':',upstream)[-1],']')>0,'80',splitByChar(':',upstream)[-1])
       type: string
       title: 目标节点端口
 
@@ -672,7 +672,6 @@ cube:
       sql: 1=1 # Placeholder - requires custom dim filter
     riskNotConfirmed:
       sql: 1=1 # Placeholder - requires custom dim filter
-
   measures:
     count:
       sql: count()
@@ -690,97 +689,97 @@ cube:
       title: 小时访问量
 
     hourBlockCountArray:
-      sql: "sumMap([toUnixTimestamp(toStartOfHour(ts))],[if(result='protect',1,0)])"
+      sql: sumMap([toUnixTimestamp(toStartOfHour(ts))],[if(result='protect',1,0)])
       type: string
       title: 每小时防护量
 
     hourCountToday:
-      sql: "arrayFilter(x->x.1>=toStartOfDay(now()),arrayZip(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).1,sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))"
+      sql: arrayFilter(x->x.1>=toStartOfDay(now()),arrayZip(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).1,sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))
       type: string
       title: 今日小时访问量
 
     hourCountAvg:
-      sql: "arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)"
+      sql: arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)
       type: number
       title: 小时平均访问量
 
     hourCountStddev:
-      sql: "sqrt(arraySum(arrayMap(x->(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))*(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)),sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))/(length(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)-1))"
+      sql: sqrt(arraySum(arrayMap(x->(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))*(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)),sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))/(length(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)-1))
       type: number
       title: 小时访问量标准差
 
     hourZscoreArray:
-      sql: "arrayMap(x->(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))/sqrt(arraySum(arrayMap(y->(y-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))*(y-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)),sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))/(length(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)-1)),sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)"
+      sql: arrayMap(x->(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))/sqrt(arraySum(arrayMap(y->(y-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))*(y-arrayAvg(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)),sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2))/(length(sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)-1)),sumMap([toUnixTimestamp(toStartOfHour(ts))],[1]).2)
       type: string
       title: 小时Z-Score
 
     hourCountPredictArray:
-      sql: "arrayMap(x->if(x.1>hour(now()),(toUnixTimestamp(toStartOfDay(now()))+x.1*3600,x.2/uniqHLL12(Date(ts))-1),(toUnixTimestamp(toStartOfDay(now()))+x.1*3600,x.2/uniqHLL12(Date(ts)))),arrayZip(sumMap([toUnixTimestamp(hour(ts))],[1]).1,sumMap([toUnixTimestamp(hour(ts))],[1]).2))"
+      sql: arrayMap(x->if(x.1>hour(now()),(toUnixTimestamp(toStartOfDay(now()))+x.1*3600,x.2/uniqHLL12(Date(ts))-1),(toUnixTimestamp(toStartOfDay(now()))+x.1*3600,x.2/uniqHLL12(Date(ts)))),arrayZip(sumMap([toUnixTimestamp(hour(ts))],[1]).1,sumMap([toUnixTimestamp(hour(ts))],[1]).2))
       type: string
       title: 小时访问量预测
 
     minBlockCountArray:
-      sql: "sumMap([toUnixTimestamp(toStartOfMinute(ts))],[if(result='protect',1,0)])"
+      sql: sumMap([toUnixTimestamp(toStartOfMinute(ts))],[if(result='protect',1,0)])
       type: string
       title: 分钟防护量
 
     minCountAvg:
-      sql: "arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)"
+      sql: arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)
       type: number
       title: 分钟平均访问量
 
     minCountStddev:
-      sql: "sqrt(arraySum(arrayMap(x->(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))*(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)),sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))/(length(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)-1))"
+      sql: sqrt(arraySum(arrayMap(x->(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))*(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)),sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))/(length(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)-1))
       type: number
       title: 分钟访问量标准差
 
     minZscoreArray:
-      sql: "arrayMap(x->(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))/sqrt(arraySum(arrayMap(y->(y-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))*(y-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)),sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))/(length(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)-1)),sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)"
+      sql: arrayMap(x->(x-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))/sqrt(arraySum(arrayMap(y->(y-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))*(y-arrayAvg(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)),sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2))/(length(sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)-1)),sumMap([toUnixTimestamp(toStartOfMinute(ts))],[1]).2)
       type: string
       title: 分钟Z-Score
 
     minCountPredictArray:
-      sql: "sumMap([toUnixTimestamp(toStartOfMinute(ts)+3600*24)],[1])"
+      sql: sumMap([toUnixTimestamp(toStartOfMinute(ts)+3600*24)],[1])
       type: string
       title: 分钟访问量预测
 
     riskCount:
-      sql: "countIf(notEmpty(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))"
+      sql: countIf(notEmpty(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))
       type: number
       title: 风险数量
 
     blockCount:
-      sql: "countIf(result='protect')"
+      sql: countIf(result='protect')
       type: number
       title: 阻断量
 
     blockSearchCount:
-      sql: "countIf(url_action[1]='search' and url_action[2]!='auto' and result='protect')"
+      sql: countIf(url_action[1]='search' and url_action[2]!='auto' and result='protect')
       type: number
       title: 阻断查询量
 
     blockCrawlerCount:
-      sql: "countIf(result='protect')"
+      sql: countIf(result='protect')
       type: number
       title: 爬虫防护量
 
     uniqBlockCrawlerCount:
-      sql: "uniqHLL12If(sid, sid!='' and result='protect')"
+      sql: uniqHLL12If(sid, sid!='' and result='protect')
       type: number
       title: 威胁设备数
 
     uniqProtectApiCount:
-      sql: "uniqHLL12If(url, result='protect')"
+      sql: uniqHLL12If(url, result='protect')
       type: number
       title: API防护量
 
     protectAssetCount:
-      sql: "countIf(url_action[4]!='0' and result='protect')"
+      sql: countIf(url_action[4]!='0' and result='protect')
       type: number
       title: 业务防护量
 
     protectHighAssetCount:
-      sql: "countIf(url_action[4]='2' and result='protect')"
+      sql: countIf(url_action[4]='2' and result='protect')
       type: number
       title: 高威业务防护量
 
@@ -790,37 +789,37 @@ cube:
       title: 唯一IP数
 
     uniqDevCount:
-      sql: "uniqHLL12If(sid, sid!='')"
+      sql: uniqHLL12If(sid, sid!='')
       type: number
       title: 唯一设备数
 
     uniqNoDevCount:
-      sql: "uniqHLL12If(ip, ua, sid='')"
+      sql: uniqHLL12If(ip, ua, sid='')
       type: number
       title: 未上报设备数
 
     uniqAllDevCount:
-      sql: "uniqHLL12If(sid,sid!='') + uniqHLL12If(ip,ua,sid='')"
+      sql: uniqHLL12If(sid,sid!='') + uniqHLL12If(ip,ua,sid='')
       type: number
       title: 总设备数
 
     uniqRiskDevCount:
-      sql: "uniqHLL12If(sid, sid!='' and notEmpty(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))"
+      sql: uniqHLL12If(sid, sid!='' and notEmpty(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))
       type: number
       title: 风险设备数
 
     uniqRiskIpCount:
-      sql: "uniqHLL12If(ip, notEmpty(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))"
+      sql: uniqHLL12If(ip, notEmpty(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))
       type: number
       title: 风险IP数
 
     uniqRiskUserCount:
-      sql: "uniqHLL12If(uid, uid!='' and notEmpty(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))"
+      sql: uniqHLL12If(uid, uid!='' and notEmpty(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))
       type: number
       title: 风险用户数
 
     uniqUserCount:
-      sql: "uniqHLL12If(uid, uid!='')"
+      sql: uniqHLL12If(uid, uid!='')
       type: number
       title: 唯一用户数
 
@@ -830,42 +829,42 @@ cube:
       title: 访客数
 
     uniqApiCount:
-      sql: "uniqIf(multiIf(arrayExists(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*'))[2],host), method, multiIf(url_route!='',url_route,countSubstrings(url,'/')<2,url,arrayStringConcat(arrayMap(x->if(countMatches(x,'[0-9a-fA-F-]')>0.8*length(x),'{parameter}',x),splitByChar('/',url)),'/')), url_action[2]='api')"
+      sql: uniqIf(multiIf(arrayExists(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*'))[2],host), method, multiIf(url_route!='',url_route,countSubstrings(url,'/')<2,url,arrayStringConcat(arrayMap(x->if(countMatches(x,'[0-9a-fA-F-]')>0.8*length(x),'{parameter}',x),splitByChar('/',url)),'/')), url_action[2]='api')
       type: number
       title: API数
 
     uniqAppCount:
-      sql: "uniq(multiIf(arrayExists(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*'))[2],host))"
+      sql: uniq(multiIf(arrayExists(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*'))[2],host))
       type: number
       title: APP数
 
     uniqAppArray:
-      sql: "groupUniqArray(multiIf(arrayExists(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*'))[2],host))"
+      sql: groupUniqArray(multiIf(arrayExists(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x->position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x->startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\\\d+$',assumeNotNull(host))[1]||':*'))[2],host))
       type: string
       title: APP列表
 
     uniqBlockIpCount:
-      sql: "uniqHLL12If(ip, result='protect' and ip!='')"
+      sql: uniqHLL12If(ip, result='protect' and ip!='')
       type: number
       title: IP防护量
 
     uniqBlockDevCount:
-      sql: "uniqHLL12If(sid, result='protect' and sid!='')"
+      sql: uniqHLL12If(sid, result='protect' and sid!='')
       type: number
       title: 设备防护量
 
     uniqBlockUserCount:
-      sql: "uniqHLL12If(uid, result='protect' and uid!='')"
+      sql: uniqHLL12If(uid, result='protect' and uid!='')
       type: number
       title: 用户防护量
 
     avgApiByUserCount:
-      sql: "round(uniqHLL12(ip,ua,sid,uid,host,method,url)/uniqHLL12(ip,ua,sid,uid),2)"
+      sql: round(uniqHLL12(ip,ua,sid,uid,host,method,url)/uniqHLL12(ip,ua,sid,uid),2)
       type: number
       title: 平均API流量量
 
     avgMinByUserCount:
-      sql: "round(uniqHLL12(ip,ua,sid,uid,toStartOfMinute(ts))/uniqHLL12(ip,ua,sid,uid),2)"
+      sql: round(uniqHLL12(ip,ua,sid,uid,toStartOfMinute(ts))/uniqHLL12(ip,ua,sid,uid),2)
       type: number
       title: 平均访问时长
 
@@ -910,17 +909,17 @@ cube:
       title: 域名TOP3
 
     uniqPortCount:
-      sql: "uniq(if(countSubstrings(upstream,':')=0 OR position(splitByChar(':',upstream)[-1],']')>0,'80',splitByChar(':',upstream)[-1]))"
+      sql: uniq(if(countSubstrings(upstream,':')=0 OR position(splitByChar(':',upstream)[-1],']')>0,'80',splitByChar(':',upstream)[-1]))
       type: number
       title: 端口数
 
     uniqPortArray:
-      sql: "groupUniqArray(if(countSubstrings(upstream,':')=0 OR position(splitByChar(':',upstream)[-1],']')>0,'80',splitByChar(':',upstream)[-1]))"
+      sql: groupUniqArray(if(countSubstrings(upstream,':')=0 OR position(splitByChar(':',upstream)[-1],']')>0,'80',splitByChar(':',upstream)[-1]))
       type: string
       title: 端口列表
 
     topPortArray:
-      sql: "topK(5)(if(countSubstrings(upstream,':')=0 OR position(splitByChar(':',upstream)[-1],']')>0,'80',splitByChar(':',upstream)[-1]))"
+      sql: topK(5)(if(countSubstrings(upstream,':')=0 OR position(splitByChar(':',upstream)[-1],']')>0,'80',splitByChar(':',upstream)[-1]))
       type: string
       title: 端口TOP5
 
@@ -945,22 +944,22 @@ cube:
       title: 涉敏响应数
 
     intraNetCount:
-      sql: "sum(substr(ip,1,3)=substr(data[1],1,3))"
+      sql: sum(substr(ip,1,3)=substr(data[1],1,3))
       type: number
       title: 内网流量计数
 
     topoSearchCount:
-      sql: "url, if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1]), if(position(upstream,']')!=0,regexpExtract(upstream,'\\[(.*)\\]',1),splitByChar(':',upstream)[1]), host, method"
+      sql: url, if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1]), if(position(upstream,']')!=0,regexpExtract(upstream,'\\[(.*)\\]',1),splitByChar(':',upstream)[1]), host, method
       type: countDistinct
       title: 拓扑搜索量
 
     aggRisk:
-      sql: "groupUniqArrayArray(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk))"
+      sql: groupUniqArrayArray(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk))
       type: string
       title: 命中规则(去重)
 
     aggScore:
-      sql: "multiIf(arrayExists(x->dictGetInt64('default.risk_dict','score',x)=-100,groupUniqArrayArray(arrayFilter(x->dictGetInt64('default.risk_dict','score',x)!=0,req_risk))),-100,notEmpty(groupUniqArrayArray(arrayFilter(x->dictGetInt64('default.risk_dict','score',x)!=0,req_risk))),100-100*arrayProduct(arrayMap(x->1-0.01*dictGetInt64('default.risk_dict','score',x),groupUniqArrayArray(arrayFilter(x->dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))),0)"
+      sql: multiIf(arrayExists(x->dictGetInt64('default.risk_dict','score',x)=-100,groupUniqArrayArray(arrayFilter(x->dictGetInt64('default.risk_dict','score',x)!=0,req_risk))),-100,notEmpty(groupUniqArrayArray(arrayFilter(x->dictGetInt64('default.risk_dict','score',x)!=0,req_risk))),100-100*arrayProduct(arrayMap(x->1-0.01*dictGetInt64('default.risk_dict','score',x),groupUniqArrayArray(arrayFilter(x->dictGetInt64('default.risk_dict','score',x)!=0,req_risk)))),0)
       type: number
       title: 风险打分
 
@@ -970,7 +969,7 @@ cube:
       title: 弱点(去重)
 
     aggWeakScore:
-      sql: "if(notEmpty(groupUniqArrayArray(weak_k)),100-100*arrayProduct(arrayMap(x->1-0.01*dictGetInt64('default.weak_dict','score',x),groupUniqArrayArray(weak_k))),0)"
+      sql: if(notEmpty(groupUniqArrayArray(weak_k)),100-100*arrayProduct(arrayMap(x->1-0.01*dictGetInt64('default.weak_dict','score',x),groupUniqArrayArray(weak_k))),0)
       type: number
       title: 弱点打分
 
@@ -980,82 +979,82 @@ cube:
       title: 响应敏感信息次数(去重)
 
     aggSensKey:
-      sql: "groupUniqArrayArray(arrayConcat(req_sens_k,res_sens_k))"
+      sql: groupUniqArrayArray(arrayConcat(req_sens_k,res_sens_k))
       type: string
       title: 聚合敏感数据
 
     aggSensValNum:
-      sql: "uniqHLL12Array(arrayConcat(req_sens_v,res_sens_v))"
+      sql: uniqHLL12Array(arrayConcat(req_sens_v,res_sens_v))
       type: number
       title: 聚合敏感数据次数(去重)
 
     aggSensScore:
-      sql: "if(notEmpty(groupUniqArrayArray(arrayConcat(req_sens_k,res_sens_k))),100-100*arrayProduct(arrayMap(x->1-0.01*dictGetInt64('default.privacy_dict','score',x),groupUniqArrayArray(arrayConcat(req_sens_k,res_sens_k)))),0)"
+      sql: if(notEmpty(groupUniqArrayArray(arrayConcat(req_sens_k,res_sens_k))),100-100*arrayProduct(arrayMap(x->1-0.01*dictGetInt64('default.privacy_dict','score',x),groupUniqArrayArray(arrayConcat(req_sens_k,res_sens_k)))),0)
       type: number
       title: 聚合敏感分
 
     aggPiiScore:
-      sql: "if(notEmpty(groupUniqArrayArray(res_sens_k)),100-100*arrayProduct(arrayMap(x->1-0.01*dictGetInt64('default.privacy_dict','score',x),groupUniqArrayArray(res_sens_k))),0)"
+      sql: if(notEmpty(groupUniqArrayArray(res_sens_k)),100-100*arrayProduct(arrayMap(x->1-0.01*dictGetInt64('default.privacy_dict','score',x),groupUniqArrayArray(res_sens_k))),0)
       type: number
       title: 聚合PII分
 
     fileNum:
-      sql: "uniqHLL12(JSONExtractString(file,'md5'))"
+      sql: uniqHLL12(JSONExtractString(file,'md5'))
       type: number
       title: 隐私文件数
 
     fileCount:
-      sql: "count(JSONExtractString(file,'md5'))"
+      sql: count(JSONExtractString(file,'md5'))
       type: number
       title: 隐私文件下载次数
 
     fileTypes:
-      sql: "uniqHLL12(if(JSONExtractString(file,'name')!='',JSONExtractString(file,'type'),JSONExtractString(file,1,'type')))"
+      sql: uniqHLL12(if(JSONExtractString(file,'name')!='',JSONExtractString(file,'type'),JSONExtractString(file,1,'type')))
       type: number
       title: 隐私文件种类
 
     resSensCountMapValExcluded:
-      sql: "0"
+      sql: 0
       type: number
       title: 敏感值是否被忽略
 
     uniqReqSensMap:
-      sql: "toJSONString(uniqMap(mapFromArrays(req_sens_k,req_sens_v)))"
+      sql: toJSONString(uniqMap(mapFromArrays(req_sens_k,req_sens_v)))
       type: string
       title: 去重敏感数据(请求)
 
     uniqRespSensMap:
-      sql: "toJSONString(uniqMap(mapFromArrays(res_sens_k,res_sens_v)))"
+      sql: toJSONString(uniqMap(mapFromArrays(res_sens_k,res_sens_v)))
       type: string
       title: 去重敏感数据(响应)
 
     autoTagSet:
-      sql: "groupUniqArrayArray(if(notEmpty(url_action[6]),arrayFilter(x->notEmpty(x),splitByChar(',',url_action[6])),if((url_action[2]='api' OR url_action[2]='auto') and notEmpty(url_action[1]),[url_action[1]],[])))"
+      sql: groupUniqArrayArray(if(notEmpty(url_action[6]),arrayFilter(x->notEmpty(x),splitByChar(',',url_action[6])),if((url_action[2]='api' OR url_action[2]='auto') and notEmpty(url_action[1]),[url_action[1]],[])))
       type: string
       title: 自动分组标签集合
 
     srcMid:
-      sql: "arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es',''),if(countIf(url='/raft/probing' or position(lower(ua),'etcd')>0)>0,'etcd',''),if(countIf(position(lower(ua),'hbase')>0)>0,'hbase',''),if(countIf(position(lower(ua),'mongodb')>0)>0,'mongodb',''),if(countIf(position(lower(ua),'clickhouse')>0)>0,'clickhouse',''),if(countIf(position(lower(ua),'nacos')>0 and position(lower(ua),'client')=0)>0,'nacos',''),if(countIf(position(lower(ua),'eureka')>0 and position(lower(ua),'client')=0)>0,'eureka',''),if(countIf(position(lower(ua),'rabbitmq')>0)>0,'rabbitmq',''),if(countIf(position(lower(ua),'activemq')>0)>0,'activemq',''),if(countIf(position(lower(ua),'kafka')>0)>0,'kafka',''),if(countIf(position(lower(ua),'consul')>0)>0,'consul',''),if(countIf(position(lower(ua),'prometheus')>0)>0,'prometheus',''),if(countIf(position(lower(ua),'hadoop')>0)>0,'hadoop','')))),',')"
+      sql: arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es',''),if(countIf(url='/raft/probing' or position(lower(ua),'etcd')>0)>0,'etcd',''),if(countIf(position(lower(ua),'hbase')>0)>0,'hbase',''),if(countIf(position(lower(ua),'mongodb')>0)>0,'mongodb',''),if(countIf(position(lower(ua),'clickhouse')>0)>0,'clickhouse',''),if(countIf(position(lower(ua),'nacos')>0 and position(lower(ua),'client')=0)>0,'nacos',''),if(countIf(position(lower(ua),'eureka')>0 and position(lower(ua),'client')=0)>0,'eureka',''),if(countIf(position(lower(ua),'rabbitmq')>0)>0,'rabbitmq',''),if(countIf(position(lower(ua),'activemq')>0)>0,'activemq',''),if(countIf(position(lower(ua),'kafka')>0)>0,'kafka',''),if(countIf(position(lower(ua),'consul')>0)>0,'consul',''),if(countIf(position(lower(ua),'prometheus')>0)>0,'prometheus',''),if(countIf(position(lower(ua),'hadoop')>0)>0,'hadoop','')))),',')
       type: string
       title: 源节点中间件
 
     dstMid:
-      sql: "arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(url like '%/\\_search' AND length(splitByChar('/',url)) IN (3,4))>0,'es',''),if(countIf((url like '%/v_/kv/%' AND length(splitByChar('/',url)) BETWEEN 4 AND 5) OR url='/raft/probing')>0,'etcd',''),if(countIf(url like '%/scanner/%' AND (JSONExtractString(url_param,'column')!='' OR JSONExtractString(url_param,'start_row')!=''))>0,'hbase',''),if(countIf((method='GET' AND (url like '%/collections%/documents%' OR url like '%/collections%/indexes%')) OR (method='POST' AND url like '%/runCommand'))>0,'mongodb',''),if(countIf(url='/' AND match(upper(JSONExtractString(url_param,'query',1)),'^(SELECT|INSERT)'))>0,'clickhouse',''),if(countIf((position(lower(ua),'nacos')>0 AND position(lower(ua),'client')=0) OR url like '/nacos/v_/ns/instance%')>0,'nacos',''),if(countIf((position(lower(ua),'eureka')>0 AND position(lower(ua),'client')=0) OR (url like '/apps/%' AND length(splitByChar('/',url))=4))>0,'eureka',''),if(countIf(url like '/api/%' AND length(splitByChar('/',url)) BETWEEN 4 AND 7 AND splitByChar('/',url)[3] IN ('queues','consumers','exchanges'))>0,'rabbitmq',''),if(countIf(url like '%/org.apache.activemq:brokerName=localhost,type=Broker/%')>0,'activemq',''),if(countIf((method='POST' AND length(splitByChar('/',url))>=2 AND splitByChar('/',url)[2]='topics') OR (method='GET' AND length(splitByChar('/',url))>=6 AND splitByChar('/',url)[4]='partitions' AND splitByChar('/',url)[6]='records'))>0,'kafka',''),if(countIf(url like '%/v%_/%' AND length(splitByChar('/',url))>=4 AND splitByChar('/',url)[3] IN ('agent','catalog') AND splitByChar('/',url)[4] IN ('services','members','self'))>0,'consul',''),if(countIf(url like '%/metrics/api/v2/agent/config/list' AND url like '%/cluster/upstream')>0,'datadog','')))),',')"
+      sql: arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(url like '%/\\_search' AND length(splitByChar('/',url)) IN (3,4))>0,'es',''),if(countIf((url like '%/v_/kv/%' AND length(splitByChar('/',url)) BETWEEN 4 AND 5) OR url='/raft/probing')>0,'etcd',''),if(countIf(url like '%/scanner/%' AND (JSONExtractString(url_param,'column')!='' OR JSONExtractString(url_param,'start_row')!=''))>0,'hbase',''),if(countIf((method='GET' AND (url like '%/collections%/documents%' OR url like '%/collections%/indexes%')) OR (method='POST' AND url like '%/runCommand'))>0,'mongodb',''),if(countIf(url='/' AND match(upper(JSONExtractString(url_param,'query',1)),'^(SELECT|INSERT)'))>0,'clickhouse',''),if(countIf((position(lower(ua),'nacos')>0 AND position(lower(ua),'client')=0) OR url like '/nacos/v_/ns/instance%')>0,'nacos',''),if(countIf((position(lower(ua),'eureka')>0 AND position(lower(ua),'client')=0) OR (url like '/apps/%' AND length(splitByChar('/',url))=4))>0,'eureka',''),if(countIf(url like '/api/%' AND length(splitByChar('/',url)) BETWEEN 4 AND 7 AND splitByChar('/',url)[3] IN ('queues','consumers','exchanges'))>0,'rabbitmq',''),if(countIf(url like '%/org.apache.activemq:brokerName=localhost,type=Broker/%')>0,'activemq',''),if(countIf((method='POST' AND length(splitByChar('/',url))>=2 AND splitByChar('/',url)[2]='topics') OR (method='GET' AND length(splitByChar('/',url))>=6 AND splitByChar('/',url)[4]='partitions' AND splitByChar('/',url)[6]='records'))>0,'kafka',''),if(countIf(url like '%/v%_/%' AND length(splitByChar('/',url))>=4 AND splitByChar('/',url)[3] IN ('agent','catalog') AND splitByChar('/',url)[4] IN ('services','members','self'))>0,'consul',''),if(countIf(url like '%/metrics/api/v2/agent/config/list' AND url like '%/cluster/upstream')>0,'datadog','')))),',')
       type: string
       title: 目标节点中间件
 
     midFilter:
-      sql: "toString(arrayConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es','')))),arrayFilter(x->x!='',arrayDistinct(array(if(countIf(url like '%/\\_search' AND length(splitByChar('/',url)) IN (3,4))>0,'es',''))))))"
+      sql: toString(arrayConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es','')))),arrayFilter(x->x!='',arrayDistinct(array(if(countIf(url like '%/\\_search' AND length(splitByChar('/',url)) IN (3,4))>0,'es',''))))))
       type: string
       title: 中间件过滤
 
     srcNodeWithMid:
-      sql: "toJSONString(map('value',if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1]),'type','client','middware',arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es','')))),','),'ipgeo',multiIf(length(ip_geo)=0,'',ip_geo[1]<>'中国',ip_geo[1],ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3],format('{0}{1}',ip_geo[2],ip_geo[3]),ip_geo[2]<>'',ip_geo[2],ip_geo[1])))"
+      sql: toJSONString(map('value',if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1]),'type','client','middware',arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es','')))),','),'ipgeo',multiIf(length(ip_geo)=0,'',ip_geo[1]<>'中国',ip_geo[1],ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3],format('{0}{1}',ip_geo[2],ip_geo[3]),ip_geo[2]<>'',ip_geo[2],ip_geo[1])))
       type: string
       title: 源节点(含中间件)
 
     dstNodeWithMid:
-      sql: "toJSONString(map('value',if(position(upstream,']')!=0,regexpExtract(upstream,'\\[(.*)\\]',1),splitByChar(':',upstream)[1]),'type','server','middware',arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(url like '%/\\_search' AND length(splitByChar('/',url)) IN (3,4))>0,'es','')))),','),'channel',channel))"
+      sql: toJSONString(map('value',if(position(upstream,']')!=0,regexpExtract(upstream,'\\[(.*)\\]',1),splitByChar(':',upstream)[1]),'type','server','middware',arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(url like '%/\\_search' AND length(splitByChar('/',url)) IN (3,4))>0,'es','')))),','),'channel',channel))
       type: string
       title: 目标节点(含中间件)
 
@@ -1063,21 +1062,26 @@ cube:
     # sensCombineExtList: [(key, val, privacyLevel, score), ...]，过滤掉 privacy 为空的项
     # sensCombineExt: arrayJoin 展开为单行 tuple
     sensKeyCombineExt:
-      sql: "(arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).1"
+      sql: (arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).1
       type: string
       title: 数据类型
 
     sensValCombineExt:
-      sql: "(arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).2"
+      sql: (arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).2
       type: string
       title: 数据值
 
     sensPrivacyCombineExt:
-      sql: "(arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).3"
+      sql: (arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).3
       type: string
       title: 数据分类
 
     sensScoreCombineExt:
-      sql: "(arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).4"
+      sql: (arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).4
       type: number
       title: 数据级别分数
+
+    sensValueExt:
+      sql: arrayJoin(arrayConcat(req_sens_v, res_sens_v))
+      type: string
+      title: 敏感数据值展开

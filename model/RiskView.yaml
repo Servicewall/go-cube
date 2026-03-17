@@ -4,16 +4,16 @@ cube:
 
   segments:
     org:
-      sql: "org = ''"
+      sql: org = ''
 
     whiteFilter:
-      sql: "arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')"
+      sql: arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')
 
     whiteRiskFilter:
-      sql: "risk not in (select tag from risk_dict where score <= 0 ) and content not in ( select value from postgres.allow_deny_items where is_allow=1 and time_span=0 and field not in ['ip_net', 'user'] ) and ( type!='IP' or multiIf(isIPv4String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv4(content),-1),isIPv6String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv6(content),0),-1) != 1 )"
+      sql: risk not in (select tag from risk_dict where score <= 0 ) and content not in ( select value from postgres.allow_deny_items where is_allow=1 and time_span=0 and field not in ['ip_net', 'user'] ) and ( type!='IP' or multiIf(isIPv4String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv4(content),-1),isIPv6String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv6(content),0),-1) != 1 )
 
     riskDenoiseFilter:
-      sql: "risk in ( select risk from risk_agg_local final where ts > today() group by risk having count() < 100 )"
+      sql: risk in ( select risk from risk_agg_local final where ts > today() group by risk having count() < 100 )
 
   dimensions:
     filterTs:
@@ -47,94 +47,94 @@ cube:
       title: 主体
 
     nameGroup:
-      sql: "dictGet('default.name_group_dict', 'groups', content)"
+      sql: dictGet('default.name_group_dict', 'groups', content)
       type: string
       title: 名单分组
 
     filterScore:
-      sql: "dictGetInt64('default.risk_dict', 'score', risk)"
+      sql: dictGetInt64('default.risk_dict', 'score', risk)
       type: number
       title: 风险分数
 
     filterRiskLevel:
-      sql: "multiIf(dictGetInt64('default.risk_dict', 'score', risk)=80, '高风险', dictGetInt64('default.risk_dict', 'score', risk)=50, '中风险', '低风险')"
+      sql: multiIf(dictGetInt64('default.risk_dict', 'score', risk)=80, '高风险', dictGetInt64('default.risk_dict', 'score', risk)=50, '中风险', '低风险')
       type: string
       title: 风险等级
 
     filterStatus:
-      sql: "multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认')"
+      sql: multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认')
       type: string
       title: 管理状态
 
     # Summary count dimensions (ungrouped queries)
     total:
-      sql: "count()"
+      sql: count()
       type: number
       title: 总计数
 
     levelCount:
-      sql: "sumMap([multiIf(dictGetInt64('default.risk_dict', 'score', risk)=80, '高风险', dictGetInt64('default.risk_dict', 'score', risk)=50, '中风险', '低风险')],[1])"
+      sql: sumMap([multiIf(dictGetInt64('default.risk_dict', 'score', risk)=80, '高风险', dictGetInt64('default.risk_dict', 'score', risk)=50, '中风险', '低风险')],[1])
       type: number
       title: 风险分级计数
 
     statusCount:
-      sql: "sumMapIf(([multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认')],[1]), multiIf(dictGetInt64('default.risk_dict', 'score', risk)=80, '高风险', dictGetInt64('default.risk_dict', 'score', risk)=50, '中风险', '低风险') in ('高风险','中风险'))"
+      sql: sumMapIf(([multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认')],[1]), multiIf(dictGetInt64('default.risk_dict', 'score', risk)=80, '高风险', dictGetInt64('default.risk_dict', 'score', risk)=50, '中风险', '低风险') in ('高风险','中风险'))
       type: number
       title: 管理状态计数
 
     showTimeCount:
-      sql: "sumMapIf(([if(first_ts >= today(), '首次出现', '重复出现')],[1]), multiIf(dictGetInt64('default.risk_dict', 'score', risk)=80, '高风险', dictGetInt64('default.risk_dict', 'score', risk)=50, '中风险', '低风险') in ('高风险','中风险') and multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认') = '待确认')"
+      sql: sumMapIf(([if(first_ts >= today(), '首次出现', '重复出现')],[1]), multiIf(dictGetInt64('default.risk_dict', 'score', risk)=80, '高风险', dictGetInt64('default.risk_dict', 'score', risk)=50, '中风险', '低风险') in ('高风险','中风险') and multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认') = '待确认')
       type: number
       title: 出现状态计数
 
     ignoreCount:
-      sql: "sumMapIf((['始终忽略'],[1]), arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0)"
+      sql: sumMapIf((['始终忽略'],[1]), arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0)
       type: number
       title: 忽略计数
 
     tagsCount:
-      sql: "sumMap(arrayMap(x->x||':::' ||risk, dictGet('default.risk_dict', 'group', risk)), arrayMap(x->1, dictGet('default.risk_dict', 'group', risk)))"
+      sql: sumMap(arrayMap(x->x||':::' ||risk, dictGet('default.risk_dict', 'group', risk)), arrayMap(x->1, dictGet('default.risk_dict', 'group', risk)))
       type: number
       title: 风险分组计数
 
   measures:
     count:
-      sql: "count()"
+      sql: count()
       type: number
       title: 总数
 
     ts:
-      sql: "max(ts)"
+      sql: max(ts)
       type: time
       title: 最近出现时间
 
     firstTs:
-      sql: "min(first_ts)"
+      sql: min(first_ts)
       type: time
       title: 首次出现时间
 
     status:
-      sql: "multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认')"
+      sql: multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认')
       type: string
       title: 管理状态
 
     data:
-      sql: "argMax(if(data!='', data, dictGet('default.risk_dict', 'desc', risk)), ts)"
+      sql: argMax(if(data!='', data, dictGet('default.risk_dict', 'desc', risk)), ts)
       type: string
       title: 描述
 
     riskClues:
-      sql: "argMax(data, ts)"
+      sql: argMax(data, ts)
       type: string
       title: 风险线索
 
     isRealtimeRule:
-      sql: "any(has(dictGet('default.risk_dict', 'group', risk), '实时'))"
+      sql: any(has(dictGet('default.risk_dict', 'group', risk), '实时'))
       type: number
       title: 是否为实时风险
 
     filters:
-      sql: "any('[' || substring( if(has(dictGet('default.risk_dict', 'group', risk),'响应涉敏'), '{\"member\":\"AccessView.respSensValNum\",\"operator\":\"gt\",\"values\":[\"0\"]},' ,'') || if(has(dictGet('default.risk_dict', 'group', risk),'请求涉敏'), '{\"member\":\"AccessView.reqSensValNum\",\"operator\":\"gt\",\"values\":[\"0\"]},','') as rf,1,length(rf)-1 ) || ']')"
+      sql: any('[' || substring( if(has(dictGet('default.risk_dict', 'group', risk),'响应涉敏'), '{\"member\":\"AccessView.respSensValNum\",\"operator\":\"gt\",\"values\":[\"0\"]},' ,'') || if(has(dictGet('default.risk_dict', 'group', risk),'请求涉敏'), '{\"member\":\"AccessView.reqSensValNum\",\"operator\":\"gt\",\"values\":[\"0\"]},','') as rf,1,length(rf)-1 ) || ']')
       type: string
       title: 扩展筛选条件
 
