@@ -542,8 +542,8 @@ func TestBuildQuery_CustomDataSubKeyOrderBy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, `data[indexOf(key, 'UserToken')] DESC`) {
-		t.Errorf("expected subKey substitution in ORDER BY, got: %s", sql)
+	if !contains(sql, `"AccessView.customData.UserToken" DESC`) {
+		t.Errorf("expected alias reference in ORDER BY, got: %s", sql)
 	}
 }
 
@@ -562,12 +562,13 @@ func TestBuildQuery_CustomDataSubKeyGroupBy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// GROUP BY 应出现两次（SELECT 和 GROUP BY 各一次）
-	if !contains(sql, "GROUP BY") {
-		t.Errorf("expected GROUP BY clause, got: %s", sql)
+	// GROUP BY 使用位置引用
+	if !contains(sql, "GROUP BY 1") {
+		t.Errorf("expected positional GROUP BY, got: %s", sql)
 	}
+	// SELECT 中应包含 subKey 替换后的表达式
 	if !contains(sql, `data[indexOf(key, 'UserToken')]`) {
-		t.Errorf("expected subKey substitution in GROUP BY, got: %s", sql)
+		t.Errorf("expected subKey substitution in SELECT, got: %s", sql)
 	}
 }
 

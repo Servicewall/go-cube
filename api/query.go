@@ -188,23 +188,27 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString(strings.Join(where, " AND "))
 	}
 
-	// GROUP BY
+	// GROUP BY — 使用位置引用避免子查询列名解析导致的聚合函数冲突（ILLEGAL_AGGREGATION）
 	if len(req.Measures) > 0 && len(req.Dimensions) > 0 {
-		sql.WriteString(" GROUP BY ")
-		for i, dim := range req.Dimensions {
-			if i > 0 {
-				sql.WriteString(", ")
-			}
+		dimCount := 0
+		for _, dim := range req.Dimensions {
 			_, fieldName, subKey := splitMemberName(dim)
-			if field, ok := cube.GetField(fieldName, subKey); ok {
-				sql.WriteString(field.SQL)
-			} else {
-				sql.WriteString(dim)
+			if _, ok := cube.GetField(fieldName, subKey); ok {
+				dimCount++
+			}
+		}
+		if dimCount > 0 {
+			sql.WriteString(" GROUP BY ")
+			for i := 1; i <= dimCount; i++ {
+				if i > 1 {
+					sql.WriteString(", ")
+				}
+				fmt.Fprintf(&sql, "%d", i)
 			}
 		}
 	}
 
-	// ORDER BY
+	// ORDER BY — 使用列别名避免子查询列名解析导致的聚合函数冲突
 	if len(req.Order) > 0 {
 		sql.WriteString(" ORDER BY ")
 		i := 0
@@ -212,12 +216,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if i > 0 {
 				sql.WriteString(", ")
 			}
-			_, fieldName, subKey := splitMemberName(member)
-			if f, ok := cube.GetField(fieldName, subKey); ok {
-				sql.WriteString(f.SQL)
-			} else {
-				sql.WriteString(member)
-			}
+			fmt.Fprintf(&sql, "\"%s\"", member)
 			if direction == "desc" {
 				sql.WriteString(" DESC")
 			}
