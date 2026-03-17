@@ -746,6 +746,50 @@ func TestHandleLoad_GetQuery(t *testing.T) {
 	}
 }
 
+// TestBuildQuery_MeasureFilterGoesToHaving verifies that a filter on a measure
+// field is placed in HAVING (not WHERE), so ClickHouse won't reject it with
+// "aggregate function found in WHERE".
+func TestBuildQuery_MeasureFilterGoesToHaving(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.ip"},
+		Measures:   []string{"AccessView.count"},
+		Filters: []Filter{
+			// measure filter → HAVING
+			{Member: "AccessView.count", Operator: "gte", Values: []interface{}{"5"}},
+			// dimension filter → WHERE
+			{Member: "AccessView.ip", Operator: "equals", Values: []interface{}{"1.2.3.4"}},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// WHERE must NOT contain the aggregate filter
+	whereIdx := strings.Index(sql, "WHERE")
+	havingIdx := strings.Index(sql, "HAVING")
+	if whereIdx < 0 {
+		t.Fatalf("expected WHERE clause, got: %s", sql)
+	}
+	if havingIdx < 0 {
+		t.Fatalf("expected HAVING clause, got: %s", sql)
+	}
+
+	// dimension filter in WHERE, before HAVING
+	if !contains(sql[:havingIdx], "ip IN (?)") {
+		t.Errorf("expected dimension filter in WHERE section, got: %s", sql)
+	}
+	// measure filter in HAVING, after GROUP BY
+	if !contains(sql[havingIdx:], "count() >= ?") {
+		t.Errorf("expected measure filter in HAVING section, got: %s", sql)
+	}
+
+	if len(params) != 2 {
+		t.Errorf("expected 2 params, got %v", params)
+	}
+}
+
 // contains reports whether s contains substr.
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)

@@ -9,7 +9,11 @@ fail=0
 check() {
     local desc="$1"
     local result="$2"
-    if echo "$result" | jq -e '.results[0].data' > /dev/null 2>&1; then
+    # Fail if the response contains a top-level error field
+    if echo "$result" | jq -e '.error' > /dev/null 2>&1; then
+        echo "[FAIL] $desc — server error: $(echo "$result" | jq -r '.error')"
+        ((fail++))
+    elif echo "$result" | jq -e '.results[0].data' > /dev/null 2>&1; then
         count=$(echo "$result" | jq '.results[0].data | length')
         echo "[PASS] $desc — $count rows"
         ((pass++))
