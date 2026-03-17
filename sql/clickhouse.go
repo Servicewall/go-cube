@@ -12,10 +12,11 @@ import (
 )
 
 type Client struct {
-	url  string
-	user string
-	key  string
-	http *http.Client
+	url          string
+	user         string
+	key          string
+	http         *http.Client
+	queryTimeout time.Duration
 }
 
 func NewClient(cfg *config.ClickHouseConfig) (*Client, error) {
@@ -23,11 +24,16 @@ func NewClient(cfg *config.ClickHouseConfig) (*Client, error) {
 	if !strings.HasPrefix(addr, "http") {
 		addr = "http://" + addr
 	}
+	queryTimeout := cfg.QueryTimeout
+	if queryTimeout == 0 {
+		queryTimeout = 30 * time.Second
+	}
 	return &Client{
-		url:  addr + "?default_format=JSON&database=" + cfg.Database,
-		user: cfg.Username,
-		key:  cfg.Password,
-		http: &http.Client{Timeout: 30 * time.Second},
+		url:          addr + "?default_format=JSON&database=" + cfg.Database,
+		user:         cfg.Username,
+		key:          cfg.Password,
+		http:         &http.Client{Timeout: queryTimeout},
+		queryTimeout: queryTimeout,
 	}, nil
 }
 

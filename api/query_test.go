@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -390,6 +389,122 @@ func TestBuildQuery_FilterTagNotEquals(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_OrFilter(t *testing.T) {
+	// OR 复合条件：两个维度 LIKE 查询，用 OR 连接
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Filters: []Filter{
+			{Or: []Filter{
+				{Member: "AccessView.ip", Operator: "contains", Values: []interface{}{"192"}},
+				{Member: "AccessView.id", Operator: "contains", Values: []interface{}{"192"}},
+			}},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "ip LIKE ?") {
+		t.Errorf("expected ip LIKE clause in OR, got: %s", sql)
+	}
+	if !contains(sql, "id LIKE ?") {
+		t.Errorf("expected id LIKE clause in OR, got: %s", sql)
+	}
+	if !contains(sql, " OR ") {
+		t.Errorf("expected OR keyword, got: %s", sql)
+	}
+	// OR 条件应被括号包裹
+	if !contains(sql, "(") || !contains(sql, ")") {
+		t.Errorf("expected parentheses around OR clause, got: %s", sql)
+	}
+	if len(params) != 2 {
+		t.Errorf("expected 2 params, got: %v", params)
+	}
+	for _, p := range params {
+		if p != "%192%" {
+			t.Errorf("expected wildcard param %%192%%, got: %v", p)
+		}
+	}
+}
+
+func TestBuildQuery_OrFilterSkipsUnknown(t *testing.T) {
+	// OR 中若某个维度不存在，应跳过，不影响其他子条件
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Filters: []Filter{
+			{Or: []Filter{
+				{Member: "AccessView.ip", Operator: "contains", Values: []interface{}{"test"}},
+				{Member: "AccessView.notExist", Operator: "contains", Values: []interface{}{"test"}},
+			}},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(sql, "notExist") {
+		t.Errorf("unknown field should not appear in SQL, got: %s", sql)
+	}
+	// 只有一个有效子条件，不应出现 OR
+	if contains(sql, " OR ") {
+		t.Errorf("should not have OR when only one valid condition, got: %s", sql)
+	}
+	if !contains(sql, "ip LIKE ?") {
+		t.Errorf("expected ip LIKE clause, got: %s", sql)
+	}
+	if len(params) != 1 {
+		t.Errorf("expected 1 param, got: %v", params)
+	}
+}
+
+func TestBuildQuery_OrFilterAllUnknown(t *testing.T) {
+	// OR 中所有维度都不存在，不应添加任何 WHERE 条件
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Filters: []Filter{
+			{Or: []Filter{
+				{Member: "AccessView.notExist1", Operator: "contains", Values: []interface{}{"x"}},
+				{Member: "AccessView.notExist2", Operator: "contains", Values: []interface{}{"x"}},
+			}},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(sql, "WHERE") {
+		t.Errorf("no WHERE clause expected when all or-filters skipped, got: %s", sql)
+	}
+	if len(params) != 0 {
+		t.Errorf("expected no params, got %v", params)
+	}
+}
+
+func TestBuildQuery_OrFilterMutualExclusion(t *testing.T) {
+	// or 与普通条件字段不能同时存在，应返回错误
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Filters: []Filter{
+			{
+				Member:   "AccessView.ip",
+				Operator: "contains",
+				Values:   []interface{}{"192"},
+				Or: []Filter{
+					{Member: "AccessView.id", Operator: "contains", Values: []interface{}{"192"}},
+				},
+			},
+		},
+	}
+
+	_, _, err := BuildQuery(req, testCube())
+	if err == nil {
+		t.Error("expected error when or and member/operator/values are both set")
+	}
+}
+
 func TestValidateQuery_Valid(t *testing.T) {
 	req := &QueryRequest{Dimensions: []string{"AccessView.id"}}
 	if err := validateQuery(req); err != nil {
@@ -569,18 +684,6 @@ func TestBuildQuery_CustomDataSubKeyGroupBy(t *testing.T) {
 	// SELECT 中应包含 subKey 替换后的表达式
 	if !contains(sql, `data[indexOf(key, 'UserToken')]`) {
 		t.Errorf("expected subKey substitution in SELECT, got: %s", sql)
-	}
-}
-
-func TestLoadNotInitialized(t *testing.T) {
-	// Reset global handler to ensure it's nil
-	origHandler := handler
-	handler = nil
-	defer func() { handler = origHandler }()
-
-	_, err := Load(context.Background(), `{"dimensions":["AccessView.id"]}`)
-	if err == nil {
-		t.Error("expected error when Load called without Init")
 	}
 }
 

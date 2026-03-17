@@ -20,11 +20,12 @@ type ServerConfig struct {
 }
 
 type ClickHouseConfig struct {
-	Hosts       []string      `yaml:"hosts"`
-	Database    string        `yaml:"database"`
-	Username    string        `yaml:"username"`
-	Password    string        `yaml:"password"`
-	DialTimeout time.Duration `yaml:"dial_timeout"`
+	Hosts        []string      `yaml:"hosts"`
+	Database     string        `yaml:"database"`
+	Username     string        `yaml:"username"`
+	Password     string        `yaml:"password"`
+	DialTimeout  time.Duration `yaml:"dial_timeout"`
+	QueryTimeout time.Duration `yaml:"query_timeout"`
 }
 
 type ModelsConfig struct {
@@ -54,11 +55,12 @@ func DefaultConfig() *Config {
 			WriteTimeout: 30 * time.Second,
 		},
 		ClickHouse: ClickHouseConfig{
-			Hosts:       []string{"localhost:8123"},
-			Database:    "default",
-			Username:    "default",
-			Password:    "",
-			DialTimeout: 10 * time.Second,
+			Hosts:        []string{"localhost:8123"},
+			Database:     "default",
+			Username:     "default",
+			Password:     "",
+			DialTimeout:  10 * time.Second,
+			QueryTimeout: 30 * time.Second,
 		},
 		Models: ModelsConfig{
 			Path:  "./models",

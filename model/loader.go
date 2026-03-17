@@ -46,14 +46,8 @@ func (l *Loader) Load(name string) (*Cube, error) {
 	var wrapper struct {
 		Cube Cube `yaml:"cube"`
 	}
-
 	if err := yaml.Unmarshal(data, &wrapper); err != nil {
-		// 尝试直接解析（兼容格式）
-		var cube Cube
-		if err2 := yaml.Unmarshal(data, &cube); err2 != nil {
-			return nil, fmt.Errorf("parse model file %s: %w (also tried direct parse: %v)", fileName, err, err2)
-		}
-		wrapper.Cube = cube
+		return nil, fmt.Errorf("parse model file %s: %w", fileName, err)
 	}
 
 	cube := wrapper.Cube
