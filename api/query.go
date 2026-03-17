@@ -216,7 +216,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if i > 0 {
 				sql.WriteString(", ")
 			}
-			fmt.Fprintf(&sql, "\"%s\"", member)
+			fmt.Fprintf(&sql, "\"%s\"", strings.ReplaceAll(member, `"`, `""`))
 			if direction == "desc" {
 				sql.WriteString(" DESC")
 			}
