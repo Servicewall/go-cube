@@ -795,6 +795,101 @@ func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
+func TestApiViewNewDimensionsLoaded(t *testing.T) {
+	// Verifies that new dimensions added to ApiView.yaml are properly loaded
+	// and generate correct SQL in BuildQuery queries.
+	loader := model.NewLoader(model.InternalFS)
+	cube, err := loader.Load("ApiView")
+	if err != nil {
+		t.Fatalf("failed to load ApiView: %v", err)
+	}
+
+	// Verify all required dimensions exist
+	requiredDims := []string{
+		"webServerTypeTag", "configTag", "managementStatus",
+		"bizName", "bizAIAnalysis", "director", "currentReqKey",
+		"riskKeyScoreTuple", "weakKeyScoreTuple",
+		"resSensScoreTupleRaw", "reqSensScoreTupleRaw",
+		"autoBizName",
+	}
+	for _, dim := range requiredDims {
+		if _, ok := cube.Dimensions[dim]; !ok {
+			t.Errorf("dimension %q not found in ApiView", dim)
+		}
+	}
+
+	// Verify the ungrouped query from the problem statement includes all dimensions
+	dims := []string{
+		"ApiView.count", "ApiView.activeTag", "ApiView.bizImportance",
+		"ApiView.webServerTypeTag", "ApiView.topoNetwork",
+		"ApiView.customRuleTag", "ApiView.configTag", "ApiView.apiTypeTag",
+		"ApiView.riskKeyScoreTuple", "ApiView.weakKeyScoreTuple",
+		"ApiView.firstTs", "ApiView.ts", "ApiView.appName",
+		"ApiView.currentReqKey", "ApiView.reqSensScoreTupleRaw",
+		"ApiView.resSensScoreTupleRaw", "ApiView.channel", "ApiView.host",
+		"ApiView.method", "ApiView.urlRoute", "ApiView.bizName",
+		"ApiView.bizAIAnalysis", "ApiView.managementStatus",
+		"ApiView.filtered", "ApiView.dctSection", "ApiView.director",
+	}
+	req := &QueryRequest{
+		Ungrouped:  true,
+		Dimensions: dims,
+		Limit:      20,
+	}
+
+	sql, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// All dimensions should appear in the SELECT with proper aliases
+	for _, dim := range dims {
+		alias := `"` + dim + `"`
+		if !contains(sql, alias) {
+			t.Errorf("expected SQL to contain alias %s, got: %s", alias, sql)
+		}
+	}
+}
+
+func TestApiViewMeasuresCustomRuleTagSetAndConfigTagSet(t *testing.T) {
+	// Verifies that querying customRuleTagSet and configTagSet measures
+	// produces proper SQL (not SELECT 1 fallback).
+	loader := model.NewLoader(model.InternalFS)
+	cube, err := loader.Load("ApiView")
+	if err != nil {
+		t.Fatalf("failed to load ApiView: %v", err)
+	}
+
+	req := &QueryRequest{
+		Measures: []string{"ApiView.customRuleTagSet", "ApiView.configTagSet"},
+	}
+
+	sql, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should NOT fall back to SELECT 1
+	if sql == "SELECT 1" || contains(sql, "SELECT 1 FROM") {
+		t.Errorf("should not fall back to SELECT 1, got: %s", sql)
+	}
+
+	// Should contain both measure aliases
+	if !contains(sql, `"ApiView.customRuleTagSet"`) {
+		t.Errorf("expected customRuleTagSet alias in SQL, got: %s", sql)
+	}
+	if !contains(sql, `"ApiView.configTagSet"`) {
+		t.Errorf("expected configTagSet alias in SQL, got: %s", sql)
+	}
+
+	// The outer query should NOT add its own GROUP BY (inner cube SQL has GROUP BY which is fine)
+	// Split by ") AS ApiView" to isolate the outer query part
+	parts := strings.SplitN(sql, ") AS ApiView", 2)
+	if len(parts) > 1 && contains(parts[1], "GROUP BY") {
+		t.Errorf("outer query should not have GROUP BY without dimensions, got: %s", sql)
+	}
+}
+
 func TestBugMeasuresOnlyNoGroupBy(t *testing.T) {
 // Reproduces: measures=["ApiView.customRuleTagSet", "ApiView.configTagSet"] 
 // with dimensions=[] should return actual measure values, not {"1": 1}

@@ -153,9 +153,65 @@ cube:
       type: time
     
     customRuleTag:
-      sql: multiIf(url_action[6]!='', splitByChar(',', url_action[6]), [])
+      sql: multiIf(url_action[6]!='', splitByChar(',', url_action[6]), if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')!='', [if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')], [])
       type: string
       title: 功能
+    
+    configTag:
+      sql: conf_tag
+      type: string
+      title: 标签
+    
+    managementStatus:
+      sql: mgt_status
+      type: string
+      title: 管理状态
+    
+    webServerTypeTag:
+      sql: if(type='HTTP2/gRPC', 'gRPC', type)
+      type: string
+    
+    autoBizName:
+      sql: if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')
+      type: string
+      title: 业务自动名称
+    
+    bizName:
+      sql: multiIf(url_action[3]!='', url_action[3], url_action[2]='api' OR url_action[2]='auto', url_action[1], '')
+      type: string
+      title: 业务名称
+    
+    bizAIAnalysis:
+      sql: if(startsWith(biz_analysis, 'AI分析'), biz_analysis, '')
+      type: string
+      title: AI业务分析
+    
+    director:
+      sql: dictGetString('app_dict', 'director', multiIf(notEmpty(dictGet('host_dict', 'info', assumeNotNull(last_host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(last_host)))[3], notEmpty(dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*'))[3], ''))
+      type: string
+      title: 应用负责人
+    
+    riskKeyScoreTuple:
+      sql: (arrayMap(x->format('{}({})', x.1, toString(x.2)), arrayFilter(x->dictGetInt64('risk_dict','score',x.1)>0, arrayZip(risk_count.1, risk_count.2))), arrayMap(x -> dictGetInt64('risk_dict','score',x.1), arrayFilter(x->dictGetInt64('risk_dict','score',x.1)>0, arrayZip(risk_count.1, risk_count.2))))
+      type: string
+    
+    weakKeyScoreTuple:
+      sql: (arrayMap(x->format('{}({})', x.1, toString(x.2)), arrayFilter(x->dictGetInt64('weak_dict','score',x.1)>0, arrayZip(weak_count.1, weak_count.2))), arrayMap(x -> dictGetInt64('weak_dict','score',x.1), arrayFilter(x->dictGetInt64('weak_dict','score',x.1)>0, arrayZip(weak_count.1, weak_count.2))))
+      type: string
+    
+    currentReqKey:
+      sql: multiIf(length((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1])=0, '-', length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))<2, arrayStringConcat(arrayMap(x->'[=]'||x,(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1]), ','), arrayStringConcat(arraySort(x-> multiIf(position(x,'=')>0, 3, position(x,'+') > 0, 1, 2), arrayMap(x -> multiIf(has((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1], x) AND has((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[2], x), '[=]' || x, has((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1], x), '[+]' || x, '[-]' || x), arrayDistinct(arrayConcat((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1], (arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[2])))), ','))
+      type: string
+    
+    resSensScoreTupleRaw:
+      sql: ((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(res_sens_uniq_map), mapValues(res_sens_uniq_map))))).1, (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(res_sens_uniq_map), mapValues(res_sens_uniq_map))))).2)
+      type: string
+      title: 响应隐私及分数
+    
+    reqSensScoreTupleRaw:
+      sql: ((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(req_sens_uniq_map), mapValues(req_sens_uniq_map))))).1, (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(req_sens_uniq_map), mapValues(req_sens_uniq_map))))).2)
+      type: string
+      title: 请求隐私及分数
     
     bizImportance:
       sql: multiIf(importance!='', importance, '')
@@ -260,7 +316,7 @@ cube:
       title: 应用LOGO
     
     customRuleTagSet:
-      sql: groupUniqArrayArray(multiIf(url_action[6]!='', splitByChar(',', url_action[6]), []))
+      sql: groupUniqArrayArray(multiIf(url_action[6]!='', splitByChar(',', url_action[6]), if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')!='', [if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')], []))
       type: string
       title: 功能集合
     
