@@ -164,6 +164,16 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%
 check "sensValueExt filter goes to WHERE (not HAVING)" "$result"
 
 echo ""
+echo "=== 17. count by hour granularity + sensValFilterTag filter (ORDER BY granularity expr) ==="
+# measures: count
+# timeDimensions: ts, dateRange: today, granularity: hour
+# order: AccessView.ts asc  → must emit ORDER BY toStartOfHour(ts), not bare ts
+# filters: sensValFilterTag equals [webadmin], channel equals [BII系统]
+# segments: org, black
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AccessView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22today%22%2C%22granularity%22%3A%22hour%22%7D%5D%2C%22order%22%3A%7B%22AccessView.ts%22%3A%22asc%22%7D%2C%22filters%22%3A%5B%7B%22member%22%3A%22AccessView.sensValFilterTag%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22webadmin%22%5D%7D%2C%7B%22member%22%3A%22AccessView.channel%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22BII%E7%B3%BB%E7%BB%9F%22%5D%7D%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22AccessView.org%22%2C%22AccessView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "count by hour granularity, ORDER BY toStartOfHour(ts) not bare ts" "$result"
+
+echo ""
 echo "--- $pass passed, $fail failed ---"
 
 echo ""
