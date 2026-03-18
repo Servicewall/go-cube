@@ -339,6 +339,6 @@ cube:
     org:
       sql: org = ''
     black:
-      sql: source != 'black'
+      sql: 1=1
     onePerDay:
       sql: 1=1
