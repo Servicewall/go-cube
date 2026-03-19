@@ -174,6 +174,24 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22Acc
 check "count by hour granularity, ORDER BY toStartOfHour(ts) not bare ts" "$result"
 
 echo ""
+echo "=== 18. count+avgProcessTime by nodeIp, granularity=second (regression: avg must wrap aggregate) ==="
+# measures: count, avgProcessTime
+# timeDimensions: ts, dateRange: from 15 minutes ago to 15 minutes from now, granularity: second
+# dimensions: nodeIp
+# segments: org
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%20%5B%22AccessView.count%22%2C%20%22AccessView.avgProcessTime%22%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22AccessView.ts%22%2C%20%22dateRange%22%3A%20%22from%2015%20minutes%20ago%20to%2015%20minutes%20from%20now%22%2C%20%22granularity%22%3A%20%22second%22%7D%5D%2C%20%22filters%22%3A%20%5B%5D%2C%20%22dimensions%22%3A%20%5B%22AccessView.nodeIp%22%5D%2C%20%22segments%22%3A%20%5B%22AccessView.org%22%5D%2C%20%22timezone%22%3A%20%22Asia%2FShanghai%22%7D")
+check "count+avgProcessTime by nodeIp granularity=second" "$result"
+
+echo ""
+echo "=== 19. count+avgProcessTime+maxProcessTime by nodeIp, no granularity (regression: max must wrap aggregate) ==="
+# measures: count, avgProcessTime, maxProcessTime
+# timeDimensions: ts, dateRange: from 15 minutes ago to 15 minutes from now (no granularity)
+# dimensions: nodeIp
+# segments: org
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%20%5B%22AccessView.count%22%2C%20%22AccessView.avgProcessTime%22%2C%20%22AccessView.maxProcessTime%22%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22AccessView.ts%22%2C%20%22dateRange%22%3A%20%22from%2015%20minutes%20ago%20to%2015%20minutes%20from%20now%22%7D%5D%2C%20%22filters%22%3A%20%5B%5D%2C%20%22dimensions%22%3A%20%5B%22AccessView.nodeIp%22%5D%2C%20%22segments%22%3A%20%5B%22AccessView.org%22%5D%2C%20%22timezone%22%3A%20%22Asia%2FShanghai%22%7D")
+check "count+avgProcessTime+maxProcessTime by nodeIp no granularity" "$result"
+
+echo ""
 echo "--- $pass passed, $fail failed ---"
 
 echo ""

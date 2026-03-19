@@ -897,13 +897,13 @@ cube:
       title: 平均访问时长
 
     avgProcessTime:
-      sql: toFloat64OrZero(metric[1])-toFloat64OrZero(metric[2])
-      type: avg
+      sql: avg(toFloat64OrZero(metric[1])-toFloat64OrZero(metric[2]))
+      type: number
       title: 平均耗时(毫秒)
 
     maxProcessTime:
-      sql: toFloat64OrZero(metric[1])-toFloat64OrZero(metric[2])
-      type: max
+      sql: max(toFloat64OrZero(metric[1])-toFloat64OrZero(metric[2]))
+      type: number
       title: 最大耗时(毫秒)
 
     anyHeavyUa:
@@ -977,8 +977,8 @@ cube:
       title: 内网流量计数
 
     topoSearchCount:
-      sql: url, if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1]), if(position(upstream,']')!=0,regexpExtract(upstream,'\\[(.*)\\]',1),splitByChar(':',upstream)[1]), host, method
-      type: countDistinct
+      sql: "uniq(url, if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1]), if(position(upstream,']')!=0,regexpExtract(upstream,'\\[(.*)\\]',1),splitByChar(':',upstream)[1]), host, method)"
+      type: number
       title: 拓扑搜索量
 
     aggRisk:
