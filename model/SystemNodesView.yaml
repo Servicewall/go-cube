@@ -1,0 +1,80 @@
+cube:
+  name: SystemNodesView
+  sql_table: default.system_nodes
+
+  segments:
+    org:
+      sql: "1 = 1"
+
+  measures:
+    # 最近5分钟的健康次数，如果为0可认为节点离线
+    healthCount:
+      sql: "countIf(ts > now()-300)"
+      type: number
+      title: 健康次数
+
+    # 最新的可用磁盘空间，单位字节
+    lastFreeSpace:
+      sql: "anyLast(free_space)"
+      type: number
+      title: 最新可用空间
+
+    # 最新的总磁盘空间，单位字节
+    lastTotalSpace:
+      sql: "anyLast(total_space)"
+      type: number
+      title: 最新总空间
+
+    # 单位时间内平均可用磁盘空间（趋势图）
+    avgFreeSpace:
+      sql: "avg(free_space)"
+      type: number
+      title: 平均可用空间
+
+    # 单位时间内平均总磁盘空间（趋势图）
+    avgTotalSpace:
+      sql: "avg(total_space)"
+      type: number
+      title: 平均总空间
+
+    # 估计可用天数：最新空余磁盘 / ((前天均值 - 昨天均值) / 2)
+    daysEstimated:
+      sql: "round(anyLast(free_space) / ((avgIf(free_space, (ts > (now() - ((3600 * 24) * 3))) AND (ts < (now() - ((3600 * 24) * 2)))) - avgIf(free_space, ts > (now() - (3600 * 24)))) / 2), 2)"
+      type: number
+      title: 估计可用天数
+
+  dimensions:
+    ts:
+      sql: "toDateTime(ts)"
+      type: time
+      title: 时间
+
+    ip:
+      sql: ip
+      type: string
+      title: IP
+
+    host:
+      sql: host
+      type: string
+      title: 主机名
+
+    name:
+      sql: name
+      type: string
+      title: 节点名称
+
+    path:
+      sql: path
+      type: string
+      title: 路径
+
+    freeSpace:
+      sql: free_space
+      type: number
+      title: 可用空间
+
+    totalSpace:
+      sql: total_space
+      type: number
+      title: 总空间

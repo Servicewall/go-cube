@@ -1,0 +1,41 @@
+cube:
+  name: RiskPromptView
+  sql_table: postgres.risk_prompts
+
+  segments:
+    org:
+      sql: "coalesce(org_id, '') = ''"
+
+  measures:
+    count:
+      sql: count()
+      type: number
+      title: 总数-分页
+
+  dimensions:
+    id:
+      sql: toString(id)
+      type: string
+      primary_key: true
+      title: ID
+
+    ts:
+      sql: "fromUTCTimestamp(toDateTime(created_at), 'Asia/Shanghai')"
+      type: time
+      title: 时间
+
+    prompt:
+      sql: prompt
+      type: string
+      title: 提示词
+
+    embedding:
+      sql: embedding
+      type: string
+      title: 向量
+
+    # TODO: 语义搜索相似度，依赖前端传入 search-embedding 向量，暂固定为 0
+    score:
+      sql: "toFloat64(0)"
+      type: number
+      title: 相似度
