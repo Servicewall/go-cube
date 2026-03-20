@@ -12,7 +12,7 @@ type QueryRequest struct {
 	Ungrouped      bool            `json:"ungrouped"`
 	Measures       []string        `json:"measures"`
 	TimeDimensions []TimeDimension `json:"timeDimensions"`
-	Order          OrderMap        `json:"order"`
+	Order          OrderList       `json:"order"`
 	Filters        []Filter        `json:"filters"`
 	Dimensions     []string        `json:"dimensions"`
 	Limit          int             `json:"limit"`
@@ -44,7 +44,41 @@ type TimeDimension struct {
 	Granularity string    `json:"granularity,omitempty"`
 }
 
-type OrderMap map[string]string
+type OrderItem struct {
+	Member    string
+	Direction string
+}
+
+// OrderList 支持两种格式:
+// 数组格式: [["field","asc"],...]
+// 对象格式: {"field":"asc",...} (无序，兼容旧格式)
+type OrderList []OrderItem
+
+func (o *OrderList) UnmarshalJSON(data []byte) error {
+	// 数组格式: [["field","dir"],...]
+	var arr [][]string
+	if json.Unmarshal(data, &arr) == nil {
+		list := make(OrderList, 0, len(arr))
+		for _, pair := range arr {
+			if len(pair) == 2 {
+				list = append(list, OrderItem{pair[0], pair[1]})
+			}
+		}
+		*o = list
+		return nil
+	}
+	// 对象格式: {"field":"dir",...}
+	var m map[string]string
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	list := make(OrderList, 0, len(m))
+	for k, v := range m {
+		list = append(list, OrderItem{k, v})
+	}
+	*o = list
+	return nil
+}
 
 type Filter struct {
 	Member   string      `json:"member"`
@@ -76,7 +110,7 @@ func splitMemberName(s string) (string, string, string) {
 
 // granularityFunc 将 CubeJS granularity 映射到 ClickHouse 截断函数名
 var granularityFunc = map[string]string{
-	"second":  "toStartOfSecond",
+	"second":  "toDateTime",
 	"minute":  "toStartOfMinute",
 	"hour":    "toStartOfHour",
 	"day":     "toStartOfDay",
@@ -102,12 +136,12 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		if td.Granularity == "" {
 			continue
 		}
-		fn, ok := granularityFunc[td.Granularity]
+		_, fieldName, subKey := splitMemberName(td.Dimension)
+		field, ok := cube.GetField(fieldName, subKey)
 		if !ok {
 			continue
 		}
-		_, fieldName, subKey := splitMemberName(td.Dimension)
-		field, ok := cube.GetField(fieldName, subKey)
+		fn, ok := granularityFunc[td.Granularity]
 		if !ok {
 			continue
 		}
@@ -285,7 +319,8 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	if len(req.Order) > 0 {
 		sql.WriteString(" ORDER BY ")
 		i := 0
-		for member, direction := range req.Order {
+		for _, item := range req.Order {
+			member, direction := item.Member, item.Direction
 			if i > 0 {
 				sql.WriteString(", ")
 			}

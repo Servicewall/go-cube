@@ -268,6 +268,25 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%20%5B%22
 check "searchCount + blockSearchCount by month this year" "$result"
 
 echo ""
+echo "=== 28. searchBookRatio + finSearchBookRatio by month (this year) ==="
+# measures: searchBookRatio, finSearchBookRatio
+# timeDimensions: ts, dateRange: this year, granularity: month
+# segments: org, black
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AccessView.searchBookRatio%22%2C%22AccessView.finSearchBookRatio%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22this+year%22%2C%22granularity%22%3A%22month%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22AccessView.org%22%2C%22AccessView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "searchBookRatio + finSearchBookRatio by month this year" "$result"
+
+echo ""
+echo "=== 29. resSensCountMap measures: count+lastId+lastTs+resSensCountMapKey+Val+Num by channel+host+method+url+urlRoute ==="
+# measures: count, lastId, lastTs, resSensCountMapKey, resSensCountMapVal, resSensCountMapNum
+# timeDimensions: ts, 15min window
+# order: resSensCountMapNum desc
+# filters: resSensCountMapValExcluded=0, sensValRepeatability>0.5, resSensCountMapNum>30
+# dimensions: channel, host, method, url, urlRoute
+# segments: org, resSensValid, black
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AccessView.count%22%2C%22AccessView.lastId%22%2C%22AccessView.lastTs%22%2C%22AccessView.resSensCountMapKey%22%2C%22AccessView.resSensCountMapVal%22%2C%22AccessView.resSensCountMapNum%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22from+15+minutes+ago+to+15+minutes+from+now%22%7D%5D%2C%22order%22%3A%5B%5B%22AccessView.resSensCountMapNum%22%2C%22desc%22%5D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22AccessView.resSensCountMapValExcluded%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%220%22%5D%7D%2C%7B%22member%22%3A%22AccessView.sensValRepeatability%22%2C%22operator%22%3A%22gt%22%2C%22values%22%3A%5B%220.5%22%5D%7D%2C%7B%22member%22%3A%22AccessView.resSensCountMapNum%22%2C%22operator%22%3A%22gt%22%2C%22values%22%3A%5B%2230%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22AccessView.channel%22%2C%22AccessView.host%22%2C%22AccessView.method%22%2C%22AccessView.url%22%2C%22AccessView.urlRoute%22%5D%2C%22segments%22%3A%5B%22AccessView.org%22%2C%22AccessView.resSensValid%22%2C%22AccessView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "resSensCountMapKey+Val+Num by channel+host+method+url+urlRoute" "$result"
+
+echo ""
 echo "--- $pass passed, $fail failed ---"
 
 echo ""

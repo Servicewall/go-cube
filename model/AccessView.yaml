@@ -720,6 +720,8 @@ cube:
       sql: 1=1 # Placeholder - requires custom dim filter
     riskNotConfirmed:
       sql: 1=1 # Placeholder - requires custom dim filter
+    resSensValid:
+      sql: notEmpty(res_sens_v[1])
   measures:
     count:
       sql: count()
@@ -805,6 +807,31 @@ cube:
       sql: "countIf((url_action[1]='search' or url_action[1]='航空-查票') and url_action[2]!='auto')"
       type: number
       title: 总查询量
+
+    finSearchCount:
+      sql: "countIf((url_action[1]='search' or url_action[1]='航空-查票') and url_action[2]!='auto' and (result='by_airline' or result='pass'))"
+      type: number
+      title: 合法查询量
+
+    bookCount:
+      sql: "countIf((url_action[1]='book' or url_action[1]='航空-订票') and url_action[2]!='auto')"
+      type: number
+      title: 总订票数
+
+    finBookCount:
+      sql: "countIf((url_action[1]='book' or url_action[1]='航空-订票') and url_action[2]!='auto' and (result='by_airline' or result='pass'))"
+      type: number
+      title: 合法订票数
+
+    searchBookRatio:
+      sql: "countIf((url_action[1]='search' or url_action[1]='航空-查票') and url_action[2]!='auto') / if(countIf((url_action[1]='book' or url_action[1]='航空-订票') and url_action[2]!='auto')==0,1,countIf((url_action[1]='book' or url_action[1]='航空-订票') and url_action[2]!='auto'))"
+      type: number
+      title: 原始查订比
+
+    finSearchBookRatio:
+      sql: "countIf((url_action[1]='search' or url_action[1]='航空-查票') and url_action[2]!='auto' and (result='by_airline' or result='pass')) / if(countIf((url_action[1]='book' or url_action[1]='航空-订票') and url_action[2]!='auto' and (result='by_airline' or result='pass'))==0,1,countIf((url_action[1]='book' or url_action[1]='航空-订票') and url_action[2]!='auto' and (result='by_airline' or result='pass')))"
+      type: number
+      title: 查订比
 
     blockSearchCount:
       sql: "countIf((url_action[1]='search' or url_action[1]='航空-查票') and url_action[2]!='auto' and result='protect')"
@@ -1065,6 +1092,26 @@ cube:
       sql: uniqHLL12(if(JSONExtractString(file,'name')!='',JSONExtractString(file,'type'),JSONExtractString(file,1,'type')))
       type: number
       title: 隐私文件种类
+
+    resSensCountMapKey:
+      sql: "splitByChar(';', (arrayJoin(arrayZip((sumMap(arrayMap((x,y) -> x||';'||y,res_sens_k, res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1, sensMap.2))).1)[1]"
+      type: string
+      title: 敏感键
+
+    resSensCountMapVal:
+      sql: "splitByChar(';', (arrayJoin(arrayZip((sumMap(arrayMap((x,y) -> x||';'||y,res_sens_k, res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1, sensMap.2))).1)[2]"
+      type: string
+      title: 敏感值
+
+    resSensCountMapNum:
+      sql: "(arrayJoin(arrayZip((sumMap(arrayMap((x,y) -> x||';'||y,res_sens_k, res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1, sensMap.2))).2"
+      type: number
+      title: 敏感值出现次数
+
+    sensValRepeatability:
+      sql: "round((arrayJoin(arrayZip((sumMap(arrayMap((x,y) -> x||';'||y,res_sens_k, res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1, sensMap.2))).2/count(),3)"
+      type: number
+      title: 隐私值重复度
 
     resSensCountMapValExcluded:
       sql: 0
