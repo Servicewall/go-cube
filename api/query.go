@@ -89,6 +89,8 @@ var granularityFunc = map[string]string{
 func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, error) {
 	var sql strings.Builder
 	var params []interface{}
+	var whereParams []interface{}
+	var havingParams []interface{}
 
 	// 收集有 granularity 的时间维度：alias -> truncated SQL expr
 	type granularityCol struct {
@@ -181,11 +183,12 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				return "", nil, fmt.Errorf("filter 不能同时包含 or 和 member/operator/values 字段")
 			}
 			var orClauses []string
+			var orParams []interface{}
 			for _, sub := range filter.Or {
 				clause, p := buildFilterClause(sub, cube)
 				if clause != "" {
 					orClauses = append(orClauses, clause)
-					params = append(params, p...)
+					orParams = append(orParams, p...)
 				}
 			}
 			if len(orClauses) > 0 {
@@ -200,8 +203,10 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				combined := "(" + strings.Join(orClauses, " OR ") + ")"
 				if hasMeasure {
 					having = append(having, combined)
+					havingParams = append(havingParams, orParams...)
 				} else {
 					where = append(where, combined)
+					whereParams = append(whereParams, orParams...)
 				}
 			}
 			continue
@@ -211,10 +216,11 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		if clause != "" {
 			if isMeasure(filter.Member) {
 				having = append(having, clause)
+				havingParams = append(havingParams, p...)
 			} else {
 				where = append(where, clause)
+				whereParams = append(whereParams, p...)
 			}
-			params = append(params, p...)
 		}
 	}
 
@@ -229,7 +235,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		case []string:
 			if len(v) == 2 {
 				where = append(where, fmt.Sprintf("%s >= ? AND %s <= ?", field.SQL, field.SQL))
-				params = append(params, v[0], v[1])
+				whereParams = append(whereParams, v[0], v[1])
 			}
 		case string:
 			if v != "" {
@@ -280,6 +286,10 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString(strings.Join(having, " AND "))
 	}
 
+	// params: WHERE params first, then HAVING params — must match ? placeholder order in SQL
+	params = append(whereParams, havingParams...)
+
+	// ORDER BY
 	// ORDER BY
 	if len(req.Order) > 0 {
 		sql.WriteString(" ORDER BY ")
@@ -288,10 +298,21 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if i > 0 {
 				sql.WriteString(", ")
 			}
-			if pos, ok := memberPos[member]; ok {
-				fmt.Fprintf(&sql, "%d", pos)
+			// If this member is a time dimension with granularity, use the truncated expr
+			granExpr := ""
+			for _, td := range req.TimeDimensions {
+				if td.Dimension == member && td.Granularity != "" {
+					if fn, ok := granularityFunc[td.Granularity]; ok {
+						_, fieldName, subKey := splitMemberName(td.Dimension)
+						if f, ok := cube.GetField(fieldName, subKey); ok {
+							granExpr = fmt.Sprintf("%s(%s)", fn, f.SQL)
+						}
+					}
+				}
+			}
+			if granExpr != "" {
+				sql.WriteString(granExpr)
 			} else {
-				// 不在 SELECT 中的字段回退到原始 SQL
 				_, fieldName, subKey := splitMemberName(member)
 				if f, ok := cube.GetField(fieldName, subKey); ok {
 					sql.WriteString(f.SQL)

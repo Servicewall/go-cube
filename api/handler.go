@@ -65,6 +65,7 @@ func (h *Handler) Query(ctx context.Context, req *QueryRequest) (*QueryResponse,
 
 	data, err := h.chClient.Query(ctx, query, params...)
 	if err != nil {
+		log.Printf("SQL error: %v | query: %s | params: %v", err, query, params)
 		return nil, err
 	}
 

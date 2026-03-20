@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -57,6 +58,11 @@ func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("clickhouse error (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
 
 	var res struct{ Data []map[string]interface{} }
 	return res.Data, json.NewDecoder(resp.Body).Decode(&res)

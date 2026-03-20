@@ -4,12 +4,12 @@ cube:
 
   segments:
     org:
-      sql: "org = ''"
+      sql: org = ''
 
     # top segment: 取访问量最高的300个content（approx_top_sum），此处简化为恒真，
     # 实际过滤由上层业务查询时通过 filter 传递
     top:
-      sql: "1=1"
+      sql: 1=1
 
   dimensions:
     dt:
@@ -31,115 +31,115 @@ cube:
       title: 风险主体
 
     ipGeoCountry:
-      sql: "ip_geo[1]"
+      sql: ip_geo[1]
       type: string
       title: IP属地(国家)
 
     ipGeoProvince:
-      sql: "ip_geo[2]"
+      sql: ip_geo[2]
       type: string
       title: IP属地(省份)
 
     department:
-      sql: "dictGetString('default.user_dict', 'department', content)"
+      sql: dictGetString('default.user_dict', 'department', content)
       type: string
       title: 所属部门
 
     deviceType:
-      sql: "multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')"
+      sql: multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')
       type: string
       title: 设备种类
 
     nameGroup:
-      sql: "dictGet('default.name_group_dict', 'groups', content)"
+      sql: dictGet('default.name_group_dict', 'groups', content)
       type: string
       title: 名单分组
 
   measures:
     count:
-      sql: "sum(count)"
+      sql: sum(count)
       type: number
       title: 累计访问次数
 
     sidUniq:
-      sql: "uniqHLL12Merge(sid_uniq)"
+      sql: uniqHLL12Merge(sid_uniq)
       type: number
       title: 关联设备
 
     uaUniq:
-      sql: "uniqHLL12Merge(ua_uniq)"
+      sql: uniqHLL12Merge(ua_uniq)
       type: number
       title: 关联终端
 
     ipUniq:
-      sql: "uniqHLL12Merge(ip_uniq)"
+      sql: uniqHLL12Merge(ip_uniq)
       type: number
       title: 关联IP
 
     uidUniq:
-      sql: "uniqHLL12Merge(uid_uniq)"
+      sql: uniqHLL12Merge(uid_uniq)
       type: number
       title: 关联用户
 
     appUniq:
-      sql: "uniq(channel)"
+      sql: uniq(channel)
       type: number
       title: 访问应用
 
     apiUniq:
-      sql: "uniqIfMerge(api_uniq)"
+      sql: uniqIfMerge(api_uniq)
       type: number
       title: 访问API
 
     ipGeo:
-      sql: "anyLast(ip_geo)"
+      sql: anyLast(ip_geo)
       type: string
       title: 地域
 
     lastTs:
-      sql: "max(last_ts)"
+      sql: max(last_ts)
       type: time
       title: 最近发现时间
 
     # 风险规则相关（inline展开）
     # riskCount: arrayFilter过滤掉score=0的规则
     riskScoreTuple:
-      sql: "((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.risk_dict','score',x.1)), arrayFilter(x -> dictGetInt64('default.risk_dict','score',x.1)!=0, arrayZip(sumMap(risk_count).1, sumMap(risk_count).2))))).1, (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.risk_dict','score',x.1)), arrayFilter(x -> dictGetInt64('default.risk_dict','score',x.1)!=0, arrayZip(sumMap(risk_count).1, sumMap(risk_count).2))))).2)"
+      sql: ((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.risk_dict','score',x.1)), arrayFilter(x -> dictGetInt64('default.risk_dict','score',x.1)!=0, arrayZip(sumMap(risk_count).1, sumMap(risk_count).2))))).1, (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.risk_dict','score',x.1)), arrayFilter(x -> dictGetInt64('default.risk_dict','score',x.1)!=0, arrayZip(sumMap(risk_count).1, sumMap(risk_count).2))))).2)
       type: string
       title: 命中规则
 
     # 请求涉敏 (['密码(14)', '手机(13)'], [80, 50])
     reqSensScoreTuple:
-      sql: "((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(uniqMapMerge(req_sens_uniq)), mapValues(uniqMapMerge(req_sens_uniq)))))).1, (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(uniqMapMerge(req_sens_uniq)), mapValues(uniqMapMerge(req_sens_uniq)))))).2)"
+      sql: ((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(uniqMapMerge(req_sens_uniq)), mapValues(uniqMapMerge(req_sens_uniq)))))).1, (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(uniqMapMerge(req_sens_uniq)), mapValues(uniqMapMerge(req_sens_uniq)))))).2)
       type: string
       title: 请求涉敏
 
     # 响应涉敏 (['密码(14)', '手机(13)'], [80, 50])
     resSensScoreTuple:
-      sql: "((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(uniqMapMerge(res_sens_uniq)), mapValues(uniqMapMerge(res_sens_uniq)))))).1, (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(uniqMapMerge(res_sens_uniq)), mapValues(uniqMapMerge(res_sens_uniq)))))).2)"
+      sql: ((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(uniqMapMerge(res_sens_uniq)), mapValues(uniqMapMerge(res_sens_uniq)))))).1, (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(uniqMapMerge(res_sens_uniq)), mapValues(uniqMapMerge(res_sens_uniq)))))).2)
       type: string
       title: 响应涉敏
 
     # 地图: 国家->唯一IP数 (['中国','美国'],[3,1])
     countryIpSumMap:
-      sql: "(mapKeys(uniqMapIf(CAST(([ip_geo[1]], [content]), 'Map(String, String)'), type = 'IP')), mapValues(uniqMapIf(CAST(([ip_geo[1]], [content]), 'Map(String, String)'), type = 'IP')))"
+      sql: (mapKeys(uniqMapIf(CAST(([ip_geo[1]], [content]), 'Map(String, String)'), type = 'IP')), mapValues(uniqMapIf(CAST(([ip_geo[1]], [content]), 'Map(String, String)'), type = 'IP')))
       type: string
       title: 国家唯一IP数
 
     # 地图: 省份->唯一IP数（仅中国）(['北京','浙江'],[2,1])
     provinceIpSumMap:
-      sql: "(mapKeys(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国')), mapValues(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国')))"
+      sql: (mapKeys(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国')), mapValues(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国')))
       type: string
       title: 国内省份唯一IP数
 
     # 地图: 部门->唯一用户数
     departmentUserSumMap:
-      sql: "(mapKeys(uniqMapIf(CAST(([dictGetString('default.user_dict', 'department', content)], [content]), 'Map(String, String)'), type = 'User' and dictGetString('default.user_dict', 'department', content) <> '')), mapValues(uniqMapIf(CAST(([dictGetString('default.user_dict', 'department', content)], [content]), 'Map(String, String)'), type = 'User' and dictGetString('default.user_dict', 'department', content) <> '')))"
+      sql: (mapKeys(uniqMapIf(CAST(([dictGetString('default.user_dict', 'department', content)], [content]), 'Map(String, String)'), type = 'User' and dictGetString('default.user_dict', 'department', content) <> '')), mapValues(uniqMapIf(CAST(([dictGetString('default.user_dict', 'department', content)], [content]), 'Map(String, String)'), type = 'User' and dictGetString('default.user_dict', 'department', content) <> '')))
       type: string
       title: 部门用户数
 
     # 地图: 设备种类->唯一设备数
     deviceTypeSumMap:
-      sql: "(mapKeys(uniqMapIf(CAST(([multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')], [content]), 'Map(String, String)'), type = 'Device' and multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '') <> '')), mapValues(uniqMapIf(CAST(([multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')], [content]), 'Map(String, String)'), type = 'Device' and multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '') <> '')))"
+      sql: (mapKeys(uniqMapIf(CAST(([multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')], [content]), 'Map(String, String)'), type = 'Device' and multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '') <> '')), mapValues(uniqMapIf(CAST(([multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')], [content]), 'Map(String, String)'), type = 'Device' and multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '') <> '')))
       type: string
       title: 设备种类数
