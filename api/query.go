@@ -76,7 +76,7 @@ func splitMemberName(s string) (string, string, string) {
 
 // granularityFunc 将 CubeJS granularity 映射到 ClickHouse 截断函数名
 var granularityFunc = map[string]string{
-	"second":  "toStartOfSecond",
+	"second":  "toDateTime",
 	"minute":  "toStartOfMinute",
 	"hour":    "toStartOfHour",
 	"day":     "toStartOfDay",
@@ -112,7 +112,12 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			continue
 		}
 		alias := td.Dimension + "." + td.Granularity
-		expr := fmt.Sprintf("%s(%s)", fn, field.SQL)
+		expr := ""
+		if req.Timezone != "" {
+			expr = fmt.Sprintf("%s(%s, '%s')", fn, field.SQL, req.Timezone)
+		} else {
+			expr = fmt.Sprintf("%s(%s)", fn, field.SQL)
+		}
 		granCols = append(granCols, granularityCol{alias: alias, expr: expr})
 	}
 
@@ -296,7 +301,11 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 					if fn, ok := granularityFunc[td.Granularity]; ok {
 						_, fieldName, subKey := splitMemberName(td.Dimension)
 						if f, ok := cube.GetField(fieldName, subKey); ok {
-							granExpr = fmt.Sprintf("%s(%s)", fn, f.SQL)
+							if req.Timezone != "" {
+								granExpr = fmt.Sprintf("%s(%s, '%s')", fn, f.SQL, req.Timezone)
+							} else {
+								granExpr = fmt.Sprintf("%s(%s)", fn, f.SQL)
+							}
 						}
 					}
 				}
