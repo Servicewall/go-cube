@@ -165,10 +165,30 @@ cube:
       type: array
       title: 敏感数据名称(请求)
 
+    reqSensKeyExt:
+      sql: arrayJoin(req_sens_k)
+      type: string
+      title: 敏感数据名称(请求)
+
     respSensKey:
       sql: res_sens_k
       type: array
-      title: 敏感数据名称(响应)`
+      title: 敏感数据名称(响应)
+
+    respSensKeyExt:
+      sql: arrayJoin(res_sens_k)
+      type: string
+      title: 敏感数据名称(响应)
+
+    category:
+      sql: "splitByChar(':', arrayJoin(splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', arrayJoin(res_sens_k))))))[2]"
+      type: string
+      title: 规范类别
+
+    grade:
+      sql: "splitByChar(':', arrayJoin(splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', arrayJoin(res_sens_k))))))[3]"
+      type: string
+      title: 规范分级
 
     reqSensVal:
       sql: req_sens_v
