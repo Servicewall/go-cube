@@ -251,6 +251,15 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3A%20true%
 check "privacy file detail list ungrouped 24 dims fileCategory=隐私文件 limit 20" "$result"
 
 echo ""
+echo "=== 26. category + grade GROUP BY with count (category != '') ==="
+# measures: count, dimensions: category, grade
+# filters: category != ''
+# segments: org
+# limit: 5
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%20%5B%22AccessView.count%22%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22AccessView.ts%22%2C%20%22dateRange%22%3A%20%22from%207%20days%20ago%20to%20now%22%7D%5D%2C%20%22dimensions%22%3A%20%5B%22AccessView.category%22%2C%20%22AccessView.grade%22%5D%2C%20%22filters%22%3A%20%5B%7B%22member%22%3A%20%22AccessView.category%22%2C%20%22operator%22%3A%20%22notEquals%22%2C%20%22values%22%3A%20%5B%22%22%5D%7D%5D%2C%20%22segments%22%3A%20%5B%22AccessView.org%22%5D%2C%20%22limit%22%3A%205%2C%20%22timezone%22%3A%20%22Asia/Shanghai%22%7D")
+check "category + grade GROUP BY count category!='' limit 5" "$result"
+
+echo ""
 echo "--- $pass passed, $fail failed ---"
 
 echo ""
