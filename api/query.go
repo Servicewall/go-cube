@@ -116,7 +116,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		granCols = append(granCols, granularityCol{alias: alias, expr: expr})
 	}
 
-	// SELECT — 同时记录每个列在 SELECT 中的位置（1-based），供 GROUP BY / ORDER BY 使用位置引用
+	// SELECT — 同时记录每个列是否在 SELECT 中，供 GROUP BY / ORDER BY 使用带引号别名
 	sql.WriteString("SELECT ")
 	first := true
 	selectPos := 0
@@ -253,33 +253,33 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString(strings.Join(where, " AND "))
 	}
 
-	// GROUP BY — 使用位置引用（1, 2, 3…），避免字面量（如 0）被当作位置引用、
-	// 复杂表达式被 ClickHouse 展开为聚合函数导致 ILLEGAL_AGGREGATION，
-	// 以及别名解析在不同 ClickHouse 版本/配置下的兼容性问题。
+	// GROUP BY — 使用 SELECT 列表中的带引号别名（如 "ApiView.appId"），
+	// 避免原始 SQL 中的字面量（如 0）被 ClickHouse 当作位置引用。
 	if len(req.Measures) > 0 && (len(req.Dimensions) > 0 || len(granCols) > 0) {
 		sql.WriteString(" GROUP BY ")
 		groupFirst := true
 		for _, dim := range req.Dimensions {
-			if pos, ok := memberPos[dim]; ok {
+			if _, ok := memberPos[dim]; ok {
 				if !groupFirst {
 					sql.WriteString(", ")
 				}
-				fmt.Fprintf(&sql, "%d", pos)
+				fmt.Fprintf(&sql, "\"%s\"", dim)
 				groupFirst = false
 			}
 		}
 		for _, gc := range granCols {
-			if pos, ok := memberPos[gc.alias]; ok {
+			if _, ok := memberPos[gc.alias]; ok {
 				if !groupFirst {
 					sql.WriteString(", ")
 				}
-				fmt.Fprintf(&sql, "%d", pos)
+				fmt.Fprintf(&sql, "\"%s\"", gc.alias)
 				groupFirst = false
 			}
 		}
 	}
 
-	// ORDER BY — 同样使用位置引用，避免聚合函数重复和字面量歧义。
+	// ORDER BY — 同样使用带引号别名，避免常量字面量（如 0）
+	// 被 ClickHouse 误解为无效的列位置引用。
 	// HAVING
 	if len(having) > 0 {
 		sql.WriteString(" HAVING ")
@@ -289,8 +289,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	// params: WHERE params first, then HAVING params — must match ? placeholder order in SQL
 	params = append(whereParams, havingParams...)
 
-	// ORDER BY — 优先使用位置引用（与 GROUP BY 一致），避免常量字面量（如 0）
-	// 被 ClickHouse 误解为无效的列位置引用，以及聚合表达式被重复求值。
+	// ORDER BY
 	if len(req.Order) > 0 {
 		sql.WriteString(" ORDER BY ")
 		i := 0
@@ -298,9 +297,9 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if i > 0 {
 				sql.WriteString(", ")
 			}
-			if pos, ok := memberPos[member]; ok {
-				// 直接在 SELECT 列表中的维度/度量，使用位置引用
-				fmt.Fprintf(&sql, "%d", pos)
+			if _, ok := memberPos[member]; ok {
+				// 直接在 SELECT 列表中的维度/度量，使用带引号别名
+				fmt.Fprintf(&sql, "\"%s\"", member)
 			} else {
 				// 检查是否匹配带 granularity 的时间维度。
 				// granCols 仅包含 req.TimeDimensions 中有 granularity 的条目，
@@ -310,8 +309,8 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				found := false
 				for _, gc := range granCols {
 					if strings.HasPrefix(gc.alias, member+".") {
-						if pos, ok := memberPos[gc.alias]; ok {
-							fmt.Fprintf(&sql, "%d", pos)
+						if _, ok := memberPos[gc.alias]; ok {
+							fmt.Fprintf(&sql, "\"%s\"", gc.alias)
 							found = true
 							break
 						}
