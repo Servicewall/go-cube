@@ -119,8 +119,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	// SELECT — 同时记录每个列是否在 SELECT 中，供 GROUP BY / ORDER BY 使用带引号别名
 	sql.WriteString("SELECT ")
 	first := true
-	selectPos := 0
-	memberPos := make(map[string]int)
+	memberInSelect := make(map[string]bool)
 	writeFields := func(names []string) {
 		for _, name := range names {
 			_, fieldName, subKey := splitMemberName(name)
@@ -130,8 +129,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				}
 				fmt.Fprintf(&sql, "%s AS \"%s\"", field.SQL, name)
 				first = false
-				selectPos++
-				memberPos[name] = selectPos
+				memberInSelect[name] = true
 			}
 		}
 	}
@@ -144,8 +142,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		}
 		fmt.Fprintf(&sql, "%s AS \"%s\"", gc.expr, gc.alias)
 		first = false
-		selectPos++
-		memberPos[gc.alias] = selectPos
+		memberInSelect[gc.alias] = true
 	}
 	if first {
 		sql.WriteString("1")
@@ -259,7 +256,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString(" GROUP BY ")
 		groupFirst := true
 		for _, dim := range req.Dimensions {
-			if _, ok := memberPos[dim]; ok {
+			if _, ok := memberInSelect[dim]; ok {
 				if !groupFirst {
 					sql.WriteString(", ")
 				}
@@ -268,7 +265,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			}
 		}
 		for _, gc := range granCols {
-			if _, ok := memberPos[gc.alias]; ok {
+			if _, ok := memberInSelect[gc.alias]; ok {
 				if !groupFirst {
 					sql.WriteString(", ")
 				}
@@ -297,7 +294,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if i > 0 {
 				sql.WriteString(", ")
 			}
-			if _, ok := memberPos[member]; ok {
+			if _, ok := memberInSelect[member]; ok {
 				// 直接在 SELECT 列表中的维度/度量，使用带引号别名
 				fmt.Fprintf(&sql, "\"%s\"", member)
 			} else {
@@ -309,7 +306,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				found := false
 				for _, gc := range granCols {
 					if strings.HasPrefix(gc.alias, member+".") {
-						if _, ok := memberPos[gc.alias]; ok {
+						if _, ok := memberInSelect[gc.alias]; ok {
 							fmt.Fprintf(&sql, "\"%s\"", gc.alias)
 							found = true
 							break
