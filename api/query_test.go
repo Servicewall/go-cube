@@ -99,6 +99,28 @@ func TestBuildQuery_LiteralDimensionGroupByAlias(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_OrderByMeasureUsesPositionalRef(t *testing.T) {
+	// ORDER BY measure 字段应使用位置引用，避免聚合表达式被重复求值
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.ip"},
+		Measures:   []string{"AccessView.count"},
+		Order:      OrderMap{"AccessView.count": "desc"},
+	}
+
+	sql, _, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// count 是 SELECT 中的第 2 列，ORDER BY 应为 2 DESC
+	if !contains(sql, "2 DESC") {
+		t.Errorf("expected ORDER BY measure with positional ref '2 DESC', got: %s", sql)
+	}
+	// 确保 ORDER BY 中不包含原始聚合表达式
+	if contains(sql, "ORDER BY count()") {
+		t.Errorf("ORDER BY should use positional ref, not raw SQL, got: %s", sql)
+	}
+}
+
 func TestBuildQuery_FilterEquals(t *testing.T) {
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},

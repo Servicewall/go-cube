@@ -289,8 +289,8 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	// params: WHERE params first, then HAVING params — must match ? placeholder order in SQL
 	params = append(whereParams, havingParams...)
 
-	// ORDER BY
-	// ORDER BY
+	// ORDER BY — 优先使用位置引用（与 GROUP BY 一致），避免常量字面量（如 0）
+	// 被 ClickHouse 误解为无效的列位置引用，以及聚合表达式被重复求值。
 	if len(req.Order) > 0 {
 		sql.WriteString(" ORDER BY ")
 		i := 0
@@ -298,26 +298,31 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if i > 0 {
 				sql.WriteString(", ")
 			}
-			// If this member is a time dimension with granularity, use the truncated expr
-			granExpr := ""
-			for _, td := range req.TimeDimensions {
-				if td.Dimension == member && td.Granularity != "" {
-					if fn, ok := granularityFunc[td.Granularity]; ok {
-						_, fieldName, subKey := splitMemberName(td.Dimension)
-						if f, ok := cube.GetField(fieldName, subKey); ok {
-							granExpr = fmt.Sprintf("%s(%s)", fn, f.SQL)
+			if pos, ok := memberPos[member]; ok {
+				// 直接在 SELECT 列表中的维度/度量，使用位置引用
+				fmt.Fprintf(&sql, "%d", pos)
+			} else {
+				// 检查是否匹配带 granularity 的时间维度
+				found := false
+				for _, gc := range granCols {
+					// granCols 的 alias 格式为 "Cube.field.granularity"，
+					// 但 order 中 member 可能只有 "Cube.field"
+					if strings.HasPrefix(gc.alias, member+".") {
+						if pos, ok := memberPos[gc.alias]; ok {
+							fmt.Fprintf(&sql, "%d", pos)
+							found = true
+							break
 						}
 					}
 				}
-			}
-			if granExpr != "" {
-				sql.WriteString(granExpr)
-			} else {
-				_, fieldName, subKey := splitMemberName(member)
-				if f, ok := cube.GetField(fieldName, subKey); ok {
-					sql.WriteString(f.SQL)
-				} else {
-					sql.WriteString(member)
+				if !found {
+					// 不在 SELECT 中的字段回退到原始 SQL
+					_, fieldName, subKey := splitMemberName(member)
+					if f, ok := cube.GetField(fieldName, subKey); ok {
+						sql.WriteString(f.SQL)
+					} else {
+						sql.WriteString(member)
+					}
 				}
 			}
 			if direction == "desc" {
