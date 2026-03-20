@@ -302,11 +302,13 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				// 直接在 SELECT 列表中的维度/度量，使用位置引用
 				fmt.Fprintf(&sql, "%d", pos)
 			} else {
-				// 检查是否匹配带 granularity 的时间维度
+				// 检查是否匹配带 granularity 的时间维度。
+				// granCols 仅包含 req.TimeDimensions 中有 granularity 的条目，
+				// alias 固定为 "Cube.field.granularity"（如 "ApiView.ts.day"），
+				// order 中 member 可能只有 "Cube.field"（如 "ApiView.ts"），
+				// 因此用 HasPrefix(alias, member+".") 安全匹配。
 				found := false
 				for _, gc := range granCols {
-					// granCols 的 alias 格式为 "Cube.field.granularity"，
-					// 但 order 中 member 可能只有 "Cube.field"
 					if strings.HasPrefix(gc.alias, member+".") {
 						if pos, ok := memberPos[gc.alias]; ok {
 							fmt.Fprintf(&sql, "%d", pos)
