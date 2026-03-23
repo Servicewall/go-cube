@@ -120,7 +120,50 @@ var granularityFunc = map[string]string{
 	"year":    "toStartOfYear",
 }
 
+// injectSQLFilters 将 cube.SQL 中的 {filter.<fieldName>} 占位符替换为实际的 WHERE 条件片段。
+// 匹配 timeDimensions 中对应字段的 dateRange；无匹配时替换为 1=1。
+// 注意：占位符中的 fieldName 直接作为子查询中的原始列名使用，而非外层 dimension SQL 表达式。
+func injectSQLFilters(sqlTemplate string, req *QueryRequest) string {
+	for strings.Contains(sqlTemplate, "{filter.") {
+		start := strings.Index(sqlTemplate, "{filter.")
+		end := strings.Index(sqlTemplate[start:], "}")
+		if end < 0 {
+			break
+		}
+		placeholder := sqlTemplate[start : start+end+1] // e.g. {filter.ts}
+		fieldName := placeholder[len("{filter.") : len(placeholder)-1]
+
+		replacement := "1=1"
+		for _, td := range req.TimeDimensions {
+			_, tdField, _ := splitMemberName(td.Dimension)
+			if tdField != fieldName || td.DateRange.V == nil {
+				continue
+			}
+			switch v := td.DateRange.V.(type) {
+			case []string:
+				if len(v) == 2 {
+					replacement = fmt.Sprintf("%s >= '%s' AND %s <= '%s'", fieldName, v[0], fieldName, v[1])
+				}
+			case string:
+				if v != "" {
+					if s, e, ok := parseRelativeTimeRange(v); ok {
+						replacement = fmt.Sprintf("%s >= %s AND %s <= %s", fieldName, s, fieldName, e)
+					}
+				}
+			}
+			break
+		}
+		sqlTemplate = strings.Replace(sqlTemplate, placeholder, replacement, 1)
+	}
+	return sqlTemplate
+}
+
 func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, error) {
+	// 注入子查询 SQL 中的 {filter.*} 占位符，避免全表扫描
+	if strings.Contains(cube.SQL, "{filter.") {
+		cube = cube.WithSQL(injectSQLFilters(cube.SQL, req))
+	}
+
 	var sql strings.Builder
 	var params []interface{}
 	var whereParams []interface{}

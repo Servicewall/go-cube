@@ -64,6 +64,13 @@ func (c *Cube) GetSQLTable() string {
 	return ""
 }
 
+// WithSQL 返回 Cube 的浅拷贝，SQL 字段替换为给定值（用于子查询占位符注入）。
+func (c *Cube) WithSQL(sql string) *Cube {
+	copy := *c
+	copy.SQL = sql
+	return &copy
+}
+
 type Field struct {
 	Name string
 	SQL  string

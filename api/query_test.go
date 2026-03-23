@@ -133,7 +133,7 @@ func TestBuildQuery_FilterSet(t *testing.T) {
 func TestBuildQuery_OrderBy(t *testing.T) {
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.ts"},
-		Order:      OrderMap{"AccessView.ts": "desc"},
+		Order:      OrderList{{Member: "AccessView.ts", Direction: "desc"}},
 	}
 
 	sql, _, err := BuildQuery(req, testCube())
@@ -229,8 +229,8 @@ func TestBuildQuery_TimeDimensionLastMonth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "toStartOfMonth(now() - INTERVAL 1 MONTH)") {
-		t.Errorf("expected toStartOfMonth(now() - INTERVAL 1 MONTH) in SQL, got: %s", sql)
+	if !contains(sql, "toStartOfMonth(addMonths(now(), -1))") {
+		t.Errorf("expected toStartOfMonth(addMonths(now(), -1)) in SQL, got: %s", sql)
 	}
 	if !contains(sql, ">=") || !contains(sql, "<=") {
 		t.Errorf("expected >= and <= for range, got: %s", sql)
@@ -557,7 +557,7 @@ func TestParseRelativeTimeRange(t *testing.T) {
 		{"from 15 minutes ago to now", "now() - INTERVAL 15 MINUTE", "now()", true},
 		{"from 1 hour ago to now", "now() - INTERVAL 1 HOUR", "now()", true},
 		{"from 7 days ago to now", "now() - INTERVAL 7 DAY", "now()", true},
-		{"today", "", "", false},
+		{"today", "toStartOfDay(now())", "toStartOfDay(addDays(now(), 1))", true},
 	}
 	for _, c := range cases {
 		start, end, isRange := parseRelativeTimeRange(c.input)
@@ -650,7 +650,7 @@ func TestBuildQuery_CustomDataSubKeyOrderBy(t *testing.T) {
 	}
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.customData.UserToken"},
-		Order:      OrderMap{"AccessView.customData.UserToken": "desc"},
+		Order:      OrderList{{Member: "AccessView.customData.UserToken", Direction: "desc"}},
 	}
 
 	sql, _, err := BuildQuery(req, cube)

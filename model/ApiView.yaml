@@ -42,6 +42,7 @@ cube:
       SELECT org, ts, first_ts, url, req_key, host, method, url_action, channel, count, type, source,
       hour_count, risk_count, weak_count, metric_count, req_sens_uniq, res_sens_uniq
       FROM default.access_sample_raw
+      WHERE {filter.ts}
       ) AS a
       FULL OUTER JOIN
       (
