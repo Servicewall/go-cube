@@ -236,12 +236,12 @@ cube:
       title: 响应大小
 
     request:
-      sql: jsonMergePatch(req, toJSONString(map('Body', if(substr(JSONExtractString(req,'Method'),-3) IN ['C2S','S2C','TCP','WS'], tryBase64Decode(JSONExtractString(req,'Body')), subStr(JSONExtractString(req,'Body'),1,100000)))))
+      sql: if(notEmpty(req), jsonMergePatch(req, toJSONString(map('Body', if(substr(JSONExtractString(req,'Method'),-3) IN ['C2S','S2C','TCP','WS'], tryBase64Decode(JSONExtractString(req,'Body')), subStr(JSONExtractString(req,'Body'),1,100000))))), '')
       type: string
       title: 请求报文
 
     response:
-      sql: jsonMergePatch(res, toJSONString(map('Body', subStr(JSONExtractString(res, 'Body'), 1, 100000))))
+      sql: if(notEmpty(res), jsonMergePatch(res, toJSONString(map('Body', subStr(JSONExtractString(res, 'Body'), 1, 100000)))), '')
       type: string
       title: 响应报文
 
