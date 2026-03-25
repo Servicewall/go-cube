@@ -39,28 +39,28 @@ cube:
       title: 检测弱点
 
     evidence:
-      sql: weak_data.2[1]
-      type: string
+      sql: weak_data.2
+      type: array
       title: 弱点证据
 
     reqDefectKey:
-      sql: weak_data.2[2]
-      type: string
+      sql: if(notEmpty(req), weak_data.2, cast([], 'Array(String)'))
+      type: array
       title: 请求侧弱点数据的路径
 
     resDefectKey:
-      sql: weak_data.2[2]
-      type: string
+      sql: if(empty(req), weak_data.2, cast([], 'Array(String)'))
+      type: array
       title: 响应侧弱点数据的路径
 
     reqDefectVal:
-      sql: weak_data.2[2]
-      type: string
+      sql: if(notEmpty(req), weak_data.2, cast([], 'Array(String)'))
+      type: array
       title: 请求侧弱点数据的值
 
     resDefectVal:
-      sql: weak_data.2[2]
-      type: string
+      sql: if(empty(req), weak_data.2, cast([], 'Array(String)'))
+      type: array
       title: 响应侧弱点数据的值
 
     request:
