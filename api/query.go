@@ -289,9 +289,14 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			}
 		}
 	}
+	// 没有匹配 timeDimension 的占位符，替换为 1=1（不过滤，保留全量数据）
 	if i := strings.Index(fromSQL, "{filter."); i >= 0 {
 		j := strings.Index(fromSQL[i:], "}")
-		return "", nil, fmt.Errorf("unresolved SQL placeholder %s: no matching timeDimension with dateRange", fromSQL[i:i+j+1])
+		if j < 0 {
+			return "", nil, fmt.Errorf("SQL placeholder starting at position %d is not closed (missing '}')", i)
+		}
+		placeholder := fromSQL[i : i+j+1]
+		fromSQL = strings.ReplaceAll(fromSQL, placeholder, "1=1")
 	}
 	sql.WriteString(fromSQL)
 
