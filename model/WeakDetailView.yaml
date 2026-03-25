@@ -8,7 +8,7 @@ cube:
 
   dimensions:
     id:
-      sql: id
+      sql: weak_data['id']
       primary_key: true
       type: string
       title: 请求ID
