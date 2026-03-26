@@ -66,6 +66,12 @@ result=$(curl -s "$BASE/load?query=%7B%22measures%22%3A%5B%5D%2C%22timeDimension
 echo "Raw: $result"
 check "ApiView 功能分组" "$result"
 
+echo ""
+echo "=== 7. ApiView 功能分组列表 ==="
+#{"renewQuery":true,"measures":[],"timeDimensions":[{"dimension":"ApiView.ts"}],"filters":[{"member":"ApiView.isApi","operator":"equals","values":["1"]},{"member":"ApiView.topoNetwork","operator":"notEquals","values":["外发"]},{"member":"ApiView.autoTagExt","operator":"equals","values":["新增"]}],"dimensions":["ApiView.channel","ApiView.host","ApiView.method","ApiView.urlRoute","ApiView.autoTagTypeExt"],"segments":["ApiView.org","ApiView.black","ApiView.onePerDay"],"timezone":"Asia/Shanghai"}
+result=$(curl -s "$BASE/load?query=%7B%22renewQuery%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiView.isApi%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%221%22%5D%7D%2C%7B%22member%22%3A%22ApiView.topoNetwork%22%2C%22operator%22%3A%22notEquals%22%2C%22values%22%3A%5B%22%E5%A4%96%E5%8F%91%22%5D%7D%2C%7B%22member%22%3A%22ApiView.autoTagExt%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22%E6%96%B0%E5%A2%9E%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiView.channel%22%2C%22ApiView.host%22%2C%22ApiView.method%22%2C%22ApiView.urlRoute%22%2C%22ApiView.autoTagTypeExt%22%5D%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D&queryType=multi")
+echo "Raw: $result"
+check "ApiView 功能分组列表" "$result"
 
 echo ""
 echo "========================================"

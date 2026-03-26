@@ -312,29 +312,18 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString(strings.Join(where, " AND "))
 	}
 
-	// 有 measures 且有 dimension/granularity 时才拼 GROUP BY；纯 measures 做全表聚合，空 GROUP BY 在 ClickHouse 会报语法错误
-	if len(req.Measures) > 0 && (len(req.Dimensions) > 0 || len(granByDim) > 0) {
-		sql.WriteString(" GROUP BY ")
-		groupFirst := true
+	// cube的规则是：1.ungrouped: true → 只能有 dimensions，返回明细
+	// 2. ungrouped: false（默认）→ dimensions + measures 自由组合，有聚合就有 GROUP BY
+	if !req.Ungrouped && (len(req.Dimensions) > 0 || len(granByDim) > 0) {
+		var groupCols []string
 		for _, dim := range req.Dimensions {
-			if !groupFirst {
-				sql.WriteString(", ")
-			}
-			_, fieldName, subKey := splitMemberName(dim)
-			if field, ok := cube.GetField(fieldName, subKey); ok {
-				sql.WriteString(field.SQL)
-			} else {
-				sql.WriteString(dim)
-			}
-			groupFirst = false
+			groupCols = append(groupCols, fmt.Sprintf("\"%s\"", dim))
 		}
 		for _, gc := range granByDim {
-			if !groupFirst {
-				sql.WriteString(", ")
-			}
-			sql.WriteString(gc.expr)
-			groupFirst = false
+			groupCols = append(groupCols, gc.expr)
 		}
+		sql.WriteString(" GROUP BY ")
+		sql.WriteString(strings.Join(groupCols, ", "))
 	}
 
 	// HAVING

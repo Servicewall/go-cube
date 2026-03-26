@@ -241,8 +241,8 @@ cube:
       title: 智能分组标签
 
     autoTagExt:
-      sql: "if(notEmpty(conf_tag) OR url_action[6] != '', arrayConcat(arrayFilter(x->notEmpty(x), conf_tag), arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6]))), if(url_action[2] IN ('api','auto') AND url_action[1] != '', [url_action[1]], ['未分组']))"
-      type: array
+      sql: "arrayJoin(arrayZip(if(notEmpty(conf_tag) OR url_action[6] != '', arrayConcat(arrayFilter(x->notEmpty(x), conf_tag), arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6]))), if(url_action[2] IN ('api','auto') AND url_action[1] != '', [url_action[1]], ['未分组'])), if(notEmpty(conf_tag) OR url_action[6] != '', arrayConcat(arrayMap(x->1, arrayFilter(x->notEmpty(x), conf_tag)), arrayMap(x->2, arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6])))), arrayMap(x->3, if(url_action[2] IN ('api','auto') AND url_action[1] != '', [url_action[1]], ['未分组']))))).1"
+      type: string
       title: 自动分组标签
 
     autoTagTypeExt:
