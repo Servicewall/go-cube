@@ -97,6 +97,11 @@ cube:
       type: number
       title: 风险分组计数
 
+    countRaw:
+      sql: count
+      type: number
+      title: 原始计数
+
   measures:
     count:
       sql: count()
@@ -157,3 +162,23 @@ cube:
       sql: uniqHLL12MapMerge(res_sens_kv)
       type: string
       title: 隐私项及值
+
+    allRisk:
+      sql: groupUniqArray(risk)
+      type: string
+      title: 所有风险列表
+
+    allRiskScore:
+      sql: if(notEmpty(groupUniqArray(risk)), 100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.risk_dict','score',x), groupUniqArray(risk))), 0)
+      type: number
+      title: 综合风险评分
+
+    lastExpireTs:
+      sql: max(ts + 600)
+      type: time
+      title: 最大过期时间
+
+    lastStatus:
+      sql: if(now() > max(ts + 600), '过期', '生效')
+      type: string
+      title: 整体存活状态

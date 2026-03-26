@@ -111,6 +111,24 @@ echo "=== 9. riskFullDesc + resSensKv + countNum (单条风险详情) ==="
 result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22RiskView.riskFullDesc%22%2C%22RiskView.resSensKv%22%2C%22RiskView.countNum%22%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22RiskView.risk%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22%E5%A2%83%E5%A4%96IP%E4%BD%BF%E7%94%A8%E8%B4%A6%E5%8F%B7%E8%AE%BF%E9%97%AE%E5%A4%9A%E4%B8%AA%E5%BA%94%E7%94%A8%22%5D%7D%2C%7B%22member%22%3A%22RiskView.type%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22ip%22%5D%7D%2C%7B%22member%22%3A%22RiskView.content%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22172.31.45.232%22%5D%7D%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22RiskView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
 check "riskFullDesc+resSensKv+countNum (single risk detail)" "$result"
 
+echo ""
+echo "=== 10. RiskView 活跃风险汇总 (原 RiskDayView Q1: lastStatus/allRisk/allRiskScore/ts/countNum/lastExpireTs) ==="
+# measures: lastStatus, allRisk, allRiskScore, ts(lastTs), countNum(sum), lastExpireTs
+# dimensions: content, type, filterTs
+# timeDimensions: filterTs from 15min ago to 15min from now
+# segments: org
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%20%5B%22RiskView.lastStatus%22%2C%20%22RiskView.allRisk%22%2C%20%22RiskView.allRiskScore%22%2C%20%22RiskView.ts%22%2C%20%22RiskView.countNum%22%2C%20%22RiskView.lastExpireTs%22%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22RiskView.filterTs%22%2C%20%22dateRange%22%3A%20%22from%2015%20minutes%20ago%20to%2015%20minutes%20from%20now%22%7D%5D%2C%20%22order%22%3A%20%7B%22RiskView.ts%22%3A%20%22desc%22%7D%2C%20%22filters%22%3A%20%5B%5D%2C%20%22dimensions%22%3A%20%5B%22RiskView.content%22%2C%20%22RiskView.type%22%2C%20%22RiskView.filterTs%22%5D%2C%20%22segments%22%3A%20%5B%22RiskView.org%22%5D%2C%20%22timezone%22%3A%20%22Asia/Shanghai%22%2C%20%22limit%22%3A%2010%7D")
+check "RiskDayView Q1: lastStatus/allRisk/allRiskScore/ts/countNum/lastExpireTs by content+type" "$result"
+
+echo ""
+echo "=== 11. RiskView 风险明细列表 (原 RiskDayView Q2: lastStatus/allRiskScore/ts/lastExpireTs + risk/countRaw) ==="
+# measures: lastStatus, allRiskScore, ts(lastTs), lastExpireTs
+# dimensions: content, type, risk, countRaw(count col), filterTs
+# timeDimensions: filterTs from 15min ago to 15min from now
+# segments: org
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%20%5B%22RiskView.lastStatus%22%2C%20%22RiskView.allRiskScore%22%2C%20%22RiskView.ts%22%2C%20%22RiskView.lastExpireTs%22%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22RiskView.filterTs%22%2C%20%22dateRange%22%3A%20%22from%2015%20minutes%20ago%20to%2015%20minutes%20from%20now%22%7D%5D%2C%20%22order%22%3A%20%7B%22RiskView.ts%22%3A%20%22desc%22%7D%2C%20%22filters%22%3A%20%5B%5D%2C%20%22dimensions%22%3A%20%5B%22RiskView.content%22%2C%20%22RiskView.type%22%2C%20%22RiskView.risk%22%2C%20%22RiskView.countRaw%22%2C%20%22RiskView.filterTs%22%5D%2C%20%22segments%22%3A%20%5B%22RiskView.org%22%5D%2C%20%22timezone%22%3A%20%22Asia/Shanghai%22%2C%20%22limit%22%3A%2010%7D")
+check "RiskDayView Q2: lastStatus/allRiskScore/ts/lastExpireTs by content+type+risk+countRaw" "$result"
+
 kill $SERVER_PID 2>/dev/null
 wait $SERVER_PID 2>/dev/null
 
