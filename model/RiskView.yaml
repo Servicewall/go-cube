@@ -119,7 +119,7 @@ cube:
       title: 首次出现时间
 
     status:
-      sql: multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认')
+      sql: "any(multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认'))"
       type: string
       title: 管理状态
 
@@ -182,3 +182,8 @@ cube:
       sql: if(now() > max(ts + 600), '过期', '生效')
       type: string
       title: 整体存活状态
+    
+    resSensTs:
+      sql: max(res_sens_ts)
+      type: time
+      title: 隐私信息最近出现时间

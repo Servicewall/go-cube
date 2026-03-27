@@ -129,6 +129,18 @@ echo "=== 11. RiskView 风险明细列表 (原 RiskDayView Q2: lastStatus/allRis
 result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%20%5B%22RiskView.lastStatus%22%2C%20%22RiskView.allRiskScore%22%2C%20%22RiskView.ts%22%2C%20%22RiskView.lastExpireTs%22%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22RiskView.filterTs%22%2C%20%22dateRange%22%3A%20%22from%2015%20minutes%20ago%20to%2015%20minutes%20from%20now%22%7D%5D%2C%20%22order%22%3A%20%7B%22RiskView.ts%22%3A%20%22desc%22%7D%2C%20%22filters%22%3A%20%5B%5D%2C%20%22dimensions%22%3A%20%5B%22RiskView.content%22%2C%20%22RiskView.type%22%2C%20%22RiskView.risk%22%2C%20%22RiskView.countRaw%22%2C%20%22RiskView.filterTs%22%5D%2C%20%22segments%22%3A%20%5B%22RiskView.org%22%5D%2C%20%22timezone%22%3A%20%22Asia/Shanghai%22%2C%20%22limit%22%3A%2010%7D")
 check "RiskDayView Q2: lastStatus/allRiskScore/ts/lastExpireTs by content+type+risk+countRaw" "$result"
 
+
+
+echo ""
+echo "=== 10. status+sumCount+score+countNum+ts+resSensTs (multi risk detail) ==="
+#{"measures":["RiskView.status","RiskView.allRiskScore","RiskView.countNum","RiskView.ts","RiskView.resSensTs"],"timeDimensions":[{"dimension":"RiskView.filterTs","dateRange":"from+15+minutes+ago+to+15+minutes+from+now"}],"order":{"RiskView.ts":"desc"},"filters":[],"dimensions":["RiskView.content","RiskView.type","RiskView.filterTs"],"segments":["RiskView.org"],"timezone":"Asia/Shanghai"}
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22RiskView.status%22%2C%22RiskView.allRiskScore%22%2C%22RiskView.countNum%22%2C%22RiskView.ts%22%2C%22RiskView.resSensTs%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22RiskView.filterTs%22%2C%22dateRange%22%3A%22from%2015%20minutes%20ago%20to%2015%20minutes%20from%20now%22%7D%5D%2C%22order%22%3A%7B%22RiskView.ts%22%3A%22desc%22%7D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22RiskView.content%22%2C%22RiskView.type%22%2C%22RiskView.filterTs%22%5D%2C%22segments%22%3A%5B%22RiskView.org%22%5D%2C%22timezone%22%3A%22Asia/Shanghai%22%7D")echo "Raw result: $result"
+check "status+sumCount+score+countNum+ts+resSensTs (multi risk detail)" "$result"
+
+
+echo ""
+echo "Test completed: $pass passed, $fail failed."
+
 kill $SERVER_PID 2>/dev/null
 wait $SERVER_PID 2>/dev/null
 
