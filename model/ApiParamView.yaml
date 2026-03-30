@@ -13,7 +13,7 @@ cube:
     FROM (
         SELECT req_head, req_body
         FROM access
-        WHERE org = ''
+        PREWHERE org = {vars.org}
           AND ts > now() - 3600
           AND (req_head <> '' OR req_body <> '')
         ORDER BY ts DESC

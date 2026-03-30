@@ -208,8 +208,6 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString("1")
 	}
 
-	// FROM（延迟写入，等 timeDimensions 循环替换占位符后再拼）
-	fromSQL := cube.GetSQLTable()
 	sql.WriteString(" FROM ")
 
 	// PREWHERE / WHERE / HAVING
@@ -225,7 +223,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	}
 
 	// applyVars 替换 SQL 模板中的 {vars.key}，每个值加单引号并转义；空 slice 降级 1=1。
-	// 替换后仍有未解析占位符（含 vars 为空）时返回 ""，调用方跳过该 segment。
+	// 替换后若仍有未解析占位符则原样保留（由调用方决定是否跳过）。
 	applyVars := func(tmpl string) string {
 		for k, vals := range req.Vars {
 			ph := "{vars." + k + "}"
@@ -241,20 +239,19 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			}
 			tmpl = strings.ReplaceAll(tmpl, ph, strings.Join(quoted, ","))
 		}
-		if strings.Contains(tmpl, "{vars.") {
-			return ""
-		}
 		return tmpl
 	}
 
-	// segments 全部走 PREWHERE，applyVars 返回空串时跳过
+	// fromSQL 直接替换 vars，未解析占位符原样保留（sql_table 缺 vars 时让 DB 报错提示）
+	fromSQL := applyVars(cube.GetSQLTable())
+	// segments 全部走 PREWHERE，替换后仍有未解析占位符时跳过该 segment
 	for _, seg := range req.Segments {
 		_, segName, _ := splitMemberName(seg)
 		s, ok := cube.Segments[segName]
 		if !ok || s.SQL == "" {
 			continue
 		}
-		if result := applyVars(s.SQL); result != "" {
+		if result := applyVars(s.SQL); !strings.Contains(result, "{vars.") {
 			prewhere = append(prewhere, result)
 		}
 	}

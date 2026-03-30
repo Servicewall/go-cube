@@ -12,8 +12,8 @@ cube:
              max(last_time)                     AS last_time_max,
              min(first_time)                    AS first_time,
              argMax(res_sens_count, last_time)  AS res_sens_count
-      FROM weak
-      WHERE org = ''
+       FROM weak
+       PREWHERE org = {vars.org}
       GROUP BY org, host, channel, url, method, weak_name
     ) AS w
     LEFT JOIN (

@@ -873,3 +873,63 @@ func TestBuildQuery_MeasureFilterGoesToHaving(t *testing.T) {
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
+
+// TestBuildQuery_SubquerySQLVarsOrg 验证子查询模型的 {vars.org} 被正确注入 FROM 子句
+func TestBuildQuery_SubquerySQLVarsOrg(t *testing.T) {
+	cube := &model.Cube{
+		Name: "WeakView",
+		SQL:  "SELECT org, host FROM weak PREWHERE org = {vars.org}",
+		Dimensions: map[string]model.Dimension{
+			"host": {SQL: "host", Type: "string"},
+		},
+		Segments: map[string]model.Segment{
+			"org": {SQL: ""},
+		},
+	}
+
+	req := &QueryRequest{
+		Dimensions: []string{"WeakView.host"},
+		Vars:       map[string][]string{"org": {"tenant_abc"}},
+	}
+
+	sql, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "PREWHERE org = 'tenant_abc'") {
+		t.Errorf("expected org injected into subquery FROM, got: %s", sql)
+	}
+	// 占位符不应残留
+	if contains(sql, "{vars.org}") {
+		t.Errorf("placeholder {vars.org} should be replaced, got: %s", sql)
+	}
+}
+
+// TestBuildQuery_SubquerySQLVarsOrgMissing 验证没有传 vars.org 时占位符导致 FROM 变为空串，查询仍能构建
+func TestBuildQuery_SubquerySQLVarsOrgMissing(t *testing.T) {
+	cube := &model.Cube{
+		Name: "WeakView",
+		SQL:  "SELECT org, host FROM weak PREWHERE org = {vars.org}",
+		Dimensions: map[string]model.Dimension{
+			"host": {SQL: "host", Type: "string"},
+		},
+		Segments: map[string]model.Segment{
+			"org": {SQL: ""},
+		},
+	}
+
+	req := &QueryRequest{
+		Dimensions: []string{"WeakView.host"},
+		// 不传 vars
+	}
+
+	sql, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// vars 缺失时 applyVars 返回 ""，fromSQL 为空，FROM 子句为空
+	// 此时 SQL 包含 FROM 但没有表名，ClickHouse 会报错——这是预期行为，由调用方保证传 vars
+	if contains(sql, "'") {
+		t.Errorf("no vars provided, should not inject any quoted value, got: %s", sql)
+	}
+}

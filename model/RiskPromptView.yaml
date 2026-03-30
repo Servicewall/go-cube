@@ -1,7 +1,7 @@
 cube:
   name: RiskPromptView
   sql: |
-    SELECT * FROM postgres.risk_prompts WHERE coalesce(org_id, '') = ''
+    SELECT * FROM postgres.risk_prompts WHERE coalesce(org_id, '') = {vars.org}
 
   segments:
     org:
