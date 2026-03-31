@@ -180,11 +180,11 @@ func TestBuildQuery_TimeDimensionRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "ts >= ?") || !contains(sql, "ts <= ?") {
+	if !contains(sql, "ts >= '2024-01-01'") || !contains(sql, "ts <= '2024-01-31'") {
 		t.Errorf("expected date range WHERE clause, got: %s", sql)
 	}
-	if len(params) != 2 {
-		t.Errorf("expected 2 date params, got: %v", params)
+	if len(params) != 0 {
+		t.Errorf("expected 0 date params (inlined), got: %v", params)
 	}
 }
 
