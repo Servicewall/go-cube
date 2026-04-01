@@ -155,12 +155,12 @@ cube:
     
     customRuleTag:
       sql: multiIf(url_action[6]!='', splitByChar(',', url_action[6]), if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')!='', [if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')], [])
-      type: string
+      type: array
       title: 功能
     
     configTag:
       sql: conf_tag
-      type: string
+      type: array
       title: 标签
     
     managementStatus:
@@ -171,6 +171,7 @@ cube:
     webServerTypeTag:
       sql: if(type='HTTP2/gRPC', 'gRPC', type)
       type: string
+      title: 规范类型
     
     autoBizName:
       sql: if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')
@@ -205,13 +206,13 @@ cube:
       type: string
     
     resSensScoreTupleRaw:
-      sql: arrayStringConcat((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(res_sens_uniq_map), mapValues(res_sens_uniq_map))))).1, ',') || ',' || arrayStringConcat(arrayMap(x -> toString(x), (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(res_sens_uniq_map), mapValues(res_sens_uniq_map))))).2), ',')
-      type: string
+      sql: if(notEmpty(mapKeys(res_sens_uniq_map)), arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(res_sens_uniq_map), mapValues(res_sens_uniq_map)))), [])
+      type: array
       title: 响应隐私及分数
     
     reqSensScoreTupleRaw:
-      sql: arrayStringConcat((arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(req_sens_uniq_map), mapValues(req_sens_uniq_map))))).1, ',') || ',' || arrayStringConcat(arrayMap(x -> toString(x), (arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(req_sens_uniq_map), mapValues(req_sens_uniq_map))))).2), ',')
-      type: string
+      sql: if(notEmpty(mapKeys(req_sens_uniq_map)), arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(req_sens_uniq_map), mapValues(req_sens_uniq_map)))), [])
+      type: array
       title: 请求隐私及分数
     
     bizImportance:
@@ -288,15 +289,15 @@ cube:
 
     respSensKey:
       sql: mapKeys(res_sens_uniq_map)
-      type: string
+      type: array
 
     reqSensKey:
       sql: mapKeys(req_sens_uniq_map)
-      type: string
+      type: array
 
     sensKey:
       sql: if(url_action[5] != '外发', mapKeys(res_sens_uniq_map), mapKeys(req_sens_uniq_map))
-      type: string
+      type: array
       title: 敏感项
 
     tag:
@@ -306,7 +307,7 @@ cube:
 
     autoTag:
       sql: if(notEmpty(conf_tag) OR notEmpty(url_action[6]), arrayConcat(arrayFilter(x->notEmpty(x), conf_tag), arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6]))), if(url_action[2] IN ('api','auto') AND url_action[1] != '', [url_action[1]], ['未分组']))
-      type: string
+      type: array
       title: 自动分组标签集合
 
     sensScore:
@@ -350,6 +351,21 @@ cube:
       sql: round((mapFromArrays(metric_count.1, metric_count.2)['length'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0), 2)
       type: number
       title: 平均响应大小
+    
+    hostUrl:
+      sql: last_host || url
+      type: string
+      title: 地址
+
+    description:
+      sql: dictGetString('app_dict','description', multiIf(notEmpty(dictGet('host_dict', 'info', assumeNotNull(last_host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(last_host)))[3], notEmpty(dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*'))[3], ''))
+      type: string
+      title: 备注
+
+    authParamPath:
+      sql: url_action[8]
+      type: string
+      title: 鉴权参数
 
   measures:
     sum:
