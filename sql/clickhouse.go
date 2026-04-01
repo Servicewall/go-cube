@@ -38,7 +38,12 @@ func NewClient(cfg *config.ClickHouseConfig) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Query(ctx context.Context, query string, args ...interface{}) ([]map[string]interface{}, error) {
+// Query 执行 SQL。host 为空时使用默认地址；非空时视为纯 IP（含端口），拼接 http:// 后替换目标节点。
+func (c *Client) Query(ctx context.Context, host, query string, args ...interface{}) ([]map[string]interface{}, error) {
+	targetURL := c.url
+	if host != "" {
+		targetURL = "http://" + host + c.url[strings.Index(c.url, "?"):]
+	}
 	for _, arg := range args {
 		val := fmt.Sprintf("%v", arg)
 		if s, ok := arg.(string); ok {
@@ -46,29 +51,25 @@ func (c *Client) Query(ctx context.Context, query string, args ...interface{}) (
 		}
 		query = strings.Replace(query, "?", val, 1)
 	}
-
-	req, _ := http.NewRequestWithContext(ctx, "POST", c.url, strings.NewReader(query))
+	req, _ := http.NewRequestWithContext(ctx, "POST", targetURL, strings.NewReader(query))
 	if c.user != "" {
 		req.Header.Set("X-ClickHouse-User", c.user)
 		req.Header.Set("X-ClickHouse-Key", c.key)
 	}
-
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("clickhouse error (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-
 	var res struct{ Data []map[string]interface{} }
 	return res.Data, json.NewDecoder(resp.Body).Decode(&res)
 }
 
 func (c *Client) Ping(ctx context.Context) error {
-	_, err := c.Query(ctx, "SELECT 1")
+	_, err := c.Query(ctx, "", "SELECT 1")
 	return err
 }

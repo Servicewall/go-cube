@@ -1,11 +1,12 @@
 package api
 
 import (
-	"context"
-	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/Servicewall/go-cube/config"
+	"github.com/Servicewall/go-cube/model"
+	"github.com/Servicewall/go-cube/sql"
 )
 
 var defaultHandler *Handler
@@ -19,29 +20,24 @@ func Init(hosts []string, database, username, password string, queryTimeout ...t
 		Username: username,
 		Password: password,
 	}
+	qt := 30 * time.Second
 	if len(queryTimeout) > 0 && queryTimeout[0] > 0 {
-		cfg.QueryTimeout = queryTimeout[0]
+		qt = queryTimeout[0]
 	}
-	h, err := New(cfg)
+	chClient, err := sql.NewClient(cfg)
 	if err != nil {
 		return err
 	}
+	h := NewHandler(model.NewLoader(model.InternalFS), chClient)
+	h.queryTimeout = qt
 	defaultHandler = h
 	return nil
 }
 
-// Load 使用全局 Handler 执行查询，query 为 JSON 字符串。
-// 可选 vars 用于注入 SQL 模板变量，如 {"org": ["t1"]} 替换 {vars.org}。
-func Load(ctx context.Context, query string, vars ...map[string][]string) (*QueryResponse, error) {
+// HTTPHandler 返回全局 Handler 作为 http.Handler，供注册到外部路由器使用。
+func HTTPHandler() http.Handler {
 	if defaultHandler == nil {
-		return nil, fmt.Errorf("go-cube: call Init before Load")
+		panic("go-cube: call Init before HTTPHandler")
 	}
-	req, err := parseQueryRequest([]byte(query))
-	if err != nil {
-		return nil, err
-	}
-	if len(vars) > 0 {
-		req.Vars = vars[0]
-	}
-	return defaultHandler.Query(ctx, req)
+	return http.HandlerFunc(defaultHandler.HandleLoad)
 }

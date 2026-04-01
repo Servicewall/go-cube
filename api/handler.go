@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Servicewall/go-cube/config"
 	"github.com/Servicewall/go-cube/model"
 	"github.com/Servicewall/go-cube/sql"
 )
@@ -21,28 +20,12 @@ type Handler struct {
 	queryTimeout time.Duration
 }
 
-// New 使用 ClickHouse 配置和内置模型创建 Handler，是最常见场景的便利构造函数。
-func New(cfg *config.ClickHouseConfig) (*Handler, error) {
-	chClient, err := sql.NewClient(cfg)
-	if err != nil {
-		return nil, err
-	}
-	queryTimeout := cfg.QueryTimeout
-	if queryTimeout == 0 {
-		queryTimeout = 30 * time.Second
-	}
-	h := NewHandler(model.NewLoader(model.InternalFS), chClient)
-	h.queryTimeout = queryTimeout
-	return h, nil
-}
-
 // NewHandler 使用外部提供的 modelLoader 和 chClient 创建 Handler，适合自定义模型或测试场景。
 func NewHandler(modelLoader *model.Loader, chClient *sql.Client) *Handler {
 	return &Handler{modelLoader: modelLoader, chClient: chClient}
 }
 
-// Query 执行一次 cube 查询，接受结构体，是库调用的首选入口。
-func (h *Handler) Query(ctx context.Context, req *QueryRequest) (*QueryResponse, error) {
+func (h *Handler) query(ctx context.Context, host string, req *QueryRequest) (*QueryResponse, error) {
 	if err := validateQuery(req); err != nil {
 		return nil, err
 	}
@@ -63,7 +46,7 @@ func (h *Handler) Query(ctx context.Context, req *QueryRequest) (*QueryResponse,
 	}
 	log.Printf("SQL: %s %v", query, params)
 
-	data, err := h.chClient.Query(ctx, query, params...)
+	data, err := h.chClient.Query(ctx, host, query, params...)
 	if err != nil {
 		log.Printf("SQL error: %v | query: %s | params: %v", err, query, params)
 		return nil, err
@@ -89,6 +72,12 @@ func (h *Handler) Query(ctx context.Context, req *QueryRequest) (*QueryResponse,
 }
 
 // HandleLoad 是 HTTP 入口，供注册到路由器使用。
+// 从 request header 读取所有业务变量注入查询：
+//   - X-Sw-Node:      目标 ClickHouse 节点地址
+//   - X-Auth-Mask:    数据脱敏开关
+//   - X-Sw-Org:       org 模板变量
+//   - X-Sw-Api-Exact: api_exact 模板变量（逗号分隔多值）
+//   - X-Sw-Api-Regex: api_regex 模板变量（逗号分隔多值）
 func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	timeout := h.queryTimeout
 	if timeout == 0 {
@@ -109,9 +98,23 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	req.Mask = r.Header.Get("X-Auth-Mask") == "true"
 
-	resp, err := h.Query(ctx, req)
+	req.Mask = r.Header.Get("X-Auth-Mask") == "true"
+	vars := map[string][]string{}
+	if org := r.Header.Get("X-Sw-Org"); org != "" {
+		vars["org"] = []string{org}
+	}
+	if v := r.Header.Get("X-Sw-Api-Exact"); v != "" {
+		vars["api_exact"] = strings.Split(v, ",")
+	}
+	if v := r.Header.Get("X-Sw-Api-Regex"); v != "" {
+		vars["api_regex"] = strings.Split(v, ",")
+	}
+	if len(vars) > 0 {
+		req.Vars = vars
+	}
+
+	resp, err := h.query(ctx, r.Header.Get("X-Sw-Node"), req)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
