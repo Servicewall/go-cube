@@ -51,14 +51,26 @@ type TimeDimension struct {
 }
 
 type OrderItem struct {
-	Member    string
-	Direction string
+	Member    string `json:"member"`
+	Direction string `json:"direction"`
 }
 
-// OrderList 支持两种格式:
-// 数组格式: [["field","asc"],...]
-// 对象格式: {"field":"asc",...} (无序，兼容旧格式)
+// OrderList 反序列化支持两种格式:
+// 数组格式: [["field","asc"],...]  (有序，推荐)
+// 对象格式: {"field":"asc",...}    (无序，兼容旧格式)
+// 序列化始终使用数组格式以保留顺序。
 type OrderList []OrderItem
+
+func (o OrderList) MarshalJSON() ([]byte, error) {
+	arr := make([][]string, 0, len(o))
+	for _, item := range o {
+		if item.Member == "" {
+			continue
+		}
+		arr = append(arr, []string{item.Member, item.Direction})
+	}
+	return json.Marshal(arr)
+}
 
 func (o *OrderList) UnmarshalJSON(data []byte) error {
 	// 数组格式: [["field","dir"],...]
@@ -66,7 +78,7 @@ func (o *OrderList) UnmarshalJSON(data []byte) error {
 	if json.Unmarshal(data, &arr) == nil {
 		list := make(OrderList, 0, len(arr))
 		for _, pair := range arr {
-			if len(pair) == 2 {
+			if len(pair) == 2 && pair[0] != "" {
 				list = append(list, OrderItem{pair[0], pair[1]})
 			}
 		}
@@ -80,7 +92,9 @@ func (o *OrderList) UnmarshalJSON(data []byte) error {
 	}
 	list := make(OrderList, 0, len(m))
 	for k, v := range m {
-		list = append(list, OrderItem{k, v})
+		if k != "" {
+			list = append(list, OrderItem{k, v})
+		}
 	}
 	*o = list
 	return nil

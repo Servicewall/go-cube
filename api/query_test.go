@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -933,5 +934,135 @@ func TestBuildQuery_SubquerySQLVarsOrgMissing(t *testing.T) {
 	}
 	if contains(sql, "{vars.") {
 		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
+	}
+}
+
+func TestOrderList_MarshalJSON_Nil(t *testing.T) {
+	var ol OrderList
+	data, err := json.Marshal(ol)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(data) != "[]" {
+		t.Errorf("nil OrderList should marshal to [], got: %s", data)
+	}
+}
+
+func TestOrderList_MarshalJSON_Empty(t *testing.T) {
+	ol := OrderList{}
+	data, err := json.Marshal(ol)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(data) != "[]" {
+		t.Errorf("empty OrderList should marshal to [], got: %s", data)
+	}
+}
+
+func TestOrderList_MarshalJSON_Single(t *testing.T) {
+	ol := OrderList{{Member: "AccessView.ts", Direction: "desc"}}
+	data, err := json.Marshal(ol)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := `[["AccessView.ts","desc"]]`
+	if string(data) != want {
+		t.Errorf("got %s, want %s", data, want)
+	}
+}
+
+func TestOrderList_MarshalJSON_Multiple(t *testing.T) {
+	ol := OrderList{
+		{Member: "AccessView.ts", Direction: "asc"},
+		{Member: "AccessView.ip", Direction: "desc"},
+	}
+	data, err := json.Marshal(ol)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := `[["AccessView.ts","asc"],["AccessView.ip","desc"]]`
+	if string(data) != want {
+		t.Errorf("got %s, want %s", data, want)
+	}
+}
+
+func TestOrderList_MarshalJSON_RoundTrip_Array(t *testing.T) {
+	original := OrderList{
+		{Member: "AccessView.ts", Direction: "asc"},
+		{Member: "AccessView.ip", Direction: "desc"},
+	}
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	var decoded OrderList
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if len(decoded) != len(original) {
+		t.Fatalf("length mismatch: got %d, want %d", len(decoded), len(original))
+	}
+	for i := range original {
+		if decoded[i] != original[i] {
+			t.Errorf("item %d: got %+v, want %+v", i, decoded[i], original[i])
+		}
+	}
+}
+
+func TestOrderList_UnmarshalJSON_ObjectFormat(t *testing.T) {
+	// 对象格式反序列化后再序列化，应输出数组格式
+	input := `{"AccessView.ts":"desc"}`
+	var ol OrderList
+	if err := json.Unmarshal([]byte(input), &ol); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if len(ol) != 1 || ol[0].Member != "AccessView.ts" || ol[0].Direction != "desc" {
+		t.Fatalf("unexpected unmarshal result: %+v", ol)
+	}
+	data, err := json.Marshal(ol)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	want := `[["AccessView.ts","desc"]]`
+	if string(data) != want {
+		t.Errorf("re-serialized object format: got %s, want %s", data, want)
+	}
+}
+
+func TestOrderList_MarshalJSON_SkipsEmptyMember(t *testing.T) {
+	ol := OrderList{
+		{Member: "", Direction: "asc"},
+		{Member: "AccessView.ts", Direction: "desc"},
+		{Member: "", Direction: ""},
+	}
+	data, err := json.Marshal(ol)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := `[["AccessView.ts","desc"]]`
+	if string(data) != want {
+		t.Errorf("got %s, want %s", data, want)
+	}
+}
+
+func TestOrderList_UnmarshalJSON_SkipsEmptyMember_Array(t *testing.T) {
+	input := `[["","asc"],["AccessView.ts","desc"]]`
+	var ol OrderList
+	if err := json.Unmarshal([]byte(input), &ol); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if len(ol) != 1 || ol[0].Member != "AccessView.ts" {
+		t.Errorf("expected 1 item with Member=AccessView.ts, got: %+v", ol)
+	}
+}
+
+func TestOrderList_UnmarshalJSON_SkipsEmptyMember_Object(t *testing.T) {
+	input := `{"":"asc","AccessView.ts":"desc"}`
+	var ol OrderList
+	if err := json.Unmarshal([]byte(input), &ol); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if len(ol) != 1 || ol[0].Member != "AccessView.ts" {
+		t.Errorf("expected 1 item with Member=AccessView.ts, got: %+v", ol)
 	}
 }
