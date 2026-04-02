@@ -39,7 +39,7 @@ func (dr *DateRange) UnmarshalJSON(data []byte) error {
 		dr.V = str
 		return nil
 	}
-	return fmt.Errorf("dateRange must be a string or array of strings")
+	return fmt.Errorf("dateRange must be a string or array of strings, got: %s", string(data))
 }
 
 type TimeDimension struct {
