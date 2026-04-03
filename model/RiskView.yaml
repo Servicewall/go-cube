@@ -187,3 +187,16 @@ cube:
       sql: max(res_sens_ts)
       type: time
       title: 隐私信息最近出现时间
+
+    filterTag:
+      sql: toString(dictGet('default.risk_dict', 'group', risk))
+      type: string
+      title: 风险分组过滤
+
+    tagsCount:
+      sql: sumMap(arrayMap(x->x||':::'|| risk ,dictGet('default.risk_dict', 'group', risk)),arrayMap(x->1,dictGet('default.risk_dict', 'group', risk)))
+      type: number
+      title: 风险分组计数
+
+
+
