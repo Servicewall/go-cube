@@ -102,6 +102,11 @@ cube:
       type: number
       title: 原始计数
 
+    filterTag:
+      sql: dictGet('default.risk_dict', 'group', risk)
+      type: array
+      title: 风险分组过滤
+
   measures:
     count:
       sql: count()
