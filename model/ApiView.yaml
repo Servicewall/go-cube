@@ -325,10 +325,6 @@ cube:
       type: number
       title: 风险评分
 
-    statusCount:
-      sql: status_count
-      type: number
-
     respSensTagSet:
       sql: arrayStringConcat(mapKeys(res_sens_uniq_map), ', ')
       type: string

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test UserAuthView, ApiParamView and ApiBodyView queries against local go-cube server
+# Test UserAuthView and ApiParamView queries against local go-cube server
 # Mirrors production curl requests from demo.servicewall.cn
 
 BASE="http://localhost:4000"
@@ -61,19 +61,48 @@ check "ApiParamView: key+path+rank limit 10" "$result"
 
 echo ""
 echo "========================================"
-echo "=== ApiBodyView queries ==="
+echo "=== UserAuthView: gap-fill tests ==="
 echo "========================================"
 
 echo ""
-echo "=== 3. ApiBodyView ungrouped request+response, filter appName+urlRoute, order firstTs desc, limit 5 ==="
-# ungrouped: true, no measures
-# timeDimensions: ts (no dateRange)
-# dimensions: request, response
-# order: firstTs desc
-# filters: appName equals [aa.com], urlRoute equals [/c/tailongsso/api/login]
-# limit: 5, segments: org
-result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiBodyView.ts%22%7D%5D%2C%22order%22%3A%7B%22ApiBodyView.firstTs%22%3A%22desc%22%7D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiBodyView.appName%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22aa.com%22%5D%7D%2C%7B%22member%22%3A%22ApiBodyView.urlRoute%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22%2Fc%2Ftailongsso%2Fapi%2Flogin%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiBodyView.request%22%2C%22ApiBodyView.response%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22ApiBodyView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
-check "ApiBodyView: ungrouped request+response filter appName+urlRoute order firstTs desc limit 5" "$result"
+echo "=== 3. UserAuthView: basInfo+authInfo+apiNum measures by host+url+method ==="
+# Tests measures: basInfo, authInfo, apiNum
+# dimensions: host, url, method
+# segments: org, confFilter
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22UserAuthView.basInfo%22%2C%22UserAuthView.authInfo%22%2C%22UserAuthView.apiNum%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22UserAuthView.host%22%2C%22UserAuthView.url%22%2C%22UserAuthView.method%22%5D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22UserAuthView.org%22%2C%22UserAuthView.confFilter%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "UserAuthView: basInfo+authInfo+apiNum by host+url+method" "$result"
+
+echo ""
+echo "=== 4. UserAuthView: aggAuthKey measure by host+url+method ==="
+# Tests measure: aggAuthKey (groupUniqArray)
+# dimensions: host, url, method
+# segments: org, confFilter
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22UserAuthView.aggAuthKey%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22UserAuthView.host%22%2C%22UserAuthView.url%22%2C%22UserAuthView.method%22%5D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22UserAuthView.org%22%2C%22UserAuthView.confFilter%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "UserAuthView: aggAuthKey by host+url+method" "$result"
+
+echo ""
+echo "=== 5. UserAuthView: authKey+authApp dimensions with count ==="
+# Tests dimensions: authKey (arrayJoin expr), authApp (dict-lookup)
+# measure: count
+# segments: org, confFilter
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22UserAuthView.count%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22UserAuthView.authKey%22%2C%22UserAuthView.authApp%22%5D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22UserAuthView.org%22%2C%22UserAuthView.confFilter%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "UserAuthView: count by authKey+authApp" "$result"
+
+echo ""
+echo "=== 6. UserAuthView: lastTs time dimension (order by lastTs desc) ==="
+# Tests dimension: lastTs (time type) — included in GROUP BY dimensions
+# measures: count, piiCount
+# order: lastTs desc
+# segments: org, confFilter
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22UserAuthView.count%22%2C%22UserAuthView.piiCount%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22UserAuthView.host%22%2C%22UserAuthView.url%22%2C%22UserAuthView.method%22%2C%22UserAuthView.lastTs%22%5D%2C%22order%22%3A%7B%22UserAuthView.lastTs%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22UserAuthView.org%22%2C%22UserAuthView.confFilter%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "UserAuthView: count+piiCount by host+url+method+lastTs order lastTs desc" "$result"
+
+echo ""
+echo "=== 7. UserAuthView: full dimension set — host+url+method+appName+loginTokenKey+lastTs+authKey+authApp ==="
+# Tests all 8 UserAuthView dimensions together with count
+# Uses lastTs as both timeDimension and grouped dimension
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22UserAuthView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22UserAuthView.lastTs%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22UserAuthView.host%22%2C%22UserAuthView.url%22%2C%22UserAuthView.method%22%2C%22UserAuthView.appName%22%2C%22UserAuthView.loginTokenKey%22%2C%22UserAuthView.authKey%22%2C%22UserAuthView.authApp%22%5D%2C%22order%22%3A%7B%22UserAuthView.count%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22UserAuthView.org%22%2C%22UserAuthView.confFilter%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "UserAuthView: count by all 7 dimensions" "$result"
 
 echo ""
 echo "--- $pass passed, $fail failed ---"

@@ -61,6 +61,41 @@ check "Device dimension detail (type=Device, with measures + nameGroup + departm
 
 echo ""
 echo "========================================"
+echo "=== AuditView: gap-fill tests ==="
+echo "========================================"
+
+echo ""
+echo "=== 4. AuditView: channel dimension (count by channel, segment org) ==="
+# Tests dimension: channel
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuditView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AuditView.dt%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AuditView.channel%22%5D%2C%22order%22%3A%7B%22AuditView.count%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22AuditView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "AuditView: count by channel limit 10" "$result"
+
+echo ""
+echo "=== 5. AuditView: ipGeoCountry+ipGeoProvince dimensions (count, type=IP, limit 10) ==="
+# Tests dimensions: ipGeoCountry (ip_geo[1]), ipGeoProvince (ip_geo[2])
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuditView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AuditView.dt%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22AuditView.type%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22IP%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22AuditView.ipGeoCountry%22%2C%22AuditView.ipGeoProvince%22%5D%2C%22order%22%3A%7B%22AuditView.count%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22AuditView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "AuditView: count by ipGeoCountry+ipGeoProvince (type=IP) limit 10" "$result"
+
+echo ""
+echo "=== 6. AuditView: deviceType dimension (count, type=Device, limit 10) ==="
+# Tests dimension: deviceType (multiIf on content prefix)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuditView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AuditView.dt%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22AuditView.type%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22Device%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22AuditView.deviceType%22%5D%2C%22order%22%3A%7B%22AuditView.count%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22AuditView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "AuditView: count by deviceType (type=Device) limit 10" "$result"
+
+echo ""
+echo "=== 7. AuditView: lastTs measure (max last_ts by type, order lastTs desc, limit 5) ==="
+# Tests measure: lastTs (max(last_ts) time measure)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuditView.lastTs%22%2C%22AuditView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AuditView.dt%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AuditView.type%22%5D%2C%22order%22%3A%7B%22AuditView.lastTs%22%3A%22desc%22%7D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22AuditView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "AuditView: lastTs+count by type order lastTs desc limit 5" "$result"
+
+echo ""
+echo "=== 8. AuditView: channel+ipGeoCountry+ipGeoProvince+deviceType (count, today) ==="
+# Exercises all 4 gap dimensions in a single query
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuditView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AuditView.dt%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AuditView.channel%22%2C%22AuditView.ipGeoCountry%22%2C%22AuditView.ipGeoProvince%22%2C%22AuditView.deviceType%22%5D%2C%22order%22%3A%7B%22AuditView.count%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22AuditView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "AuditView: count by channel+ipGeoCountry+ipGeoProvince+deviceType limit 10" "$result"
+
+echo ""
+echo "========================================"
 echo "Results: $pass passed, $fail failed"
 echo "========================================"
 

@@ -200,6 +200,92 @@ echo "Raw: $result"
 check "ApiDayView hourSumMap (filter host+urlRoute+method, 7天)" "$result"
 
 echo "========================================"
+echo "=== ApiView: gap-fill tests ==="
+echo "========================================"
+
+echo ""
+echo "=== 26. ApiView: reqKeyTupleArray+currentReqKeyTs dimensions (ungrouped, limit 5) ==="
+# Tests dimensions: reqKeyTupleArray (groupUniqArray expression), currentReqKeyTs (time)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22ApiView.api%22%2C%22ApiView.reqKeyTupleArray%22%2C%22ApiView.currentReqKeyTs%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiView: ungrouped reqKeyTupleArray+currentReqKeyTs limit 5" "$result"
+
+echo ""
+echo "=== 27. ApiView: metricMap+successCount+hourCount+weakCount dimensions (ungrouped, limit 5) ==="
+# Tests dimensions: metricMap (mapFromArrays expression), successCount, hourCount, weakCount (number dims)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22ApiView.api%22%2C%22ApiView.metricMap%22%2C%22ApiView.successCount%22%2C%22ApiView.hourCount%22%2C%22ApiView.weakCount%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiView: ungrouped metricMap+successCount+hourCount+weakCount limit 5" "$result"
+
+echo ""
+echo "=== 28. ApiView: timeSum+lengthSum dimensions (ungrouped, limit 5) ==="
+# Tests dimensions: timeSum, lengthSum (number dims from metric_count map)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22ApiView.api%22%2C%22ApiView.timeSum%22%2C%22ApiView.lengthSum%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiView: ungrouped timeSum+lengthSum limit 5" "$result"
+
+echo ""
+echo "=== 29. ApiView: protocol dimension grouped by appName+protocol (count, limit 10) ==="
+# Tests dimension: protocol (multiIf expression — HTTP/HTTP2/WebSocket/MQTT)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiView.allCount%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22ApiView.appName%22%2C%22ApiView.protocol%22%5D%2C%22order%22%3A%7B%22ApiView.allCount%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiView: allCount by appName+protocol limit 10" "$result"
+
+echo ""
+echo "=== 30. ApiView: sidebarTypeArray+sidebarFirstLevelTypeArray dimensions (ungrouped, limit 5) ==="
+# Tests dimensions: sidebarTypeArray (array), sidebarFirstLevelTypeArray (array)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiView.topoNetwork%22%2C%22operator%22%3A%22notEquals%22%2C%22values%22%3A%5B%22%E5%A4%96%E5%8F%91%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiView.api%22%2C%22ApiView.sidebarTypeArray%22%2C%22ApiView.sidebarFirstLevelTypeArray%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiView: ungrouped sidebarTypeArray+sidebarFirstLevelTypeArray limit 5" "$result"
+
+echo ""
+echo "=== 31. ApiView: id dimension grouped by appName+method+urlRoute (count, filter by id) ==="
+# Tests dimension: id (cityHash64 fingerprint)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiView.allCount%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22ApiView.id%22%2C%22ApiView.appName%22%2C%22ApiView.method%22%2C%22ApiView.urlRoute%22%5D%2C%22order%22%3A%7B%22ApiView.allCount%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiView: allCount by id+appName+method+urlRoute limit 10" "$result"
+
+echo ""
+echo "=== 32. ApiView: isFavorite dimension filter (equals 1, grouped) ==="
+# Tests dimension: isFavorite (subquery-based boolean)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiView.allCount%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiView.isFavorite%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%221%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiView.appName%22%2C%22ApiView.isFavorite%22%5D%2C%22order%22%3A%7B%22ApiView.allCount%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiView: allCount by appName+isFavorite (filter isFavorite=1) limit 10" "$result"
+
+echo ""
+echo "=== 33. ApiView: appId dimension grouped (allCount, limit 10) ==="
+# Tests dimension: appId (dict-lookup subquery)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiView.allCount%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22ApiView.appId%22%2C%22ApiView.appName%22%5D%2C%22order%22%3A%7B%22ApiView.allCount%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22ApiView.org%22%2C%22ApiView.black%22%2C%22ApiView.onePerDay%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiView: allCount by appId+appName limit 10" "$result"
+
+echo "========================================"
+echo "=== ApiDayView: gap-fill tests ==="
+echo "========================================"
+
+echo ""
+echo "=== 34. ApiDayView: risk dimension (count by risk, 7 days) ==="
+# Tests dimension: risk (arrayJoin + risk_dict filter)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiDayView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiDayView.dt%22%2C%22dateRange%22%3A%22from+7+days+ago+to+now%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22ApiDayView.risk%22%5D%2C%22order%22%3A%7B%22ApiDayView.count%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiDayView: count by risk limit 10 (7 days)" "$result"
+
+echo ""
+echo "=== 35. ApiDayView: hasReqSens dimension (count by hasReqSens, 7 days) ==="
+# Tests dimension: hasReqSens (length(finalizeAggregation(req_sens_uniq)))
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiDayView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiDayView.dt%22%2C%22dateRange%22%3A%22from+7+days+ago+to+now%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22ApiDayView.hasReqSens%22%5D%2C%22order%22%3A%7B%22ApiDayView.count%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiDayView: count by hasReqSens limit 10 (7 days)" "$result"
+
+echo ""
+echo "=== 36. ApiDayView: status dimension (count by status, 7 days, filter host+urlRoute+method) ==="
+# Tests dimension: status (arrayJoin on status_count)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiDayView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiDayView.dt%22%2C%22dateRange%22%3A%22from+7+days+ago+to+now%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiDayView.host%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22127.0.0.1%22%5D%7D%2C%7B%22member%22%3A%22ApiDayView.urlRoute%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22%2FapiAuth%22%5D%7D%2C%7B%22member%22%3A%22ApiDayView.method%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22POST%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiDayView.status%22%5D%2C%22order%22%3A%7B%22ApiDayView.count%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiDayView: count by status (filter host+urlRoute+method) limit 10 (7 days)" "$result"
+
+echo ""
+echo "=== 37. ApiDayView: reqSensUniqMap+resSensUniqMap measures (filter host+urlRoute+method, 7 days) ==="
+# Tests measures: reqSensUniqMap (uniqMapMerge), resSensUniqMap (uniqMapMerge)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiDayView.reqSensUniqMap%22%2C%22ApiDayView.resSensUniqMap%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiDayView.dt%22%2C%22dateRange%22%3A%22from+7+days+ago+to+now%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiDayView.host%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22127.0.0.1%22%5D%7D%2C%7B%22member%22%3A%22ApiDayView.urlRoute%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22%2FapiAuth%22%5D%7D%2C%7B%22member%22%3A%22ApiDayView.method%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22POST%22%5D%7D%5D%2C%22dimensions%22%3A%5B%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiDayView: reqSensUniqMap+resSensUniqMap (filter host+urlRoute+method, 7 days)" "$result"
+
+echo ""
+echo "=== 38. ApiDayView: risk+status dimensions (count, filter host, 7 days, limit 5) ==="
+# Exercises risk and status arrayJoin dimensions together
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22ApiDayView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiDayView.dt%22%2C%22dateRange%22%3A%22from+7+days+ago+to+now%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiDayView.host%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22127.0.0.1%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiDayView.risk%22%2C%22ApiDayView.status%22%5D%2C%22order%22%3A%7B%22ApiDayView.count%22%3A%22desc%22%7D%2C%22limit%22%3A5%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiDayView: count by risk+status (filter host, 7 days) limit 5" "$result"
+
+echo "========================================"
 echo "Results: $pass passed, $fail failed"
 echo "========================================"
 

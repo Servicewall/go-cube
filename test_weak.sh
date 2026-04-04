@@ -94,6 +94,59 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3A%20true%
 check "WeakDetailView ungrouped 9 dims 4 filters limit 3" "$result"
 
 echo ""
+echo "========================================"
+echo "=== WeakView: gap-fill tests ==="
+echo "========================================"
+
+echo ""
+echo "=== 6. WeakView: owaspTop10+firstCategory+weakLevel+defectId+host (riskCount, limit 10) ==="
+# Tests dimension: owaspTop10 (dict-lookup expression)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22WeakView.riskCount%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22WeakView.owaspTop10%22%2C%22WeakView.firstCategory%22%2C%22WeakView.weakLevel%22%2C%22WeakView.defectId%22%2C%22WeakView.host%22%5D%2C%22order%22%3A%7B%22WeakView.riskCount%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: riskCount by owaspTop10+firstCategory+weakLevel+defectId+host limit 10" "$result"
+
+echo ""
+echo "=== 7. WeakView: addTime+tag+manageId+defectId (ungrouped, order addTime desc, limit 10) ==="
+# Tests dimension: addTime (fromUnixTimestamp time dim), tag, manageId
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22WeakView.last%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22WeakView.defectId%22%2C%22WeakView.host%22%2C%22WeakView.method%22%2C%22WeakView.urlRoute%22%2C%22WeakView.addTime%22%2C%22WeakView.tag%22%2C%22WeakView.manageId%22%5D%2C%22order%22%3A%7B%22WeakView.addTime%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: ungrouped defectId+host+method+urlRoute+addTime+tag+manageId order addTime desc limit 10" "$result"
+
+echo ""
+echo "=== 8. WeakView: assetName+appName+netDomain dimensions (riskCount, limit 10) ==="
+# Tests dimensions: assetName (url_action expr), appName (dict-lookup), netDomain (url_action[7])
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22WeakView.riskCount%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22WeakView.assetName%22%2C%22WeakView.appName%22%2C%22WeakView.netDomain%22%5D%2C%22order%22%3A%7B%22WeakView.riskCount%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: riskCount by assetName+appName+netDomain limit 10" "$result"
+
+echo ""
+echo "=== 9. WeakView: target dimension (ungrouped, limit 5) ==="
+# Tests dimension: target (concat expression)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22WeakView.last%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22WeakView.target%22%2C%22WeakView.defectId%22%2C%22WeakView.host%22%2C%22WeakView.method%22%2C%22WeakView.urlRoute%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: ungrouped target+defectId+host+method+urlRoute limit 5" "$result"
+
+echo ""
+echo "=== 10. WeakView: analysis dimension (ungrouped, limit 5) ==="
+# Tests dimension: analysis (weak_data.1 map access — fixed from weak_data['analysis'])
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22WeakView.last%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22WeakView.defectId%22%2C%22WeakView.host%22%2C%22WeakView.analysis%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: ungrouped defectId+host+analysis limit 5" "$result"
+
+echo ""
+echo "=== 11. WeakView: uniqWeakApi measure (no dims) ==="
+# Tests measure: uniqWeakApi (uniqHLL12)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22WeakView.uniqWeakApi%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: uniqWeakApi (no dims)" "$result"
+
+echo ""
+echo "=== 12. WeakView: sum measure (total trigger count, no dims) ==="
+# Tests measure: sum (sum(count))
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22WeakView.sum%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: sum (no dims)" "$result"
+
+echo ""
+echo "=== 13. WeakView: secondCategoryCount measure (by firstCategory, limit 10) ==="
+# Tests measure: secondCategoryCount (sumMapIf on weak_name)
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22WeakView.secondCategoryCount%22%2C%22WeakView.riskCount%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22WeakView.firstCategory%22%5D%2C%22order%22%3A%7B%22WeakView.riskCount%22%3A%22desc%22%7D%2C%22limit%22%3A10%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: secondCategoryCount+riskCount by firstCategory limit 10" "$result"
+
+echo ""
 echo "--- $pass passed, $fail failed ---"
 
 echo ""
