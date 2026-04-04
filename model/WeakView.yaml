@@ -138,7 +138,7 @@ cube:
       title: Target
 
     analysis:
-      sql: weak_data['analysis']
+      sql: weak_data.1
       type: string
       title: AI分析
 

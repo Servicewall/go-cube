@@ -326,7 +326,7 @@ cube:
       title: 风险评分
 
     statusCount:
-      sql: status_count
+      sql: "(mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail'])"
       type: number
 
     respSensTagSet:
@@ -372,6 +372,26 @@ cube:
       sql: url_action[8]
       type: string
       title: 鉴权参数
+
+    weakTag:
+      sql: weak_count.1
+      type: array
+      title: 弱点标签
+
+    riskTag:
+      sql: risk_count.1
+      type: array
+      title: 风险标签
+
+    category:
+      sql: arrayJoin(if(notEmpty(mapKeys(res_sens_uniq_map)), arrayDistinct(arrayMap(x -> splitByChar(':', assumeNotNull(dictGetString('default.privacy_dict', 'level', x)))[2], mapKeys(res_sens_uniq_map))), ['']))
+      type: string
+      title: 规范类别
+
+    metricTag:
+      sql: metric_count.1
+      type: array
+      title: 指标标签
 
   measures:
     sum:

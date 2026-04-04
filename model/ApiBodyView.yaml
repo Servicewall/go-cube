@@ -66,3 +66,13 @@ cube:
       sql: "host || url"
       type: string
       title: 域名+URL
+
+    reqKeyCurDataForDiff:
+      sql: req_key
+      type: string
+      title: 当前请求键(用于差异对比)
+
+    reqKeyDiffData:
+      sql: req_key
+      type: string
+      title: 请求键差异数据

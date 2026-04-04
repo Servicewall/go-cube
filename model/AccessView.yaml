@@ -1166,11 +1166,11 @@ cube:
       title: 中间件过滤
 
     srcNodeWithMid:
-      sql: toJSONString(map('value',if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1]),'type','client','middware',arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es','')))),','),'ipgeo',multiIf(length(ip_geo)=0,'',ip_geo[1]<>'中国',ip_geo[1],ip_geo[3]<>'' and ip_geo[2]<>ip_geo[3],format('{0}{1}',ip_geo[2],ip_geo[3]),ip_geo[2]<>'',ip_geo[2],ip_geo[1])))
+      sql: toJSONString(map('value',if(position(data[3],']')!=0,regexpExtract(data[3],'\\[(.*)\\]',1),splitByChar(':',data[3])[1]),'type','client','middware',arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(position(lower(ua),'elasticsearch')>0)>0,'es','')))),','),'ipgeo',multiIf(length(any(ip_geo))=0,'',any(ip_geo)[1]<>'中国',any(ip_geo)[1],any(ip_geo)[3]<>'' and any(ip_geo)[2]<>any(ip_geo)[3],format('{0}{1}',any(ip_geo)[2],any(ip_geo)[3]),any(ip_geo)[2]<>'',any(ip_geo)[2],any(ip_geo)[1])))
       type: string
       title: 源节点(含中间件)
 
     dstNodeWithMid:
-      sql: toJSONString(map('value',if(position(upstream,']')!=0,regexpExtract(upstream,'\\[(.*)\\]',1),splitByChar(':',upstream)[1]),'type','server','middware',arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(url like '%/\\_search' AND length(splitByChar('/',url)) IN (3,4))>0,'es','')))),','),'channel',channel))
+      sql: toJSONString(map('value',if(position(upstream,']')!=0,regexpExtract(upstream,'\\[(.*)\\]',1),splitByChar(':',upstream)[1]),'type','server','middware',arrayStringConcat(arrayFilter(x->x!='',arrayDistinct(array(if(countIf(url like '%/\\_search' AND length(splitByChar('/',url)) IN (3,4))>0,'es','')))),','),'channel',any(channel)))
       type: string
       title: 目标节点(含中间件)

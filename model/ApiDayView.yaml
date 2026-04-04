@@ -2,6 +2,10 @@ cube:
   name: ApiDayView
   sql_table: access_api_day
 
+  segments:
+    black:
+      sql: ""
+
   dimensions:
     dt:
       sql: dt
@@ -58,6 +62,11 @@ cube:
       sql: length(finalizeAggregation(req_sens_uniq))
       type: number
       title: 是否请求涉敏
+
+    hasSens:
+      sql: if(length(finalizeAggregation(res_sens_uniq)) > 0 OR length(finalizeAggregation(req_sens_uniq)) > 0, 1, 0)
+      type: number
+      title: 是否涉敏
 
     status:
       sql: arrayJoin(arrayMap((x, y) -> (x, y), status_count.1, status_count.2)).1
