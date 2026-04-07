@@ -98,7 +98,7 @@ cube:
       title: 请求方式
 
     channel:
-      sql: channel
+      sql: if(channel='default', host, channel)
       type: string
       title: 应用
 
