@@ -80,7 +80,7 @@ cube:
       title: 原因
 
     channel:
-      sql: channel
+      sql: if(channel='default', host, channel)
       type: string
       title: 应用
 
