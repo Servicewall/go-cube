@@ -52,43 +52,28 @@ go-cube 可以作为Go库直接嵌入到您的应用中，无需启动独立的H
 
 ```go
 import (
-    "context"
+    "time"
     "github.com/Servicewall/go-cube/api"
-    "github.com/Servicewall/go-cube/config"
 )
 
 // 初始化（只需调用一次）
-err := api.Init(&api.Config{
-    ClickHouse: config.ClickHouseConfig{
-        Hosts:    []string{"localhost:9000"},
-        Database: "default",
-        Username: "default",
-        Password: "",
-    },
-})
+err := api.Init(
+    []string{"localhost:9000"},
+    "default",        // database
+    "default",        // username
+    "",               // password
+    60*time.Second,   // query timeout（可选，默认30s）
+)
 if err != nil {
     log.Fatal(err)
 }
 
-// 执行 cubejs-graph 查询（与 /load?query=... HTTP 接口 JSON 格式相同）
-resp, err := api.Load(context.Background(), `{
-    "dimensions": ["AccessView.ts", "AccessView.ip", "AccessView.host"],
-    "filters": [{"member": "AccessView.ip", "operator": "equals", "values": ["1.2.3.4"]}],
-    "timeDimensions": [{"dimension": "AccessView.ts", "dateRange": "from 15 minutes ago to now"}],
-    "order": {"AccessView.ts": "desc"},
-    "limit": 50
-}`)
-if err != nil {
-    log.Fatal(err)
-}
-// resp.Results[0].Data 包含查询结果
-```
-
-如果同时需要保留 HTTP 接口，可以挂载内置处理器：
-
-```go
+// 挂载到路由（标准库）
 mux := http.NewServeMux()
-mux.Handle("/cube/", http.StripPrefix("/cube", api.RegisterHandler()))
+mux.Handle("/cube/load", api.HTTPHandler())
+
+// 挂载到 gin
+engine.Any("/cube-api/v2/load", gin.WrapH(api.HTTPHandler()))
 ```
 
 ### 3. 配置
@@ -231,7 +216,6 @@ dimensions:
 - ❌ 无预聚合（pre-aggregations）
 - ❌ 无复杂Join
 - ❌ 无动态计算成员
-- ❌ 无segments支持（第一版）
 - ❌ 无缓存机制
 
 ### 性能优化
@@ -245,27 +229,6 @@ dimensions:
 - ✅ 单二进制文件
 - ✅ 无Node.js依赖
 - ✅ 静态编译，易于容器化
-
-## 开发计划
-
-### 第一版（已完成）
-- [x] 基本HTTP服务器
-- [x] YAML模型加载
-- [x] 简单SQL拼接
-- [x] ClickHouse连接
-- [x] REST API兼容
-
-### 第二版（规划中）
-- [ ] 时间维度支持
-- [ ] 复杂过滤条件
-- [ ] 安全上下文支持
-- [ ] 错误处理和日志
-
-### 后续版本
-- [ ] segments支持
-- [ ] 预聚合基础
-- [ ] 性能监控
-- [ ] 管理API
 
 ## 性能预期
 

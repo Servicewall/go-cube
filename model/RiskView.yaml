@@ -102,6 +102,11 @@ cube:
       type: number
       title: 原始计数
 
+    filterShowTime:
+      sql: if(first_ts >= today(), '首次出现', '重复出现')
+      type: string
+      title: 计数过滤出现
+
     filterTag:
       sql: dictGet('default.risk_dict', 'group', risk)
       type: array
@@ -192,3 +197,8 @@ cube:
       sql: max(res_sens_ts)
       type: time
       title: 隐私信息最近出现时间
+
+    listFilterShowTime:
+      sql: if(min(first_ts) >= today(), '首次出现', '重复出现')
+      type: string
+      title: 列表过滤出现

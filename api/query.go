@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/Servicewall/go-cube/model"
@@ -245,17 +246,20 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	writeFields := func(names []string) {
 		for _, name := range names {
 			_, fieldName, subKey := splitMemberName(name)
-			if field, ok := cube.GetField(fieldName, subKey); ok {
-				if !first {
-					sql.WriteString(", ")
-				}
-				effectiveSQL := field.SQL
-				if mask && field.SQLMask != "" {
-					effectiveSQL = field.SQLMask
-				}
-				fmt.Fprintf(&sql, "%s AS \"%s\"", effectiveSQL, name)
-				first = false
+			field, ok := cube.GetField(fieldName, subKey)
+			if !ok {
+				log.Printf("WARN: unknown member %q not found in cube %q, skipped", name, cube.Name)
+				continue
 			}
+			if !first {
+				sql.WriteString(", ")
+			}
+			effectiveSQL := field.SQL
+			if mask && field.SQLMask != "" {
+				effectiveSQL = field.SQLMask
+			}
+			fmt.Fprintf(&sql, "%s AS \"%s\"", effectiveSQL, name)
+			first = false
 		}
 	}
 	writeFields(req.Dimensions)
@@ -325,6 +329,9 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		_, segName, _ := splitMemberName(seg)
 		s, ok := cube.Segments[segName]
 		if !ok || s.SQL == "" {
+			if !ok {
+				log.Printf("WARN: unknown segment %q not found in cube %q, skipped", seg, cube.Name)
+			}
 			continue
 		}
 		if result := applyVars(s.SQL); result != "" {
@@ -650,6 +657,9 @@ func buildFilterClause(filter Filter, cube *model.Cube) (string, []interface{}) 
 	_, fieldName, subKey := splitMemberName(filter.Member)
 	field, ok := cube.GetField(fieldName, subKey)
 	if !ok || field.SQL == "" {
+		if !ok {
+			log.Printf("WARN: filter references unknown member %q not found in cube %q, skipped", filter.Member, cube.Name)
+		}
 		return "", nil
 	}
 
