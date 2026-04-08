@@ -271,7 +271,7 @@ cube:
       title: 文件传输方向
 
     fileContent:
-      sql: multiIf(url_action[1] = '下载', res_body, url_action[1] = '上传', req_body, '')
+      sql: multiIf(visitParamExtractRaw(req, 'Files') != '', JSONExtractString(req, 'Body'), visitParamExtractRaw(res, 'File') != '', JSONExtractString(res, 'Body'), '')
       type: string
       title: 文件内容预览
 
