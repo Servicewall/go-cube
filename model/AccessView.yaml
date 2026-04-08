@@ -676,9 +676,9 @@ cube:
       title: 任务ID
 
     tokenPath:
-      sql: ext_id[4]
+      sql: url_action[8]
       type: string
-      title: 请求令牌
+      title: 鉴权参数位置
 
     analysis:
       sql: multiIf(result='protect','保护',result='failed','失败',result='pass','放行',result='success','成功','')
