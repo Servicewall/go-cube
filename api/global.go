@@ -20,10 +20,11 @@ func Init(hosts []string, database, username, password string, queryTimeout ...t
 		Username: username,
 		Password: password,
 	}
-	qt := 30 * time.Second
+	qt := 60 * time.Second
 	if len(queryTimeout) > 0 && queryTimeout[0] > 0 {
 		qt = queryTimeout[0]
 	}
+	cfg.QueryTimeout = qt
 	chClient, err := sql.NewClient(cfg)
 	if err != nil {
 		return err
