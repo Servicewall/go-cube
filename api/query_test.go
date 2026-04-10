@@ -826,6 +826,28 @@ func TestHandleLoad_GetQuery(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_SegmentsEmptyOrgVar(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Segments:   []string{"AccessView.org"},
+		Vars:       map[string][]string{"org": {""}},
+	}
+
+	sql, params, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(params) != 0 {
+		t.Errorf("expected no params, got %v", params)
+	}
+	if !contains(sql, "PREWHERE") {
+		t.Errorf("expected PREWHERE clause, got: %s", sql)
+	}
+	if !contains(sql, "org = ''") {
+		t.Errorf("expected empty org segment in SQL, got: %s", sql)
+	}
+}
+
 // TestBuildQuery_MeasureFilterGoesToHaving verifies that a filter on a measure
 // field is placed in HAVING (not WHERE), so ClickHouse won't reject it with
 // "aggregate function found in WHERE".

@@ -103,6 +103,8 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	vars := map[string][]string{}
 	if org := r.Header.Get("X-Sw-Org"); org != "" {
 		vars["org"] = []string{org}
+	} else {
+		vars["org"] = []string{""}
 	}
 	if v := r.Header.Get("X-Sw-Api-Exact"); v != "" {
 		vars["api_exact"] = strings.Split(v, ",")
