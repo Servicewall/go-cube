@@ -997,6 +997,69 @@ func TestBuildQuery_SubquerySQLVarsOrgMissing(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_TimeDimension_PhysicalTableToPrewhere(t *testing.T) {
+	req := &QueryRequest{
+		Measures: []string{"AccessView.count"},
+		TimeDimensions: []TimeDimension{
+			{Dimension: "AccessView.ts", DateRange: DateRange{V: []string{"2026-04-01 00:00:00", "2026-04-07 23:59:59"}}},
+		},
+		Segments: []string{"AccessView.org"},
+		Vars:     map[string][]string{"org": {"tenant_abc"}},
+	}
+
+	sql, _, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "PREWHERE") {
+		t.Fatalf("expected PREWHERE clause, got: %s", sql)
+	}
+	if !contains(sql, "org = 'tenant_abc'") {
+		t.Errorf("expected segment in PREWHERE, got: %s", sql)
+	}
+	if !contains(sql, "ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+		t.Errorf("expected time dimension in PREWHERE, got: %s", sql)
+	}
+	if contains(sql, "WHERE ts >= '2026-04-01 00:00:00'") {
+		t.Errorf("expected time dimension not to remain in WHERE, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_TimeDimension_SubqueryStaysInWhere(t *testing.T) {
+	cube := &model.Cube{
+		Name: "WeakView",
+		SQL:  "SELECT ts, host FROM weak WHERE {filter.ts}",
+		Dimensions: map[string]model.Dimension{
+			"host": {SQL: "host", Type: "string"},
+			"ts":   {SQL: "ts", Type: "time"},
+		},
+		Measures: map[string]model.Measure{
+			"count": {SQL: "count()", Type: "number"},
+		},
+	}
+
+	req := &QueryRequest{
+		Measures: []string{"WeakView.count"},
+		TimeDimensions: []TimeDimension{
+			{Dimension: "WeakView.ts", DateRange: DateRange{V: []string{"2026-04-01 00:00:00", "2026-04-07 23:59:59"}}},
+		},
+	}
+
+	sql, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(sql, ") AS WeakView PREWHERE ts >= '2026-04-01 00:00:00'") {
+		t.Errorf("expected no outer PREWHERE for subquery cube, got: %s", sql)
+	}
+	if !contains(sql, "WHERE ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+		t.Errorf("expected time dimension in outer WHERE, got: %s", sql)
+	}
+	if !contains(sql, "SELECT ts, host FROM weak WHERE ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+		t.Errorf("expected {filter.ts} replacement in subquery, got: %s", sql)
+	}
+}
+
 func TestOrderList_MarshalJSON_Nil(t *testing.T) {
 	var ol OrderList
 	data, err := json.Marshal(ol)
