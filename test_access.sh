@@ -576,6 +576,13 @@ result=$(curl -s "$BASE/load?query=%7B%22measures%22%3A%5B%22AccessView.count%22
 echo "Raw: $result"
 check "AccessView 涉敏字段分布" "$result"
 
+echo ""
+echo "=== AccessView 数据筛选 ==="
+#{"measures":["AccessView.aggSensScore","AccessView.aggSensKey","AccessView.aggSensValNum","AccessView.lastTs"],"timeDimensions":[{"dimension":"AccessView.ts","dateRange":"today"}],"order":[["AccessView.lastTs","desc"]],"filters":[{"member":"AccessView.aggSensKeyFilterTag","operator":"contains","values":["手机"]},{"member":"AccessView.aggSensScore","operator":"gte","values":["80"]},{"member":"AccessView.topoNetwork","operator":"equals","values":["公网"]},{"member":"AccessView.isSens","operator":"notEquals","values":[""]}],"dimensions":["AccessView.host","AccessView.method","AccessView.analysis","AccessView.ip","AccessView.ipGeoProvince","AccessView.ipGeoCity"],"segments":["AccessView.org","AccessView.riskNotConfirmed","AccessView.black"],"timezone":"Asia/Shanghai"}
+result=$(curl -s "$BASE/load?query=%7B%22measures%22%3A%5B%22AccessView.aggSensScore%22%2C%22AccessView.aggSensKey%22%2C%22AccessView.aggSensValNum%22%2C%22AccessView.lastTs%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22order%22%3A%5B%5B%22AccessView.lastTs%22%2C%22desc%22%5D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22AccessView.aggSensKeyFilterTag%22%2C%22operator%22%3A%22contains%22%2C%22values%22%3A%5B%22%E6%89%8B%E6%9C%BA%22%5D%7D%2C%7B%22member%22%3A%22AccessView.aggSensScore%22%2C%22operator%22%3A%22gte%22%2C%22values%22%3A%5B%2280%22%5D%7D%2C%7B%22member%22%3A%22AccessView.topoNetwork%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22%E5%85%AC%E7%BD%91%22%5D%7D%2C%7B%22member%22%3A%22AccessView.isSens%22%2C%22operator%22%3A%22notEquals%22%2C%22values%22%3A%5B%22%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22AccessView.host%22%2C%22AccessView.method%22%2C%22AccessView.analysis%22%2C%22AccessView.ip%22%2C%22AccessView.ipGeoProvince%22%2C%22AccessView.ipGeoCity%22%5D%2C%22segments%22%3A%5B%22AccessView.org%22%2C%22AccessView.riskNotConfirmed%22%2C%22AccessView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D&queryType=multi")
+echo "Raw: $result"
+check "AccessView 数据筛选" "$result"
+
 echo "--- $pass passed, $fail failed ---"
 
 echo ""

@@ -1087,7 +1087,7 @@ cube:
 
     aggSensKey:
       sql: groupUniqArrayArray(arrayConcat(req_sens_k,res_sens_k))
-      type: string
+      type: array
       title: 聚合敏感数据
 
     aggSensValNum:
