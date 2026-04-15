@@ -278,8 +278,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 
 	sql.WriteString(" FROM ")
 
-	// PREWHERE / WHERE / HAVING
-	var prewhere []string
+	// WHERE / HAVING
 	var where []string
 	var having []string
 
@@ -366,7 +365,6 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		}
 		fromSQL = applyVars(t)
 	}
-	// isSubquery: cube 使用子查询时，segment 不能放 PREWHERE（仅物理表支持）
 	isSubquery := cube.SQL != ""
 	for _, seg := range req.Segments {
 		_, segName, _ := splitMemberName(seg)
@@ -378,11 +376,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			continue
 		}
 		if result := applyVars(s.SQL); result != "" {
-			if isSubquery {
-				where = append(where, result)
-			} else {
-				prewhere = append(prewhere, result)
-			}
+			where = append(where, result)
 		}
 	}
 
@@ -436,7 +430,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		}
 	}
 
-	// timeDimensions: 生成外层 WHERE 时间范围子句
+	// timeDimensions: 统一追加到 WHERE，不再自动路由到 PREWHERE。
 	for _, td := range req.TimeDimensions {
 		_, fieldName, subKey := splitMemberName(td.Dimension)
 		field, ok := cube.GetField(fieldName, subKey)
@@ -448,11 +442,6 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		}
 	}
 	sql.WriteString(fromSQL)
-
-	if len(prewhere) > 0 {
-		sql.WriteString(" PREWHERE ")
-		sql.WriteString(strings.Join(prewhere, " AND "))
-	}
 
 	if len(where) > 0 {
 		sql.WriteString(" WHERE ")

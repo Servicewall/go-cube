@@ -280,11 +280,11 @@ func TestBuildQuery_Segments(t *testing.T) {
 	if len(params) != 0 {
 		t.Errorf("expected no params, got %v", params)
 	}
-	if !contains(sql, "PREWHERE") {
-		t.Errorf("expected PREWHERE clause, got: %s", sql)
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause, got: %s", sql)
 	}
 	if !contains(sql, "org = 'tenant_abc'") {
-		t.Errorf("expected org segment in PREWHERE with var substituted, got: %s", sql)
+		t.Errorf("expected org segment in WHERE with var substituted, got: %s", sql)
 	}
 }
 
@@ -302,8 +302,8 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "PREWHERE") {
-		t.Errorf("expected PREWHERE clause, got: %s", sql)
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause, got: %s", sql)
 	}
 	if !contains(sql, "concat(host, url) NOT IN ('host1/api/v1','host2/api/v2')") {
 		t.Errorf("expected exact list quoted in NOT IN, got: %s", sql)
@@ -314,7 +314,7 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 }
 
 func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
-	// 空 slice 时整体跳过该 segment，不产生 PREWHERE
+	// 空 slice 时整体跳过该 segment，不产生自动 WHERE 条件
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},
 		Segments:   []string{"AccessView.black"},
@@ -328,8 +328,8 @@ func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if contains(sql, "PREWHERE") {
-		t.Errorf("expected no PREWHERE for empty vars, got: %s", sql)
+	if contains(sql, "WHERE") {
+		t.Errorf("expected no WHERE for empty vars, got: %s", sql)
 	}
 	if contains(sql, "NOT IN ()") || contains(sql, "multiMatchAny(concat") {
 		t.Errorf("should not produce invalid SQL for empty lists, got: %s", sql)
@@ -337,7 +337,7 @@ func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
 }
 
 func TestBuildQuery_SegmentsOrgEmptyVar(t *testing.T) {
-	// org 传空字符串时，应生成 org = '' 的 PREWHERE
+	// org 传空字符串时，应生成 org = '' 的 WHERE 条件
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},
 		Segments:   []string{"AccessView.org"},
@@ -348,11 +348,11 @@ func TestBuildQuery_SegmentsOrgEmptyVar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "PREWHERE") {
-		t.Errorf("expected PREWHERE for empty org, got: %s", sql)
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE for empty org, got: %s", sql)
 	}
 	if !contains(sql, "org = ''") {
-		t.Errorf("expected org = '' in PREWHERE, got: %s", sql)
+		t.Errorf("expected org = '' in WHERE, got: %s", sql)
 	}
 }
 
@@ -997,6 +997,65 @@ func TestBuildQuery_SubquerySQLVarsOrgMissing(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_TimeDimension_PhysicalTableToWhere(t *testing.T) {
+	req := &QueryRequest{
+		Measures: []string{"AccessView.count"},
+		TimeDimensions: []TimeDimension{
+			{Dimension: "AccessView.ts", DateRange: DateRange{V: []string{"2026-04-01 00:00:00", "2026-04-07 23:59:59"}}},
+		},
+		Segments: []string{"AccessView.org"},
+		Vars:     map[string][]string{"org": {"tenant_abc"}},
+	}
+
+	sql, _, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "WHERE") {
+		t.Fatalf("expected WHERE clause, got: %s", sql)
+	}
+	if !contains(sql, "org = 'tenant_abc'") {
+		t.Errorf("expected segment in WHERE, got: %s", sql)
+	}
+	if !contains(sql, "ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+		t.Errorf("expected time dimension in WHERE, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_TimeDimension_SubqueryStaysInWhere(t *testing.T) {
+	cube := &model.Cube{
+		Name: "WeakView",
+		SQL:  "SELECT ts, host FROM weak WHERE {filter.ts}",
+		Dimensions: map[string]model.Dimension{
+			"host": {SQL: "host", Type: "string"},
+			"ts":   {SQL: "ts", Type: "time"},
+		},
+		Measures: map[string]model.Measure{
+			"count": {SQL: "count()", Type: "number"},
+		},
+	}
+
+	req := &QueryRequest{
+		Measures: []string{"WeakView.count"},
+		TimeDimensions: []TimeDimension{
+			{Dimension: "WeakView.ts", DateRange: DateRange{V: []string{"2026-04-01 00:00:00", "2026-04-07 23:59:59"}}},
+		},
+	}
+
+	sql, _, err := BuildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(sql, ") AS WeakView PREWHERE ts >= '2026-04-01 00:00:00'") {
+		t.Errorf("expected no outer PREWHERE for subquery cube, got: %s", sql)
+	}
+	if !contains(sql, ") AS WeakView WHERE ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+		t.Errorf("expected time dimension in outer WHERE, got: %s", sql)
+	}
+	if !contains(sql, "SELECT ts, host FROM weak WHERE ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+		t.Errorf("expected {filter.ts} replacement in subquery, got: %s", sql)
+	}
+}
 func TestOrderList_MarshalJSON_Nil(t *testing.T) {
 	var ol OrderList
 	data, err := json.Marshal(ol)
@@ -1176,15 +1235,12 @@ func TestRiskView_FilterShowTime_WHERE(t *testing.T) {
 	if !contains(sql, "WHERE") {
 		t.Errorf("expected WHERE clause, got: %s", sql)
 	}
-	if !contains(sql, "PREWHERE") {
-		t.Errorf("expected PREWHERE (segments), got: %s", sql)
-	}
 	if !contains(sql, "first_ts >= today()") {
 		t.Errorf("expected filterShowTime SQL in WHERE, got: %s", sql)
 	}
-	// statusFilter segment → PREWHERE
+	// statusFilter segment → WHERE
 	if !contains(sql, "'待确认'") {
-		t.Errorf("expected statusFilter SQL in PREWHERE, got: %s", sql)
+		t.Errorf("expected statusFilter SQL in WHERE, got: %s", sql)
 	}
 }
 
@@ -1218,7 +1274,7 @@ func TestRiskView_ListFilterShowTime_HAVING(t *testing.T) {
 	}
 }
 
-// TestRiskView_StatusFilter_Segment verifies statusFilter segment goes to PREWHERE.
+// TestRiskView_StatusFilter_Segment verifies statusFilter segment goes to WHERE.
 func TestRiskView_StatusFilter_Segment(t *testing.T) {
 	req := &QueryRequest{
 		Measures: []string{"RiskView.count"},
@@ -1229,10 +1285,10 @@ func TestRiskView_StatusFilter_Segment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "PREWHERE") {
-		t.Errorf("expected PREWHERE for statusFilter segment, got: %s", sql)
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE for statusFilter segment, got: %s", sql)
 	}
 	if !contains(sql, "'待确认'") {
-		t.Errorf("expected statusFilter SQL in PREWHERE, got: %s", sql)
+		t.Errorf("expected statusFilter SQL in WHERE, got: %s", sql)
 	}
 }
