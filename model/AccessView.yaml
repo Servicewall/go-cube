@@ -362,6 +362,11 @@ cube:
       type: string
       title: 网络类型
 
+    netDomainName:
+      sql: url_action[7]
+      type: string
+      title: 网络域名称
+
     dstNode:
       sql: if(position(upstream, ']')!=0, regexpExtract(upstream, '\\[(.*)\\]', 1), splitByChar(':',upstream)[1])
       type: string

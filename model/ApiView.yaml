@@ -137,6 +137,11 @@ cube:
       sql: url_action[5]
       type: string
       title: 网络类型
+
+    netDomainName:
+      sql: url_action[7]
+      type: string
+      title: 网络域名称
     
     apiTypeTag:
       sql: multiIf(notEmpty(arrayConcat(arrayFilter(x->notEmpty(x), conf_tag), arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6])))), 'API', url_action[2] = 'res', '资源', url_action[2] = 'file', '文件', 'API')
