@@ -30,7 +30,7 @@ func NewClient(cfg *config.ClickHouseConfig) (*Client, error) {
 		queryTimeout = 30 * time.Second
 	}
 	return &Client{
-		url:          addr + "?default_format=JSON&database=" + cfg.Database,
+		url:          addr + "?default_format=JSON" + "&max_bytes_before_external_group_by=8000000000" + "&database=" + cfg.Database,
 		user:         cfg.Username,
 		key:          cfg.Password,
 		http:         &http.Client{Timeout: queryTimeout},
