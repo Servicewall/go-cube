@@ -2,32 +2,11 @@
 # Test AuditView queries against local go-cube server
 # Mirrors production curl requests from demo.servicewall.cn
 
-BASE="http://localhost:4000"
-pass=0
-fail=0
+source "$(dirname "$0")/common.sh"
 
-check() {
-    local desc="$1"
-    local result="$2"
-    if echo "$result" | jq -e '.results[0].data' > /dev/null 2>&1; then
-        count=$(echo "$result" | jq '.results[0].data | length')
-        echo "[PASS] $desc — $count rows"
-        ((pass++))
-    else
-        echo "[FAIL] $desc"
-        echo "$result" | jq . 2>/dev/null || echo "$result"
-        ((fail++))
-    fi
-}
-
-echo "Starting go-cube server in background..."
-./go-cube &
-SERVER_PID=$!
-sleep 2
-
-echo ""
-echo "Testing health endpoint..."
-curl -s "$BASE/health" | jq .
+setup_server_trap
+start_server 2
+test_health
 
 echo ""
 echo "========================================"
@@ -99,8 +78,7 @@ echo "========================================"
 echo "Results: $pass passed, $fail failed"
 echo "========================================"
 
-kill $SERVER_PID 2>/dev/null
-wait $SERVER_PID 2>/dev/null
+stop_server
 
 if [ $fail -gt 0 ]; then
     exit 1

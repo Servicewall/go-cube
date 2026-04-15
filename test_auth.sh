@@ -2,35 +2,12 @@
 # Test UserAuthView and ApiParamView queries against local go-cube server
 # Mirrors production curl requests from demo.servicewall.cn
 
-BASE="http://localhost:4000"
-pass=0
-fail=0
+source "$(dirname "$0")/common.sh"
 
-check() {
-    local desc="$1"
-    local result="$2"
-    if echo "$result" | jq -e '.error' > /dev/null 2>&1; then
-        echo "[FAIL] $desc — server error: $(echo "$result" | jq -r '.error')"
-        ((fail++))
-    elif echo "$result" | jq -e '.results[0].data' > /dev/null 2>&1; then
-        count=$(echo "$result" | jq '.results[0].data | length')
-        echo "[PASS] $desc — $count rows"
-        ((pass++))
-    else
-        echo "[FAIL] $desc"
-        echo "$result" | jq . 2>/dev/null || echo "$result"
-        ((fail++))
-    fi
-}
-
-echo "Starting go-cube server in background..."
-./go-cube &
-SERVER_PID=$!
-sleep 2
-
-echo ""
-echo "Testing health endpoint..."
-curl -s "$BASE/health" | jq .
+CHECK_TOP_LEVEL_ERROR=1
+setup_server_trap
+start_server 2
+test_health
 
 echo ""
 echo "========================================"
@@ -109,6 +86,5 @@ echo "--- $pass passed, $fail failed ---"
 
 echo ""
 echo "Stopping server..."
-kill $SERVER_PID
-wait $SERVER_PID 2>/dev/null
+stop_server
 echo "All tests completed."

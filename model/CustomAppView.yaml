@@ -1,0 +1,26 @@
+cube:
+  name: CustomAppView
+  sql: >
+    SELECT unique_id, name, desc FROM custom_app_dict
+    FULL JOIN (SELECT DISTINCT ext_id[7] AS unique_id FROM access WHERE ts > today() AND unique_id!='') AS access_today
+    USING unique_id
+
+  segments:
+    org:
+      sql: ""
+
+  dimensions:
+    uniqueId:
+      sql: unique_id
+      type: string
+      title: 应用ID
+
+    name:
+      sql: coalesce(name, '')
+      type: string
+      title: 应用名称
+
+    desc:
+      sql: desc
+      type: string
+      title: 描述

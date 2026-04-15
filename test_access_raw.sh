@@ -2,38 +2,20 @@
 # Test AccessRawView queries against local go-cube server
 # NOTE: uses access_raw (local dev); production uses access_raw_local
 
-BASE="http://localhost:4000"
-pass=0
-fail=0
+source "$(dirname "$0")/common.sh"
 
-check() {
-    local desc="$1"
-    local result="$2"
-    if echo "$result" | jq -e '.error' > /dev/null 2>&1; then
-        echo "[FAIL] $desc — server error: $(echo "$result" | jq -r '.error')"
-        ((fail++))
-    elif echo "$result" | jq -e '.results[0].data' > /dev/null 2>&1; then
-        count=$(echo "$result" | jq '.results[0].data | length')
-        echo "[PASS] $desc — $count rows"
-        ((pass++))
-    else
-        echo "[FAIL] $desc — unexpected response: $result"
-        ((fail++))
-    fi
-}
+CHECK_TOP_LEVEL_ERROR=1
 
 echo "Building go-cube..."
 # Swap access_raw_local -> access_raw for local testing, restore on exit
 cp model/AccessRawView.yaml /tmp/AccessRawView_prod.yaml
 sed -i '' 's/access_raw_local/access_raw/' model/AccessRawView.yaml
-trap 'cp /tmp/AccessRawView_prod.yaml model/AccessRawView.yaml' EXIT
+trap 'stop_server; cp /tmp/AccessRawView_prod.yaml model/AccessRawView.yaml' EXIT INT TERM
 
 go build -o go-cube . || { echo "Build failed"; exit 1; }
 
 echo "Starting server..."
-./go-cube &
-SERVER_PID=$!
-sleep 1
+start_server 1 "" "Starting server..."
 
 echo ""
 echo "=== 1. ungrouped request+response (limit 1) ==="
@@ -55,6 +37,5 @@ echo "--- $pass passed, $fail failed ---"
 
 echo ""
 echo "Stopping server..."
-kill $SERVER_PID
-wait $SERVER_PID 2>/dev/null
+stop_server
 echo "All tests completed."

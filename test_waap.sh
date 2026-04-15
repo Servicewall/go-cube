@@ -1,38 +1,9 @@
 #!/bin/bash
-BASE="http://localhost:4000"
-pass=0
-fail=0
+source "$(dirname "$0")/common.sh"
 
-cleanup() {
-    if [ -n "$SERVER_PID" ]; then
-        kill $SERVER_PID 2>/dev/null
-        wait $SERVER_PID 2>/dev/null
-    fi
-}
-trap cleanup EXIT INT TERM
-
-check() {
-    local desc="$1"
-    local result="$2"
-    if echo "$result" | jq -e '.results[0].data' > /dev/null 2>&1; then
-        count=$(echo "$result" | jq '.results[0].data | length')
-        echo "[PASS] $desc — $count rows"
-        ((pass++))
-    else
-        echo "[FAIL] $desc"
-        echo "$result" | jq . 2>/dev/null || echo "$result"
-        ((fail++))
-    fi
-}
-
-echo "Starting go-cube server..."
-./go-cube > /tmp/go-cube-waap.log 2>&1 &
-SERVER_PID=$!
-sleep 3
-
-echo ""
-echo "Testing health endpoint..."
-curl -s "$BASE/health" | jq .
+setup_server_trap
+start_server 3 "/tmp/go-cube-waap.log" "Starting go-cube server..."
+test_health
 
 echo "========================================"
 echo "WaapView Tests"

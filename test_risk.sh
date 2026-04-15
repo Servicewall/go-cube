@@ -2,39 +2,12 @@
 # Test RiskView queries against local go-cube server
 # Mirrors production curl requests from demo.servicewall.cn
 
-BASE="http://localhost:4000"
-pass=0
-fail=0
+source "$(dirname "$0")/common.sh"
 
-check() {
-    local desc="$1"
-    local result="$2"
-    if echo "$result" | jq -e '.results[0].data' > /dev/null 2>&1; then
-        # Check for error field inside data rows
-        if echo "$result" | jq -e '.results[0].data[0].error' > /dev/null 2>&1; then
-            echo "[FAIL] $desc — error in data"
-            echo "$result" | jq '.results[0].data[0].error'
-            ((fail++))
-        else
-            count=$(echo "$result" | jq '.results[0].data | length')
-            echo "[PASS] $desc — $count rows"
-            ((pass++))
-        fi
-    else
-        echo "[FAIL] $desc"
-        echo "$result" | jq . 2>/dev/null || echo "$result"
-        ((fail++))
-    fi
-}
-
-echo "Starting go-cube server in background..."
-./go-cube &
-SERVER_PID=$!
-sleep 2
-
-echo ""
-echo "Testing health endpoint..."
-curl -s "$BASE/health" | jq .
+CHECK_NESTED_ERROR=1
+setup_server_trap
+start_server 2
+test_health
 
 echo ""
 echo "========================================"
@@ -211,8 +184,7 @@ check "risk list + filterStatus=待确认 (equals operator)" "$result"
 echo ""
 echo "Test completed: $pass passed, $fail failed."
 
-kill $SERVER_PID 2>/dev/null
-wait $SERVER_PID 2>/dev/null
+stop_server
 
 if [ $fail -gt 0 ]; then
     exit 1
