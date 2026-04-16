@@ -1,0 +1,306 @@
+cube:
+  name: DeviceView
+  sql_table: default.access
+
+  segments:
+    org:
+      sql: "org = {vars.org} AND notEmpty(dev_data)"
+
+  dimensions:
+    id:
+      sql: id
+      type: string
+      primary_key: true
+      title: ID
+
+    ts:
+      sql: ts
+      type: time
+      title: 时间
+
+    tsMs:
+      sql: ts_ms
+      type: number
+      title: 时间戳
+
+    sid:
+      sql: sid
+      type: string
+      title: 设备ID
+
+    uid:
+      sql: uid
+      type: string
+      title: 用户ID
+
+    ua:
+      sql: ua
+      type: string
+      title: User-Agent
+
+    ip:
+      sql: ip
+      type: string
+      title: IP
+
+    customAppName:
+      sql: dictGetString('default.custom_app_dict', 'name', ext_id[7])
+      type: string
+      title: 应用名
+
+    channel:
+      sql: if(channel='' or channel='all',host,channel)
+      type: string
+      title: 站点
+
+    resultScore:
+      sql: if(notEmpty(req_risk),100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.risk_dict','score',x),req_risk)),0)
+      type: number
+      title: 风险评分
+
+    resultLevel:
+      sql: multiIf(if(notEmpty(req_risk),100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.risk_dict','score',x),req_risk)),0)>=80,'高风险',if(notEmpty(req_risk),100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.risk_dict','score',x),req_risk)),0)>=50,'中风险',if(notEmpty(req_risk),100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.risk_dict','score',x),req_risk)),0)>=20,'低风险','无风险')
+      type: string
+      title: 风险结果
+
+    risk:
+      sql: arrayJoin(req_risk)
+      type: string
+      title: 风险
+
+    devRisk:
+      sql: dev_risk
+      type: string
+      title: 设备风险
+
+    devData:
+      sql: dev_data
+      type: string
+      title: 设备数据
+
+    devRealIp:
+      sql: JSONExtractString(dev_data, 'WebDeviceInfo', 'WebRTC', 1)
+      type: string
+      title: 设备真实IP
+
+    # 设备类型: Android/iOS/H5/小程序
+    devType:
+      sql: multiIf(visitParamHas(dev_data, 'AndroidDeviceInfo'),'Android',visitParamHas(dev_data, 'IOSDeviceInfo'),'iOS',visitParamHas(dev_data, 'WebDeviceInfo'),'H5',visitParamHas(dev_data, 'WechatMpDeviceInfo'),'小程序',visitParamHas(dev_data, 'HarmonyDeviceInfo'),'Harmony','')
+      type: string
+      title: 设备类型
+
+    # 指纹: Android: MAC地址, iOS: Idfv, 小程序: CanvasFp, H5: AudioFp:CanvasFp:WebGlFp
+    fingerPrint:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','MacAddress'),visitParamHas(dev_data,'IOSDeviceInfo'),substr(JSONExtractString(dev_data,'IOSDeviceInfo','DeviceId'), 12),visitParamHas(dev_data,'HarmonyDeviceInfo'),JSONExtractString(dev_data,'HarmonyDeviceInfo','DeviceId'),visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractString(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),12),visitParamHas(dev_data,'WebDeviceInfo'), ext_id[5],'')
+      type: string
+      title: 指纹
+
+    # 平台/系统版本: Android 11, Win32 ...
+    platform:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),'Android' || JSONExtractString(dev_data,'AndroidDeviceInfo','OsInfo',1),visitParamHas(dev_data,'IOSDeviceInfo'),'iOS' || JSONExtractString(dev_data,'IOSDeviceInfo','OsVersion'),visitParamHas(dev_data,'HarmonyDeviceInfo'), JSONExtractString(dev_data,'HarmonyDeviceInfo','OsInfo', 2),visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractString(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),7),visitParamHas(dev_data,'WebDeviceInfo'),JSONExtractString(dev_data,'WebDeviceInfo','Platform'), '')
+      type: string
+      title: 系统版本
+
+    # 地域: 省
+    province:
+      sql: ip_geo[2]
+      type: string
+      title: 省
+
+    sdkVersion:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','SdkVersion'),visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','SdkVersion'),visitParamHas(dev_data,'HarmonyDeviceInfo'),JSONExtractString(dev_data,'HarmonyDeviceInfo','SdkVersion'),visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractString(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),11), '')
+      type: string
+      title: SDK版本
+
+    # 型号: 一串代号，可能包含厂商信息
+    module:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','OsInfo',3),visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','HwMachine'),visitParamHas(dev_data,'HarmonyDeviceInfo'),JSONExtractString(dev_data,'HarmonyDeviceInfo','OsInfo', 1),visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractString(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),4),'')
+      type: string
+      title: 型号
+
+    # 厂商: Apple/Xiaomi
+    vendor:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','OsInfo',2),visitParamHas(dev_data,'IOSDeviceInfo'),'Apple',visitParamHas(dev_data,'HarmonyDeviceInfo'),'华为',visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractString(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),3), ua_info[1]!='Other', ua_info[1], '')
+      type: string
+      title: 厂商
+
+    # app名字
+    appName:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','PhoneInfo',4),visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','AppIdentifier'),visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractString(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),1),visitParamHas(dev_data,'HarmonyDeviceInfo'),JSONExtractString(dev_data,'HarmonyDeviceInfo','AppInfo', 1),'')
+      type: string
+      title: APP名字
+
+    appVersion:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','PhoneInfo',3),visitParamHas(dev_data,'IOSDeviceInfo'), JSONExtractString(dev_data,'IOSDeviceInfo','AppVersion'),visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractString(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),2),'')
+      type: string
+      title: APP版本
+
+    # 设备名
+    deviceName:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','OsInfo',2),visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','DeviceName'),visitParamHas(dev_data,'HarmonyDeviceInfo'),JSONExtractString(dev_data,'HarmonyDeviceInfo','AppInfo', 3), '')
+      type: string
+      title: 设备名
+
+    # 设备id
+    deviceId:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','DeviceId'),visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','DeviceId'),visitParamHas(dev_data,'HarmonyDeviceInfo'),JSONExtractString(dev_data,'HarmonyDeviceInfo','DeviceId'),'')
+      type: string
+      title: 设备ID
+
+    # 架构
+    machine:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'), JSONExtractString(dev_data,'AndroidDeviceInfo','HardwareInfo',2),visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','HwModel'),'')
+      type: string
+      title: 设备架构
+
+    # 内存
+    memory:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'), JSONExtractString(dev_data,'AndroidDeviceInfo','HardwareInfo',5),visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','MemorySize'),'')
+      type: string
+      title: 设备内存
+
+    diskSize:
+      sql: multiIf(visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','DiskSize'),visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractString(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),13),'')
+      type: string
+      title: 硬盘大小
+
+    # 运营商: iOS, Android
+    carrierName:
+      sql: multiIf(visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','CarrierName'),visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','NetInfo',2),'')
+      type: string
+      title: 运营商
+
+    # 网络类型: iOS, Android
+    netType:
+      sql: multiIf(visitParamHas(dev_data,'IOSDeviceInfo'), JSONExtractString(dev_data,'IOSDeviceInfo','NetworkType'),visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','NetInfo',1),'')
+      type: string
+      title: 网络类型
+
+    # 标识 ios取idfv, 安卓取android id
+    uniqId:
+      sql: multiIf(visitParamHas(dev_data,'IOSDeviceInfo'),JSONExtractString(dev_data,'IOSDeviceInfo','Idfv'),visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','OsInfo',6),visitParamHas(dev_data,'HarmonyDeviceInfo'),JSONExtractString(dev_data,'HarmonyDeviceInfo','AppInfo', 1), '')
+      type: string
+      title: 设备标识
+
+    # 分辨率
+    resolution:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','OsInfo',7),'')
+      type: string
+      title: 分辨率
+
+    # mac地址
+    mac:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','NetInfo',4),'')
+      type: string
+      title: MAC地址
+
+    # 群标识: Android: 局域网MAC, 小程序: WIFI地址
+    cluster:
+      sql: multiIf(visitParamHas(dev_data,'AndroidDeviceInfo'),JSONExtractString(dev_data,'AndroidDeviceInfo','NetInfo', 4),visitParamHas(dev_data,'WechatMpDeviceInfo'),JSONExtractRaw(JSONExtractString(dev_data,'WechatMpDeviceInfo','Da'),16),if(JSONExtractString(dev_data, 'WebDeviceInfo', 'WebRTC', 1)!='' and isIPv4String(ip), 'CW' || hex(bitShiftRight(IPv4StringToNumOrNull(ip),16)) || hex(bitShiftRight(IPv4StringToNumOrNull(JSONExtractString(dev_data, 'WebDeviceInfo', 'WebRTC', 1)),16)),''))
+      type: string
+      title: 设备群标识
+
+    # 崩溃信息: 调用栈,整体字符串有\n换行
+    crashStack:
+      sql: arrayJoin(JSONExtractArrayRaw(dev_data,'AndroidDeviceInfo', 'Extra', 5))
+      type: string
+      title: 崩溃信息
+
+    # android launch count
+    androidLaunchCount:
+      sql: JSONExtractInt(dev_data,'AndroidDeviceInfo', 'Extra', 11)
+      type: number
+      title: Android上报数
+
+    # android click position data, it's an array: [(3,5),(5,7),(4,1)]
+    androidClickArray:
+      sql: arrayMap(x -> (modulo(toUInt16(x),9), intDiv(toUInt16(x),9)), JSONExtractArrayRaw(dev_data,'AndroidDeviceInfo', 'Extra', 4))
+      type: array
+      title: Android点击位置
+
+    androidClickName:
+      sql: format('{}' || '个区域点击' || '{}' || '次', toString(arrayUniq(arrayMap(x -> (modulo(toUInt16(x),9), intDiv(toUInt16(x),9)), JSONExtractArrayRaw(dev_data,'AndroidDeviceInfo', 'Extra', 4)))), toString(length(arrayMap(x -> (modulo(toUInt16(x),9), intDiv(toUInt16(x),9)), JSONExtractArrayRaw(dev_data,'AndroidDeviceInfo', 'Extra', 4)))))
+      type: string
+      title: Android点击位置
+
+  measures:
+    # 上报数量
+    count:
+      sql: count()
+      type: number
+      title: 访问量
+
+    # 去重风险
+    aggRisk:
+      sql: groupUniqArray(arrayJoin(req_risk))
+      type: array
+      title: 去重风险
+
+    # 去重风险打分
+    aggScore:
+      sql: if(notEmpty(groupUniqArray(arrayJoin(req_risk))),100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.risk_dict','score',x),groupUniqArray(arrayJoin(req_risk)))),0)
+      type: number
+      title: 去重风险评分
+
+    # 上报设备量
+    uniqDevCount:
+      sql: uniqHLL12If(sid, sid!='')
+      type: number
+      title: 上报设备量
+
+    uniqIpCount:
+      sql: uniqHLL12(ip)
+      type: number
+      title: 唯一IP数量
+
+    uniqUserCount:
+      sql: uniqHLL12If(uid, uid!='')
+      type: number
+      title: 唯一用户数量
+
+    ipGeoSet:
+      sql: groupUniqArray(ip_geo[2] || ip_geo[3])
+      type: array
+      title: 归属地
+
+    # iOS设备数
+    uniqIosDevCount:
+      sql: uniqHLL12If(sid, visitParamHas(dev_data, 'IOSDeviceInfo'))
+      type: number
+      title: iOS设备数
+
+    # Android设备
+    uniqAndroidDevCount:
+      sql: uniqHLL12If(sid, sid!='' AND visitParamHas(dev_data, 'IOSDeviceInfo'))
+      type: number
+      title: Android设备
+
+    # 鸿蒙设备数据
+    uniqHarmonyDevCount:
+      sql: uniqHLL12If(sid, sid!='' and visitParamHas(dev_data, 'HarmonyDeviceInfo'))
+      type: number
+      title: 鸿蒙设备
+
+    # 崩溃设备量 * 100 / 总设备量
+    crashRatio:
+      sql: if(uniqHLL12If(sid, sid!='') = 0, 0, round(100 * uniqHLL12If(sid, sid!='' AND notEmpty(JSONExtractArrayRaw(dev_data,'AndroidDeviceInfo', 'Extra', 5))) / uniqHLL12If(sid, sid!=''), 2))
+      type: number
+      title: 崩溃率
+
+    # 崩溃数
+    crashCount:
+      sql: sum(length(JSONExtractArrayRaw(dev_data,'AndroidDeviceInfo', 'Extra', 5)))
+      type: number
+      title: 崩溃数
+
+    # total android launch count
+    totalAndroidLaunchCount:
+      sql: arraySum(maxMap(array(sid), array(JSONExtractInt(dev_data,'AndroidDeviceInfo', 'Extra', 11))).2)
+      type: number
+      title: 总Android设备上报数
+
+    # 聚合后举例: TOP3设备
+    top3DeviceSet:
+      sql: topK(3)(sid)
+      type: array
+      title: TOP3设备
