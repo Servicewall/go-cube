@@ -53,7 +53,7 @@ cube:
       USING (host, method, url)
       ) as final_view
     GROUP BY org, app_name, method, url
-  
+
   segments:
     org:
       sql: org = {vars.org}
@@ -71,180 +71,179 @@ cube:
       sql: cityHash64(method, app_name, url)
       type: string
       title: API指纹
-    
+
     api:
       sql: method || ' ' || app_name || url
       type: string
       primary_key: true
       title: API
-    
+
     urlRoute:
       sql: url
       type: string
       title: URL路由
-    
+
     host:
       sql: last_host
       type: string
       title: 域名
-    
+
     method:
       sql: method
       type: string
       title: 请求方式
-    
+
     appName:
       sql: app_name
       type: string
       title: 应用
-    
+
     channel:
       sql: if(channel is NULL, '手工导入', channel)
       type: string
       title: 站点
-    
+
     count:
       sql: arraySum(hour_count.2)
       type: number
       title: 访问量
-    
+
     ts:
       sql: if(max_ts=toDateTime(0), now(), max_ts)
       type: time
       title: 时间
-    
+
     firstTs:
       sql: if(first_ts=toDateTime(0), now(), first_ts)
       type: time
       title: 首次访问
-    
+
     appId:
       sql: multiIf(notEmpty(dictGet('host_dict', 'info', assumeNotNull(last_host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(last_host)))[3], notEmpty(dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*'))[3], '')
       type: string
       title: 应用ID
-    
+
     dctSection:
       sql: dictGetString('app_dict', 'department', multiIf(notEmpty(dictGet('host_dict', 'info', assumeNotNull(last_host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(last_host)))[3], notEmpty(dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*'))[3], ''))
       type: string
       title: 应用部门
-    
+
     isFavorite:
       sql: if((select count() from postgres.configs where (type = 'appName_filter' or type = 'appName_filter_regex') and name = 'favorite_app' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, app_name in (select JSONExtractString(config, 'appName') from postgres.configs where type = 'appName_filter' and name = 'favorite_app' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(app_name, (select groupArray(JSONExtractString(config, 'appName')) from postgres.configs where type = 'appName_filter_regex' and name = 'favorite_app' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now()))))))
       type: number
       title: 已关注
-    
+
     topoNetwork:
       sql: url_action[5]
       type: string
       title: 网络类型
 
     netDomainName:
-      sql: url_action[7]
+      sql: if(url_action[7] != '', splitByChar('(', url_action[7])[1], '')
       type: string
       title: 网络域名称
-    
+
     apiTypeTag:
       sql: multiIf(notEmpty(arrayConcat(arrayFilter(x->notEmpty(x), conf_tag), arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6])))), 'API', url_action[2] = 'res', '资源', url_action[2] = 'file', '文件', 'API')
       type: string
       title: API类型标签
-    
+
     sidebarType:
       sql: arrayStringConcat(arrayFilter(x->x!='',arrayConcat(multiIf(mgt_status = '' AND if((select count() from postgres.configs where (type = 'api_filter' or type = 'api_filter_regex') and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, concat(last_host, url) in (select JSONExtractString(config, 'api') from postgres.configs where type = 'api_filter' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(concat(last_host, url), (select groupArray(JSONExtractString(config, 'api')) from postgres.configs where type = 'api_filter_regex' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))))), ['已梳理->始终忽略'],mgt_status='下线',['已梳理->下线'],mgt_status='已确认',['已梳理->已确认'], arrayConcat([if(multiIf(mgt_status='下线', '下线', first_ts > (toStartOfDay(now()) - (3600 * 24) * 1), '新上线', '')='新上线','已发现->新上线', ''), if(length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1)) > 1 and current_req_key_ts > toStartOfDay(now()) - (3600 * 24 * 1), '已发现->参数变化', ''), if(multiIf(mgt_status='下线', '下线', max_ts > (toStartOfDay(now()) - ((3600 * 24) * 7)), '活跃', '失活')='活跃','已发现->活跃', '已发现->失活')])), [if(multiIf(importance!='', importance, '')!='', '资产价值'||'->'||multiIf(importance!='', importance, ''), ''), if(app_name!=last_host, '已梳理应用'||'->'||app_name, '')],arrayMap(x->if(position(x, '第三方组件-')>0 or position(x, '认证方式-')>0 or position(x, '鉴权-')>0, replaceOne(x, '-', '->'), '功能'||'->'||x),if(url_action[6]!='', splitByChar(',', url_action[6]), [])))), ',')
       type: string
       title: API类型
-    
+
     filtered:
       sql: mgt_status = '' AND if((select count() from postgres.configs where (type = 'api_filter' or type = 'api_filter_regex') and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, concat(last_host, url) in (select JSONExtractString(config, 'api') from postgres.configs where type = 'api_filter' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(concat(last_host, url), (select groupArray(JSONExtractString(config, 'api')) from postgres.configs where type = 'api_filter_regex' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now()))))))
       type: number
       title: 是否被过滤
-    
+
     reqKeyTupleArray:
       sql: req_key_first_ts_tuple_array
       type: string
-    
+
     reqKeySet:
       sql: arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1)
       type: string
-    
+
     currentReqKeyTs:
       sql: current_req_key_ts
       type: time
-    
+
     customRuleTag:
       sql: multiIf(url_action[6]!='', splitByChar(',', url_action[6]), if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')!='', [if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')], [])
       type: array
       title: 功能
-    
+
     configTag:
       sql: conf_tag
       type: array
       title: 标签
-    
+
     managementStatus:
       sql: mgt_status
       type: string
       title: 管理状态
-    
-    
+
     autoBizName:
       sql: if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')
       type: string
       title: 业务自动名称
-    
+
     bizName:
       sql: multiIf(url_action[3]!='', url_action[3], url_action[2]='api' OR url_action[2]='auto', url_action[1], '')
       type: string
       title: 业务名称
-    
+
     bizAIAnalysis:
       sql: if(startsWith(biz_analysis, 'AI分析'), biz_analysis, '')
       type: string
       title: AI业务分析
-    
+
     director:
       sql: dictGetString('app_dict', 'director', multiIf(notEmpty(dictGet('host_dict', 'info', assumeNotNull(last_host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(last_host)))[3], notEmpty(dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*'))[3], ''))
       type: string
       title: 应用负责人
-    
+
     riskKeyScoreTuple:
       sql: arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('risk_dict','score',x.1)), arrayFilter(x -> dictGetInt64('risk_dict','score',x.1)>0, arrayZip(risk_count.1, risk_count.2))))
       type: array
-    
+
     weakKeyScoreTuple:
       sql: arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('weak_dict','score',x.1)), arrayFilter(x -> dictGetInt64('weak_dict','score',x.1)>0, arrayZip(weak_count.1, weak_count.2))))
       type: array
-    
+
     currentReqKey:
       sql: multiIf(length((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1])=0, '-', length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))<2, arrayStringConcat(arrayMap(x->'[=]'||x,(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1]), ','), arrayStringConcat(arraySort(x-> multiIf(position(x,'=')>0, 3, position(x,'+') > 0, 1, 2), arrayMap(x -> multiIf(has((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1], x) AND has((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[2], x), '[=]' || x, has((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1], x), '[+]' || x, '[-]' || x), arrayDistinct(arrayConcat((arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[1], (arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1))[2])))), ','))
       type: string
-    
+
     resSensScoreTupleRaw:
       sql: if(notEmpty(mapKeys(res_sens_uniq_map)), arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(res_sens_uniq_map), mapValues(res_sens_uniq_map)))), [])
       type: array
       title: 响应隐私及分数
-    
+
     reqSensScoreTupleRaw:
       sql: if(notEmpty(mapKeys(req_sens_uniq_map)), arraySort(x -> (-x.2,x.1), arrayMap(x -> (format('{}({})', x.1, toString(x.2)), dictGetInt64('default.privacy_dict','score',x.1)), arrayZip(mapKeys(req_sens_uniq_map), mapValues(req_sens_uniq_map)))), [])
       type: array
       title: 请求隐私及分数
-    
+
     bizImportance:
       sql: multiIf(importance!='', importance, '')
       type: string
       title: 资产价值
-    
+
     activeTag:
       sql: multiIf(mgt_status='下线', '下线', max_ts > (toStartOfDay(now()) - ((3600 * 24) * 7)), '活跃', '失活')
       type: string
-    
+
     newApiTag:
       sql: multiIf(mgt_status='下线', '下线', first_ts > (toStartOfDay(now()) - (3600 * 24) * 1), '新上线', '')
       type: string
-    
+
     sidebarTypeArray:
       sql: arrayFilter(x->x!='',arrayConcat(multiIf(mgt_status = '' AND if((select count() from postgres.configs where (type = 'api_filter' or type = 'api_filter_regex') and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, concat(last_host, url) in (select JSONExtractString(config, 'api') from postgres.configs where type = 'api_filter' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(concat(last_host, url), (select groupArray(JSONExtractString(config, 'api')) from postgres.configs where type = 'api_filter_regex' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))))), ['已梳理->始终忽略'],mgt_status='下线',['已梳理->下线'],mgt_status='已确认',['已梳理->已确认'], arrayConcat([if(multiIf(mgt_status='下线', '下线', first_ts > (toStartOfDay(now()) - (3600 * 24) * 1), '新上线', '')='新上线','已发现->新上线', ''), if(length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1)) > 1 and current_req_key_ts > toStartOfDay(now()) - (3600 * 24 * 1), '已发现->参数变化', ''), if(multiIf(mgt_status='下线', '下线', max_ts > (toStartOfDay(now()) - ((3600 * 24) * 7)), '活跃', '失活')='活跃','已发现->活跃', '已发现->失活')])), [if(multiIf(importance!='', importance, '')!='', '资产价值'||'->'||multiIf(importance!='', importance, ''), ''), if(app_name!=last_host, '已梳理应用'||'->'||app_name, '')],arrayMap(x->if(position(x, '第三方组件-')>0 or position(x, '认证方式-')>0 or position(x, '鉴权-')>0, replaceOne(x, '-', '->'), '功能'||'->'||x),multiIf(url_action[6]!='', splitByChar(',', url_action[6]), []))))
       type: string
-    
+
     sidebarFirstLevelTypeArray:
       sql: arrayDistinct(arrayMap(x->splitByString('->', assumeNotNull(x))[1], arrayFilter(x->x!='',arrayConcat(multiIf(mgt_status = '' AND if((select count() from postgres.configs where (type = 'api_filter' or type = 'api_filter_regex') and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, concat(last_host, url) in (select JSONExtractString(config, 'api') from postgres.configs where type = 'api_filter' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(concat(last_host, url), (select groupArray(JSONExtractString(config, 'api')) from postgres.configs where type = 'api_filter_regex' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))))), ['已梳理->始终忽略'],mgt_status='下线',['已梳理->下线'],mgt_status='已确认',['已梳理->已确认'], arrayConcat([if(multiIf(mgt_status='下线', '下线', first_ts > (toStartOfDay(now()) - (3600 * 24) * 1), '新上线', '')='新上线','已发现->新上线', ''), if(length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1)) > 1 and current_req_key_ts > toStartOfDay(now()) - (3600 * 24 * 1), '已发现->参数变化', ''), if(multiIf(mgt_status='下线', '下线', max_ts > (toStartOfDay(now()) - ((3600 * 24) * 7)), '活跃', '失活')='活跃','已发现->活跃', '已发现->失活')])), [if(multiIf(importance!='', importance, '')!='', '资产价值'||'->'||multiIf(importance!='', importance, ''), ''), if(app_name!=last_host, '已梳理应用'||'->'||app_name, '')],arrayMap(x->if(position(x, '第三方组件-')>0 or position(x, '认证方式-')>0 or position(x, '鉴权-')>0, replaceOne(x, '-', '->'), '功能'||'->'||x),if(url_action[6]!='', splitByChar(',', url_action[6]), []))))))
       type: string
@@ -263,7 +262,7 @@ cube:
       sql: "arrayJoin(arrayZip(if(notEmpty(conf_tag) OR url_action[6] != '', arrayConcat(arrayFilter(x->notEmpty(x), conf_tag), arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6]))), if(url_action[2] IN ('api','auto') AND url_action[1] != '', [url_action[1]], ['未分组'])), if(notEmpty(conf_tag) OR url_action[6] != '', arrayConcat(arrayMap(x->1, arrayFilter(x->notEmpty(x), conf_tag)), arrayMap(x->2, arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6])))), arrayMap(x->3, if(url_action[2] IN ('api','auto') AND url_action[1] != '', [url_action[1]], ['未分组']))))).2"
       type: string
       title: 自动分组标签类型
-      
+
     isApi:
       sql: "if(multiIf(notEmpty(arrayConcat(arrayFilter(x->notEmpty(x), conf_tag), arrayFilter(x->notEmpty(x), splitByChar(',', url_action[6])))), 'API', url_action[2] = 'res', '资源', url_action[2] = 'file', '文件', 'API') = 'API', '1', '0')"
       type: string
@@ -360,7 +359,7 @@ cube:
       sql: round((mapFromArrays(metric_count.1, metric_count.2)['length'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0), 2)
       type: number
       title: 平均响应大小
-    
+
     hostUrl:
       sql: last_host || url
       type: string
@@ -381,7 +380,7 @@ cube:
       sql: url_action[8]
       type: string
       title: 鉴权参数
-    
+
     urlPath:
       sql: URLPathHierarchy(concat('http://x', assumeNotNull(url)))
       type: array
@@ -412,72 +411,72 @@ cube:
       sql: uniqExactIf(app_name, arraySum(weak_count.2) > 0)
       type: number
       title: 弱点应用数
-    
+
     uniqApiCount:
       sql: uniqExactIf(method, app_name, url, url_action[2] != 'res' and url_action[2] != 'file')
       type: number
       title: API数
-    
+
     uniqWeakApiCount:
       sql: uniqExactIf(method, app_name, url, arraySum(weak_count.2) > 0 and url_action[2] != 'res' and url_action[2] != 'file')
       type: number
       title: 弱点API数
-    
+
     uniqApiRespSensCount:
       sql: uniqExactIf(method, app_name, url, length(mapKeys(res_sens_uniq_map)) > 0 and url_action[2] != 'res' and url_action[2] != 'file')
       type: number
       title: 响应涉敏API数
-    
+
     hourCountArray:
       sql: sumMap(hour_count)
       type: number
       title: 今日小时趋势
-    
+
     daySum:
       sql: sum((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']))
       type: number
       title: 今日访问量
-    
+
     successSum:
       sql: round(100 * sum(mapFromArrays(metric_count.1, metric_count.2)['success']) / nullIf(sum((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail'])), 0), 2)
       type: number
       title: 聚合成功率
-    
+
     hostSet:
       sql: groupUniqArrayArray(host_list)
       type: string
       title: 域名举例
-    
+
     autoTopoNetwork:
       sql: anyHeavy(url_action[5])
       type: string
       title: 网络类型
-    
+
     aggSensScore:
       sql: if(notEmpty(groupUniqArrayArray(if(url_action[5] != '外发', mapKeys(res_sens_uniq_map), mapKeys(req_sens_uniq_map)))), floor(100 - 100 * arrayProduct(arrayMap(x -> 1 - 0.01 * dictGetInt64('default.privacy_dict', 'score', x), groupUniqArrayArray(if(url_action[5] != '外发', mapKeys(res_sens_uniq_map), mapKeys(req_sens_uniq_map))))), 2), 0)
       type: number
       title: 聚合敏感分
-    
+
     autoTitleSetStr:
       sql: arrayStringConcat(groupUniqArrayIf(url_action[1], url_action[2] = 'auto' and notEmpty(url_action[1]) and url = '/'), '->')
       type: string
       title: 应用智能标签
-    
+
     autoLogo:
       sql: anyIf(url_action[1], url_action[2] = 'logo')
       type: string
       title: 应用LOGO
-    
+
     customRuleTagSet:
       sql: groupUniqArrayArray(multiIf(url_action[6]!='', splitByChar(',', url_action[6]), if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')!='', [if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')], []))
       type: string
       title: 功能集合
-    
+
     configTagSet:
       sql: groupUniqArrayArray(conf_tag)
       type: string
       title: 配置标签集合
-    
+
     sidebarTypeCount:
       sql: arrayStringConcat(arrayMap(t -> concat(t.1, ';@;', toString(t.2)), arraySort(x->multiIf(startsWith(x.1, '已发现->新上线'), 1, startsWith(x.1, '已发现->参数变化'), 1.1, startsWith(x.1, '已发现->活跃'), 1.2, startsWith(x.1, '已发现->失活'), 1.3, startsWith(x.1, '已发现->复活'), 1.4, startsWith(x.1, '已梳理->已确认'), 2, startsWith(x.1, '已梳理->下线'), 2.1, startsWith(x.1, '已梳理->始终忽略'), 2.2, startsWith(x.1, '资产价值->高'), 3, startsWith(x.1, '资产价值->中'), 3.1, startsWith(x.1, '资产价值->低'), 3.2, startsWith(x.1, '功能'), 4, startsWith(x.1, '鉴权'), 5, startsWith(x.1, '认证方式'), 5, startsWith(x.1, '第三方组件'), 6, startsWith(x.1, '已梳理应用'), 7, 100), arrayZip((sumMap(arrayConcat(arrayFilter(x->x!='',arrayConcat(multiIf(mgt_status = '' AND if((select count() from postgres.configs where (type = 'api_filter' or type = 'api_filter_regex') and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, concat(last_host, url) in (select JSONExtractString(config, 'api') from postgres.configs where type = 'api_filter' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(concat(last_host, url), (select groupArray(JSONExtractString(config, 'api')) from postgres.configs where type = 'api_filter_regex' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))))), ['已梳理->始终忽略'],mgt_status='下线',['已梳理->下线'],mgt_status='已确认',['已梳理->已确认'], arrayConcat([if(multiIf(mgt_status='下线', '下线', first_ts > (toStartOfDay(now()) - (3600 * 24) * 1), '新上线', '')='新上线','已发现->新上线', ''), if(length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1)) > 1 and current_req_key_ts > toStartOfDay(now()) - (3600 * 24 * 1), '已发现->参数变化', ''), if(multiIf(mgt_status='下线', '下线', max_ts > (toStartOfDay(now()) - ((3600 * 24) * 7)), '活跃', '失活')='活跃','已发现->活跃', '已发现->失活')])), [if(multiIf(importance!='', importance, '')!='', '资产价值'||'->'||multiIf(importance!='', importance, ''), ''), if(app_name!=last_host, '已梳理应用'||'->'||app_name, '')],arrayMap(x->if(position(x, '第三方组件-')>0 or position(x, '认证方式-')>0 or position(x, '鉴权-')>0, replaceOne(x, '-', '->'), '功能'||'->'||x),if(url_action[6]!='', splitByChar(',', url_action[6]), [])))), ['已发现->新上线','已发现->参数变化','已发现->活跃','已发现->失活','已发现->复活','已梳理->已确认','已梳理->下线','已梳理->始终忽略','资产价值->高','资产价值->中','资产价值->低']), arrayConcat(arrayMap(x->1, arrayFilter(x->x!='',arrayConcat(multiIf(mgt_status = '' AND if((select count() from postgres.configs where (type = 'api_filter' or type = 'api_filter_regex') and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, concat(last_host, url) in (select JSONExtractString(config, 'api') from postgres.configs where type = 'api_filter' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(concat(last_host, url), (select groupArray(JSONExtractString(config, 'api')) from postgres.configs where type = 'api_filter_regex' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))))), ['已梳理->始终忽略'],mgt_status='下线',['已梳理->下线'],mgt_status='已确认',['已梳理->已确认'],arrayConcat([if(multiIf(mgt_status='下线', '下线', first_ts > (toStartOfDay(now()) - (3600 * 24) * 1), '新上线', '')='新上线','已发现->新上线', ''), if(length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1)) > 1 and current_req_key_ts > toStartOfDay(now()) - (3600 * 24 * 1), '已发现->参数变化', ''), if(multiIf(mgt_status='下线', '下线', max_ts > (toStartOfDay(now()) - ((3600 * 24) * 7)), '活跃', '失活')='活跃','已发现->活跃', '已发现->失活')])), [if(multiIf(importance!='', importance, '')!='', '资产价值'||'->'||multiIf(importance!='', importance, ''), ''), if(app_name!=last_host, '已梳理应用'||'->'||app_name, '')],arrayMap(x->if(position(x, '第三方组件-')>0 or position(x, '认证方式-')>0 or position(x, '鉴权-')>0, replaceOne(x, '-', '->'), '功能'||'->'||x),if(url_action[6]!='', splitByChar(',', url_action[6]), []))))), arrayMap(x->toNullable(0),range(0,11)))) as sec_result).1, sec_result.2))), ';!;')
       type: string

@@ -180,7 +180,7 @@ cube:
       sql: arrayJoin(res_sens_k)
       type: string
       title: 敏感数据名称(响应)
-    
+
     sensKeyExt:
       sql: arrayJoin(arrayConcat(req_sens_k, res_sens_k))
       type: string
@@ -363,7 +363,7 @@ cube:
       title: 网络类型
 
     netDomainName:
-      sql: url_action[7]
+      sql: if(url_action[7] != '', splitByChar('(', url_action[7])[1], '')
       type: string
       title: 网络域名称
 
@@ -614,7 +614,6 @@ cube:
       type: string
       title: 是否敏感文件
 
-
     reqBody:
       sql: req_body
       sql_mask: "arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, req_body)"
@@ -626,7 +625,6 @@ cube:
       sql_mask: "arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, res_body)"
       type: string
       title: 响应Body
-
 
     reqSampleKey:
       sql: arraySlice(req_sens_k,1,1000)
