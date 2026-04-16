@@ -1,0 +1,55 @@
+cube:
+  name: EventView
+  sql_table: default.event
+
+  segments:
+    org:
+      sql: ""
+
+    expired:
+      sql: ts + exp < now()
+
+  dimensions:
+    ts:
+      sql: ts
+      type: time
+
+    risk:
+      sql: risk
+      type: string
+
+    content:
+      sql: content
+      type: string
+
+    level:
+      sql: level
+      type: string
+
+    data:
+      sql: data
+      type: string
+
+    channel:
+      sql: channel
+      type: string
+
+    desc:
+      sql: dictGet('default.risk_dict', 'desc', risk)
+      type: string
+      title: 告警描述
+
+  measures:
+    count:
+      sql: count(risk)
+      type: number
+
+    firstTs:
+      sql: min(ts)
+      type: time
+      title: 首次告警时间
+
+    lastTs:
+      sql: max(ts)
+      type: time
+      title: 最后告警时间

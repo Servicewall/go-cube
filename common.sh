@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Shared helpers for test scripts.
-BASE="${BASE:-http://localhost:5000}"
+BASE="${BASE:-http://localhost:4000}"
 pass=0
 fail=0
 
