@@ -261,12 +261,12 @@ cube:
       title: 响应报文
 
     fileName:
-      sql: JSONExtractString(file, 'name')
+      sql: if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'name'), JSONExtractString(file,1,'name'))
       type: string
       title: 文件名称
 
     fileType:
-      sql: JSONExtractString(file, 'type')
+      sql: if(JSONExtractString(file, 'name') != '', JSONExtractString(file, 'type'), JSONExtractString(file,1,'type'))
       type: string
       title: 文件类型
 
@@ -1109,12 +1109,12 @@ cube:
       title: 聚合PII分
 
     fileNum:
-      sql: uniqHLL12(JSONExtractString(file,'md5'))
+      sql: uniqHLL12(if(JSONExtractString(file,'name')!='',JSONExtractString(file,'md5'),JSONExtractString(file,1,'md5')))
       type: number
       title: 隐私文件数
 
     fileCount:
-      sql: count(JSONExtractString(file,'md5'))
+      sql: count(if(JSONExtractString(file,'name')!='',JSONExtractString(file,'md5'),JSONExtractString(file,1,'md5')))
       type: number
       title: 隐私文件下载次数
 
