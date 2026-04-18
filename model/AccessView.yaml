@@ -1114,7 +1114,7 @@ cube:
       title: 隐私文件数
 
     fileCount:
-      sql: count(if(JSONExtractString(file,'name')!='',JSONExtractString(file,'md5'),JSONExtractString(file,1,'md5')))
+      sql: countIf(JSONExtractString(file,'name')!='')
       type: number
       title: 隐私文件下载次数
 
