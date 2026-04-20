@@ -287,7 +287,7 @@ cube:
       title: 成功率
 
     hourCount:
-      sql: mapFilter((k, v) -> k >= toUnixTimestamp(today()), mapFromArrays(hour_count.1, hour_count.2))
+      sql: (arrayFilter((k) -> k >= toUnixTimestamp(today()), hour_count.1), arrayFilter((v, k) -> k >= toUnixTimestamp(today()), hour_count.2, hour_count.1))
       type: string
       title: 今日访问趋势
 
@@ -429,7 +429,7 @@ cube:
       title: 响应涉敏API数
 
     hourCountArray:
-      sql: mapFilter((k, v) -> k >= toUnixTimestamp(today()), mapFromArrays(sumMap(hour_count).1, sumMap(hour_count).2))
+      sql: (arrayFilter((k) -> k >= toUnixTimestamp(today()), sumMap(hour_count).1), arrayFilter((v, k) -> k >= toUnixTimestamp(today()), sumMap(hour_count).2, sumMap(hour_count).1))
       type: string
       title: 今日小时趋势
 
