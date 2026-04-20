@@ -54,6 +54,13 @@ result=$(curl -s "$BASE/load?query=%7B%22measures%22%3A%5B%22ApiDayView.reqSensC
 echo "Raw: $result"
 check "ApiDayView 请求涉敏分布" "$result"
 
+echo ""
+echo "=== ApiDayView 服务器端口列表 ==="
+#{"measures":["ApiDayView.count"],"timeDimensions":[{"dimension":"ApiDayView.dt","dateRange":"from 7 days ago to now"}],"order":[["ApiDayView.count","desc"]],"filters":[{"member":"ApiDayView.upstreamNodeIP","operator":"equals","values":["192.168.0.130"]}],"dimensions":["ApiDayView.upstreamPort"],"segments":["ApiDayView.org","ApiDayView.black"],"timezone":"Asia/Shanghai"}
+result=$(curl -s "$BASE/load?query=%7B%22measures%22%3A%5B%22ApiDayView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiDayView.dt%22%2C%22dateRange%22%3A%22from+7+days+ago+to+now%22%7D%5D%2C%22order%22%3A%5B%5B%22ApiDayView.count%22%2C%22desc%22%5D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiDayView.upstreamNodeIP%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22192.168.0.130%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiDayView.upstreamPort%22%5D%2C%22segments%22%3A%5B%22ApiDayView.org%22%2C%22ApiDayView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D&queryType=multi")
+echo "Raw: $result"
+check "ApiDayView 服务器端口列表" "$result"
+
 echo "========================================"
 echo "Results: $pass passed, $fail failed"
 echo "========================================"

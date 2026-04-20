@@ -90,6 +90,11 @@ cube:
       sql: If(position(if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1]), '(') AS startPos <> 0, substring(if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1]), startPos+1, length(if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1]))-startPos-1), if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1]))
       type: string
       title: 服务器地址IP
+    
+    upstreamPort:
+      sql: if(countSubstrings(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ':')=0 OR position(splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[-1], ']')>0, '80', splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[-1])
+      type: string
+      title: 服务器端口
 
   measures:
     count:
