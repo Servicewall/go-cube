@@ -27,12 +27,12 @@ cube:
            argMax(source, ts) as source,
            groupUniqArray((req_key, final_view.first_ts)) as req_key_first_ts_tuple_array,
            max(final_view.first_ts) as current_req_key_ts,
-           if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), tuple([], []), sumMap(hour_count)) as hour_count,
-           if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), tuple([], []), sumMap(risk_count)) as risk_count,
-           if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), tuple([], []), sumMap(weak_count)) as weak_count,
-           if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), tuple([], []), sumMap(metric_count)) as metric_count,
-           if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), map(), uniqMapMerge(req_sens_uniq)) as req_sens_uniq_map,
-           if(toStartOfDay(max_ts) + toIntervalDay(1) <= today(), map(), uniqMapMerge(res_sens_uniq)) as res_sens_uniq_map
+           sumMap(hour_count) as hour_count,
+           sumMap(risk_count) as risk_count,
+           sumMap(weak_count) as weak_count,
+           sumMap(metric_count) as metric_count,
+           uniqMapMerge(req_sens_uniq) as req_sens_uniq_map,
+           uniqMapMerge(res_sens_uniq) as res_sens_uniq_map
     FROM (
       select coalesce (org, '') as org, coalesce (ts, toDateTime(0)) as ts, coalesce (first_ts, toDateTime(0)) as first_ts, url, req_key,
       coalesce (a.host, b.host) as host, method, url_action, channel, coalesce (count, 0) as count, type, source,
@@ -287,8 +287,9 @@ cube:
       title: 成功率
 
     hourCount:
-      sql: hour_count
+      sql: mapFilter((k, v) -> k >= today(), mapFromArrays(hour_count.1, hour_count.2))
       type: number
+      title: 今日访问趋势
 
     weakCount:
       sql: weak_count
