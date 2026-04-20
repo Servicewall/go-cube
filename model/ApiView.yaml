@@ -287,8 +287,8 @@ cube:
       title: 成功率
 
     hourCount:
-      sql: mapFilter((k, v) -> k >= today(), mapFromArrays(hour_count.1, hour_count.2))
-      type: number
+      sql: mapFilter((k, v) -> k >= today(), hour_count)
+      type: string
       title: 今日访问趋势
 
     weakCount:
