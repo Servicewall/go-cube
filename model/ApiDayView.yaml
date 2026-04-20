@@ -231,6 +231,11 @@ cube:
       sql: arraySum(mapValues(uniqMapMerge(res_sens_uniq)))
       type: number
       title: 响应涉敏总数
+    
+    sensCategory:
+      sql: arrayDistinct(arrayConcat(mapKeys(uniqMapMerge(req_sens_uniq)), mapKeys(uniqMapMerge(res_sens_uniq))))
+      type: string
+      title: 敏感种类
 
     sensValUniq:
       sql: arraySum(mapValues(uniqMapMerge(req_sens_uniq))) + arraySum(mapValues(uniqMapMerge(res_sens_uniq)))
