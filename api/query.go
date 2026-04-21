@@ -589,21 +589,38 @@ func convertOperator(op string) string {
 	return op
 }
 
-// processFilterValue 为 LIKE 类 operator 添加通配符
-func processFilterValue(value interface{}, operator string) interface{} {
-	s, ok := value.(string)
-	if !ok {
-		return value
+// processFilterValue 根据操作符和值列表生成 SQL 条件片段和绑定参数。
+// contains/notContains 支持多值，多值时用 OR/AND 拼接并加括号。
+func processFilterValue(fieldSQL string, operator string, valuesArr []interface{}) (string, []interface{}) {
+	op := convertOperator(operator)
+	clauses := make([]string, 0, len(valuesArr))
+	params := make([]interface{}, 0, len(valuesArr))
+	for _, v := range valuesArr {
+		clauses = append(clauses, fmt.Sprintf("%s %s ?", fieldSQL, op))
+		s, ok := v.(string)
+		if !ok {
+			params = append(params, v)
+			continue
+		}
+		switch operator {
+		case "contains", "notContains":
+			params = append(params, "%"+s+"%")
+		case "startsWith":
+			params = append(params, s+"%")
+		case "endsWith":
+			params = append(params, "%"+s)
+		default:
+			params = append(params, v)
+		}
 	}
-	switch operator {
-	case "contains", "notContains":
-		return "%" + s + "%"
-	case "startsWith":
-		return s + "%"
-	case "endsWith":
-		return "%" + s
+	combined := strings.Join(clauses, " OR ")
+	if operator == "notContains" {
+		combined = strings.Join(clauses, " AND ")
 	}
-	return value
+	if len(clauses) > 1 {
+		combined = "(" + combined + ")"
+	}
+	return combined, params
 }
 
 // parseRelativeTimeRange 解析 "from X to Y" 格式为 ClickHouse 时间表达式对
@@ -707,6 +724,5 @@ func buildFilterClause(filter Filter, cube *model.Cube) (string, []interface{}) 
 	if filter.Operator == "equals" || filter.Operator == "notEquals" {
 		return buildInClause(field.SQL, filter.Operator, valuesArr)
 	}
-	value := processFilterValue(valuesArr[0], filter.Operator)
-	return fmt.Sprintf("%s %s ?", field.SQL, convertOperator(filter.Operator)), []interface{}{value}
+	return processFilterValue(field.SQL, filter.Operator, valuesArr)
 }
