@@ -136,6 +136,70 @@ func TestBuildQuery_FilterContains(t *testing.T) {
 	}
 }
 
+func testApiCube() *model.Cube {
+	return &model.Cube{
+		Name:     "ApiView",
+		SQLTable: "default.api",
+		Dimensions: map[string]model.Dimension{
+			"id":          {SQL: "id", Type: "string"},
+			"sidebarType": {SQL: "arrayStringConcat(arrayFilter(x->x!='',sidebar_arr), ',')", Type: "string"},
+		},
+		Measures: map[string]model.Measure{
+			"count": {SQL: "count()", Type: "number"},
+		},
+	}
+}
+
+func TestBuildQuery_FilterContainsMultiValue(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Filters: []Filter{
+			{Member: "ApiView.sidebarType", Operator: "contains", Values: []interface{}{"已发现->", "已梳理->"}},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, testApiCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "OR") {
+		t.Errorf("expected OR clause for multi-value contains, got: %s", sql)
+	}
+	if len(params) != 2 {
+		t.Fatalf("expected 2 params, got %d: %v", len(params), params)
+	}
+	if params[0] != "%已发现->%" || params[1] != "%已梳理->%" {
+		t.Errorf("expected wildcard params, got: %v", params)
+	}
+}
+
+func TestBuildQuery_FilterNotContainsMultiValue(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Filters: []Filter{
+			{Member: "ApiView.sidebarType", Operator: "notContains", Values: []interface{}{"已发现->", "已梳理->"}},
+		},
+	}
+
+	sql, params, err := BuildQuery(req, testApiCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "NOT LIKE") {
+		t.Errorf("expected NOT LIKE clause, got: %s", sql)
+	}
+	// notContains 多值用 AND
+	if !contains(sql, "AND") {
+		t.Errorf("expected AND clause for multi-value notContains, got: %s", sql)
+	}
+	if len(params) != 2 {
+		t.Fatalf("expected 2 params, got %d: %v", len(params), params)
+	}
+	if params[0] != "%已发现->%" || params[1] != "%已梳理->%" {
+		t.Errorf("expected wildcard params, got: %v", params)
+	}
+}
+
 func TestBuildQuery_FilterSet(t *testing.T) {
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},
