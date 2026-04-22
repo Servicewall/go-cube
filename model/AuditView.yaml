@@ -138,7 +138,7 @@ cube:
 
     # 地图: 省份->唯一IP数（仅中国）(['北京','浙江'],[2,1])
     provinceIpSumMap:
-      sql: (mapKeys(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国')), mapValues(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国')))
+      sql: (mapKeys(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国' and ip_geo[2] <> '')), mapValues(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国' and ip_geo[2] <> '')))
       type: string
       title: 国内省份唯一IP数
 
