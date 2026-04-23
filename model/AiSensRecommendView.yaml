@@ -1,0 +1,121 @@
+cube:
+  name: AiSensRecommendView
+  # AI敏感数据推荐视图：记录 AI 对 API 中敏感数据的降噪推荐结果。
+  sql: |
+    SELECT org, ts, channel, host, method, url, url_route, sens_k, sens_v, state
+    FROM default.ai_sens_recommend
+
+  segments:
+    org:
+      sql: "org = {vars.org}"
+
+    black:
+      sql: "concat(host, if(notEmpty(url_route), url_route, url)) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, if(notEmpty(url_route), url_route, url)), [{vars.api_regex}])"
+
+  measures:
+    lastTime:
+      sql: "max(ts)"
+      type: time
+      title: 最近分析时间
+
+    topHostSet:
+      sql: "topK(3)(host)"
+      type: string
+      title: Top主机集合
+
+    topApiSet:
+      sql: "topK(3)(concat(method, ' ', host, if(notEmpty(url_route), url_route, url)))"
+      type: string
+      title: Top API集合
+
+    minTime:
+      sql: "if(count()>0, min(ts), now())"
+      type: time
+      title: 首次分析时间
+
+    uniqNoiseReductionNum:
+      sql: "uniqIf(concat(sens_k, sens_v), state='noise')"
+      type: number
+      title: 降噪总数
+
+    uniqWithDrawNum:
+      sql: "uniqIf(concat(sens_k, sens_v), state='withdraw')"
+      type: number
+      title: 撤销降噪数量
+
+    uniqAccurateNoiseReductionNum:
+      sql: "(uniqIf(concat(sens_k, sens_v), state='noise') - uniqIf(concat(sens_k, sens_v), state='withdraw'))"
+      type: number
+      title: 准确降噪数量
+
+    totalScan:
+      sql: "count() - uniqIf(concat(sens_k, sens_v), state='withdraw')"
+      type: number
+      title: 扫描总数
+
+    uniqHost:
+      sql: "uniq(host)"
+      type: number
+      title: Host总数
+
+    uniqApi:
+      sql: "uniq(concat(method, ' ', host, if(notEmpty(url_route), url_route, url)))"
+      type: number
+      title: API总数
+
+    accuracy:
+      sql: "if(uniqIf(concat(sens_k, sens_v), state='noise')=0, 0, round((uniqIf(concat(sens_k, sens_v), state='noise') - uniqIf(concat(sens_k, sens_v), state='withdraw')) / uniqIf(concat(sens_k, sens_v), state='noise') * 100, 2))"
+      type: number
+      title: 降噪准确度
+
+  dimensions:
+    ts:
+      sql: ts
+      type: time
+      title: 分析时间
+
+    api:
+      sql: "concat(method, ' ', host, if(notEmpty(url_route), url_route, url))"
+      type: string
+      primary_key: true
+      title: API标识
+
+    urlRoute:
+      sql: "if(notEmpty(url_route), url_route, url)"
+      type: string
+      title: URL路由
+
+    host:
+      sql: host
+      type: string
+      title: 域名
+
+    method:
+      sql: method
+      type: string
+      title: 请求方法
+
+    channel:
+      sql: channel
+      type: string
+      title: 渠道
+
+    url:
+      sql: url
+      type: string
+      title: URL
+
+    sensKey:
+      sql: sens_k
+      type: string
+      title: 敏感数据类型
+
+    sensValue:
+      sql: sens_v
+      type: string
+      title: 敏感数据值
+
+    state:
+      sql: state
+      type: string
+      title: 状态

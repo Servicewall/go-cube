@@ -1,0 +1,91 @@
+cube:
+  name: ApiRouteView
+  # API路由视图：对 access_sample_raw 表中的 URL 按参数化路由特征聚合，识别 API 路由模式。
+  # 参数化逻辑：将 URL 按 / 分段后，分别尝试将倒数第1位、倒数第2位、正数第2位（url_a[2]）、
+  # 正数第3位（url_a[3]）替换为 {parameter}，生成多种路由特征，按特征聚合统计。
+  # org 过滤已内嵌在子查询 SQL 中，segment org 为空占位。
+  sql: |
+    SELECT
+      app, method,
+      arrayStringConcat(api_feat, '/') AS url_route,
+      anyHeavy(url_action) AS url_action,
+      any(host) AS host,
+      uniqHLL12(url) AS count,
+      topK(5)(url) AS sample
+    FROM (
+      SELECT
+        url_action, host, method, url,
+        splitByChar('/', url) AS url_a,
+        multiIf(
+          notEmpty(dictGet('host_dict', 'info', assumeNotNull(host))),
+          arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host)))[2],
+          notEmpty(dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*')),
+          arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*'))[2],
+          host
+        ) AS app,
+        arrayJoin([
+          arrayMap(x -> if(x == url_a[-1], '{parameter}', x), url_a),
+          arrayMap(x -> if(x == url_a[-2], '{parameter}', x), url_a),
+          arrayMap(x -> if(x == url_a[2],  '{parameter}', x), url_a),
+          arrayMap(x -> if(x == url_a[3],  '{parameter}', x), url_a)
+        ]) AS api_feat,
+        arraySort(arrayDistinct(extractAll(
+          JSONExtractString(assumeNotNull(req), 'Body') || JSONExtractString(assumeNotNull(res), 'Body'),
+          '[{,]"(\\w+)":'
+        ))) AS key_feat
+      FROM access_sample_raw
+      WHERE url_action[5] != '外发'
+        AND length(url_a) > 2
+        AND notEmpty(key_feat)
+        AND org = {vars.org}
+    )
+    GROUP BY app, method, api_feat, key_feat
+
+  segments:
+    org:
+      sql: ""
+
+    black:
+      sql: "concat(host, url_route) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url_route), [{vars.api_regex}])"
+
+  measures:
+    urlUniq:
+      sql: count
+      type: number
+      title: URL去重数
+
+  dimensions:
+    host:
+      sql: host
+      type: string
+      title: 域名
+
+    appName:
+      sql: app
+      type: string
+      title: 应用名称
+
+    method:
+      sql: method
+      type: string
+      title: 请求方法
+
+    urlRoute:
+      sql: url_route
+      type: string
+      title: URL路由
+
+    count:
+      sql: count
+      type: number
+      title: 访问数量
+
+    sample:
+      sql: sample
+      type: string
+      title: URL样例
+
+    urlRouteType:
+      sql: "multiIf(url_action[2]='res','资源',url_action[2]='file','文件','API')"
+      type: string
+      title: 路由类型

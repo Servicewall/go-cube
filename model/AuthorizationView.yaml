@@ -1,0 +1,61 @@
+cube:
+  name: AuthorizationView
+  # 鉴权视图：基于 token_api_day 表，展示 API 与登录接口的 token 关联关系。
+  # org 过滤通过 segment 实现。
+  sql_table: token_api_day
+
+  segments:
+    org:
+      sql: "org = {vars.org}"
+
+  measures:
+    tokenArray:
+      sql: groupUniqArray(token)
+      type: number
+      title: Token列表
+
+    tokenCount:
+      sql: count(token)
+      type: number
+      title: Token数量
+
+  dimensions:
+    authKey:
+      sql: req_key
+      type: string
+      title: 认证Key
+
+    host:
+      sql: host
+      type: string
+      title: 域名
+
+    method:
+      sql: method
+      type: string
+      title: 请求方法
+
+    url:
+      sql: url
+      type: string
+      title: 请求路径
+
+    loginUrl:
+      sql: login_url
+      type: string
+      title: 登录路径
+
+    loginMethod:
+      sql: login_method
+      type: string
+      title: 登录方法
+
+    loginAuthKey:
+      sql: res_key
+      type: string
+      title: 登录认证Key
+
+    appName:
+      sql: multiIf(arrayExists(x -> position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host))),arrayFirst(x -> position(assumeNotNull(url),'/')!=1 or startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',assumeNotNull(host)))[2],arrayExists(x -> startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\d+$',assumeNotNull(host))[1]||':*')),arrayFirst(x -> startsWith(assumeNotNull(url),x[1]),dictGet('host_dict','info',splitByRegexp(':\\d+$',assumeNotNull(host))[1]||':*'))[2],host)
+      type: string
+      title: 应用名称

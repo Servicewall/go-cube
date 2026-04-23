@@ -82,6 +82,31 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22Use
 check "UserAuthView: count by all 7 dimensions" "$result"
 
 echo ""
+echo "=== 8. AuthorizationView: tokenArray+tokenCount by authKey+host+method+url+loginUrl+loginMethod+loginAuthKey, filter appName=BII系统, segment org ==="
+# measures: tokenArray, tokenCount
+# order: tokenCount desc
+# filter: appName = 'BII系统'
+# dimensions: authKey, host, method, url, loginUrl, loginMethod, loginAuthKey
+# segments: org
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuthorizationView.tokenArray%22%2C%22AuthorizationView.tokenCount%22%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22order%22%3A%5B%5B%22AuthorizationView.tokenCount%22%2C%22desc%22%5D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22AuthorizationView.appName%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22BII%E7%B3%BB%E7%BB%9F%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22AuthorizationView.authKey%22%2C%22AuthorizationView.host%22%2C%22AuthorizationView.method%22%2C%22AuthorizationView.url%22%2C%22AuthorizationView.loginUrl%22%2C%22AuthorizationView.loginMethod%22%2C%22AuthorizationView.loginAuthKey%22%5D%2C%22segments%22%3A%5B%22AuthorizationView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "AuthorizationView: tokenArray+tokenCount by authKey+host+method+url+loginUrl+loginMethod+loginAuthKey (appName=BII系统)" "$result"
+
+echo ""
+echo "=== 9. ApiRouteView: host+method+urlRoute+count+sample, filter count>10/appName=BII系统/urlRouteType=API, segment org ==="
+# dimensions: host, method, urlRoute, count, sample
+# order: count desc
+# filters: count > 10, appName = 'BII系统', urlRouteType = 'API'
+# segments: org
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22order%22%3A%5B%5B%22ApiRouteView.count%22%2C%22desc%22%5D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiRouteView.count%22%2C%22operator%22%3A%22gt%22%2C%22values%22%3A%5B%2210%22%5D%7D%2C%7B%22member%22%3A%22ApiRouteView.appName%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22BII%E7%B3%BB%E7%BB%9F%22%5D%7D%2C%7B%22member%22%3A%22ApiRouteView.urlRouteType%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22API%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiRouteView.host%22%2C%22ApiRouteView.method%22%2C%22ApiRouteView.urlRoute%22%2C%22ApiRouteView.count%22%2C%22ApiRouteView.sample%22%5D%2C%22segments%22%3A%5B%22ApiRouteView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiRouteView: host+method+urlRoute+count+sample (count>10, appName=BII系统, urlRouteType=API, no black)" "$result"
+
+echo ""
+echo "=== 10. ApiRouteView: same as case 9 but with black segment ==="
+# segments: org, black
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%5D%2C%22order%22%3A%5B%5B%22ApiRouteView.count%22%2C%22desc%22%5D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiRouteView.count%22%2C%22operator%22%3A%22gt%22%2C%22values%22%3A%5B%2210%22%5D%7D%2C%7B%22member%22%3A%22ApiRouteView.appName%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22BII%E7%B3%BB%E7%BB%9F%22%5D%7D%2C%7B%22member%22%3A%22ApiRouteView.urlRouteType%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22API%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22ApiRouteView.host%22%2C%22ApiRouteView.method%22%2C%22ApiRouteView.urlRoute%22%2C%22ApiRouteView.count%22%2C%22ApiRouteView.sample%22%5D%2C%22segments%22%3A%5B%22ApiRouteView.org%22%2C%22ApiRouteView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiRouteView: host+method+urlRoute+count+sample (count>10, appName=BII系统, urlRouteType=API, with black)" "$result"
+
+echo ""
 echo "--- $pass passed, $fail failed ---"
 
 echo ""

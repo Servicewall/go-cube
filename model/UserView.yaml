@@ -1,0 +1,46 @@
+cube:
+  name: UserView
+  # 用户视图：从 user_dict 表读取员工信息。
+  sql_table: default.user_dict
+
+  segments:
+    org:
+      sql: ""
+
+  measures:
+    count:
+      sql: "count()"
+      type: number
+      title: 员工数
+
+  dimensions:
+    uid:
+      sql: uid
+      type: string
+      primary_key: true
+      title: 用户ID
+
+    userName:
+      sql: name
+      type: string
+      title: 员工名
+
+    userRole:
+      sql: role
+      type: string
+      title: 员工角色
+
+    userStatus:
+      sql: status
+      type: string
+      title: 员工状态
+
+    userDepartment:
+      sql: department
+      type: string
+      title: 员工部门
+
+    userInfo:
+      sql: info
+      type: string
+      title: 员工信息

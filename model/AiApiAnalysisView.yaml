@@ -1,0 +1,66 @@
+cube:
+  name: AiApiAnalysisView
+  # AI API分析视图：从 api_dict 表读取 API 的 AI 业务分析、参数分析和风险分析结果。
+  sql: |
+    SELECT host, method, path AS url, importance, biz_analysis, importance_analysis, param_analysis
+    FROM api_dict
+
+  segments:
+    org:
+      sql: ""
+
+    black:
+      sql: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url), [{vars.api_regex}])"
+
+  measures:
+    lastBizAnalysis:
+      sql: "anyLast(if(startsWith(biz_analysis, 'AI分析'), biz_analysis, ''))"
+      type: string
+      title: 最新业务分析结果
+
+    lastParamAnalysis:
+      sql: "anyLast(if(startsWith(param_analysis, 'AI分析'), param_analysis, ''))"
+      type: string
+      title: 最新参数分析结果
+
+    lastRiskAnalysis:
+      sql: "anyLast(if(startsWith(importance_analysis, 'AI分析'), importance_analysis, ''))"
+      type: string
+      title: 最新风险分析状态
+
+  dimensions:
+    api:
+      sql: "concat(method, ' ', host, url)"
+      type: string
+      primary_key: true
+      title: API标识
+
+    urlRoute:
+      sql: url
+      type: string
+      title: URL路径
+
+    host:
+      sql: host
+      type: string
+      title: 域名
+
+    method:
+      sql: method
+      type: string
+      title: 请求方法
+
+    bizAnalysis:
+      sql: "if(startsWith(biz_analysis, 'AI分析'), biz_analysis, '')"
+      type: string
+      title: 业务分析
+
+    paramAnalysis:
+      sql: "if(startsWith(param_analysis, 'AI分析'), param_analysis, '')"
+      type: string
+      title: 参数分析
+
+    importanceAnalysis:
+      sql: "if(startsWith(importance_analysis, 'AI分析'), importance_analysis, '')"
+      type: string
+      title: 重要程度分析
