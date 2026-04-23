@@ -42,6 +42,14 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AiS
 check "AiSensRecommendView: lastTime+topHostSet+topApiSet by sensKey+sensValue (state contains noise, org+black)" "$result"
 
 echo ""
+echo "=== 4. AiRiskAnalysisView: lastRiskAnalysis, filter target equals, segment org ==="
+# measures: lastRiskAnalysis
+# filters: target = 'API单次返回大量敏感数据--49.238.187.8'
+# segments: org
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AiRiskAnalysisView.lastRiskAnalysis%22%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22AiRiskAnalysisView.target%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22API%E5%8D%95%E6%AC%A1%E8%BF%94%E5%9B%9E%E5%A4%A7%E9%87%8F%E6%95%8F%E6%84%9F%E6%95%B0%E6%8D%AE--49.238.187.8%22%5D%7D%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22AiRiskAnalysisView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "AiRiskAnalysisView: lastRiskAnalysis (filter target, segment org)" "$result"
+
+echo ""
 echo "--- $pass passed, $fail failed ---"
 
 echo ""

@@ -1,0 +1,25 @@
+cube:
+  name: AiRiskAnalysisView
+  # AI风险分析视图：从 ai_analysis 表中读取 task_type='risk_analysis' 的 AI 分析结果。
+  sql: "SELECT * FROM ai_analysis WHERE task_type='risk_analysis'"
+
+  segments:
+    org:
+      sql: "org = {vars.org}"
+
+  measures:
+    lastRiskAnalysis:
+      sql: "anyLast(analysis)"
+      type: string
+      title: 最新风险分析
+
+  dimensions:
+    target:
+      sql: target
+      type: string
+      title: 分析对象
+
+    analysis:
+      sql: analysis
+      type: string
+      title: AI分析
