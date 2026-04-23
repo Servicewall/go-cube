@@ -6,6 +6,9 @@ cube:
     org:
       sql: org = {vars.org}
 
+    hasValidDepartment:
+      sql: content IN (SELECT uid FROM default.user_dict WHERE department <> '')
+
     top:
       sql: >-
         content GLOBAL IN (
@@ -130,26 +133,3 @@ cube:
       type: array
       title: 响应涉敏
 
-    # 地图: 国家->唯一IP数 (['中国','美国'],[3,1])
-    countryIpSumMap:
-      sql: (mapKeys(uniqMapIf(CAST(([ip_geo[1]], [content]), 'Map(String, String)'), type = 'IP')), mapValues(uniqMapIf(CAST(([ip_geo[1]], [content]), 'Map(String, String)'), type = 'IP')))
-      type: string
-      title: 国家唯一IP数
-
-    # 地图: 省份->唯一IP数（仅中国）(['北京','浙江'],[2,1])
-    provinceIpSumMap:
-      sql: (mapKeys(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国' and ip_geo[2] <> '')), mapValues(uniqMapIf(CAST(([ip_geo[2]], [content]), 'Map(String, String)'), type = 'IP' and ip_geo[1] = '中国' and ip_geo[2] <> '')))
-      type: string
-      title: 国内省份唯一IP数
-
-    # 地图: 部门->唯一用户数
-    departmentUserSumMap:
-      sql: (mapKeys(uniqMapIf(CAST(([dictGetString('default.user_dict', 'department', content)], [content]), 'Map(String, String)'), type = 'User' and dictGetString('default.user_dict', 'department', content) <> '')), mapValues(uniqMapIf(CAST(([dictGetString('default.user_dict', 'department', content)], [content]), 'Map(String, String)'), type = 'User' and dictGetString('default.user_dict', 'department', content) <> '')))
-      type: string
-      title: 部门用户数
-
-    # 地图: 设备种类->唯一设备数
-    deviceTypeSumMap:
-      sql: (mapKeys(uniqMapIf(CAST(([multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')], [content]), 'Map(String, String)'), type = 'Device' and multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '') <> '')), mapValues(uniqMapIf(CAST(([multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')], [content]), 'Map(String, String)'), type = 'Device' and multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '') <> '')))
-      type: string
-      title: 设备种类数
