@@ -112,9 +112,13 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	vars["org"] = []string{r.Header.Get("X-Sw-Org")}
 	if v := r.Header.Get("X-Sw-Api-Exact"); v != "" {
 		vars["api_exact"] = strings.Split(v, ",")
+	} else {
+		vars["api_exact"] = []string{""} // NOT IN ('') → 永真，确保 segment 不因缺失而被跳过
 	}
 	if v := r.Header.Get("X-Sw-Api-Regex"); v != "" {
 		vars["api_regex"] = strings.Split(v, ",")
+	} else {
+		vars["api_regex"] = []string{"^$"} // multiMatchAny 只匹配空串，host+url 非空 → NOT multiMatchAny 永真
 	}
 	if v := r.Header.Get("Search-Target"); v != "" {
 		vars["search_target"] = []string{v}
