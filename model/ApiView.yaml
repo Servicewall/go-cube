@@ -56,15 +56,19 @@ cube:
 
   segments:
     org:
-      sql: org = {vars.org}
+      sql:
+        - "org = {vars.org}"
 
     # 每天至少访问1次的API，或手工导入的API
     onePerDay:
-      sql: ((count > (today() - toDate(first_ts))) or channel = '手工导入')
+      sql:
+        - "((count > (today() - toDate(first_ts))) or channel = '手工导入')"
 
     # 未被忽略的API：存在管理状态 或 未被黑名单过滤配置忽略
     black:
-      sql: (notEmpty(mgt_status) or arrayAll(x -> concat(x, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(x, url), [{vars.api_regex}]), host_list))
+      sql:
+        - "(notEmpty(mgt_status) or arrayAll(x -> concat(x, url) NOT IN ({vars.api_exact}), host_list))"
+        - "(notEmpty(mgt_status) or arrayAll(x -> NOT multiMatchAny(concat(x, url), [{vars.api_regex}]), host_list))"
 
   dimensions:
     id:

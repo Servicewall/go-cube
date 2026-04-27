@@ -743,15 +743,21 @@ cube:
 
   segments:
     org:
-      sql: "org = {vars.org}"
+      sql:
+        - "org = {vars.org}"
     black:
-      sql: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url), [{vars.api_regex}])"
+      sql:
+        - "concat(host, url) NOT IN ({vars.api_exact})"
+        - "NOT multiMatchAny(concat(host, url), [{vars.api_regex}])"
     riskConfirmed:
-      sql: 1=1 # Placeholder - requires custom dim filter
+      sql:
+        - "1=1" # Placeholder - requires custom dim filter
     riskNotConfirmed:
-      sql: 1=1 # Placeholder - requires custom dim filter
+      sql:
+        - "1=1" # Placeholder - requires custom dim filter
     resSensValid:
-      sql: notEmpty(res_sens_v[1])
+      sql:
+        - "notEmpty(res_sens_v[1])"
   measures:
     count:
       sql: count()

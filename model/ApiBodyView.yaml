@@ -4,7 +4,8 @@ cube:
 
   segments:
     org:
-      sql: org = ''
+      sql:
+        - "org = ''"
 
   dimensions:
     ts:

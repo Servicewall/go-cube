@@ -4,19 +4,24 @@ cube:
 
   segments:
     org:
-      sql: org = {vars.org}
+      sql:
+        - "org = {vars.org}"
 
     whiteFilter:
-      sql: arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = {vars.org})
+      sql:
+        - "arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = {vars.org})"
 
     whiteRiskFilter:
-      sql: risk not in (select tag from risk_dict where score <= 0 ) and content not in ( select value from postgres.allow_deny_items where is_allow=1 and time_span=0 and field not in ['ip_net', 'user'] ) and ( type!='IP' or multiIf(isIPv4String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv4(content),-1),isIPv6String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv6(content),0),-1) != 1 )
+      sql:
+        - "risk not in (select tag from risk_dict where score <= 0 ) and content not in ( select value from postgres.allow_deny_items where is_allow=1 and time_span=0 and field not in ['ip_net', 'user'] ) and ( type!='IP' or multiIf(isIPv4String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv4(content),-1),isIPv6String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv6(content),0),-1) != 1 )"
 
     riskDenoiseFilter:
-      sql: risk in ( select risk from risk_agg_local final where ts > today() group by risk having count() < 100 )
+      sql:
+        - "risk in ( select risk from risk_agg_local final where ts > today() group by risk having count() < 100 )"
 
     statusFilter:
-      sql: multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认') = '待确认'
+      sql:
+        - "multiIf(arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = '')=0, '始终忽略', arrayStringConcat([risk,host,content],',') in (select filter from postgres.risk_aggs where filter_type = 1 and org = ''), '已确认', '待确认') = '待确认'"
 
   dimensions:
     filterTs:

@@ -7,10 +7,13 @@ cube:
 
   segments:
     org:
-      sql: "org = {vars.org}"
+      sql:
+        - "org = {vars.org}"
 
     black:
-      sql: "concat(host, if(notEmpty(url_route), url_route, url)) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, if(notEmpty(url_route), url_route, url)), [{vars.api_regex}])"
+      sql:
+        - "concat(host, if(notEmpty(url_route), url_route, url)) NOT IN ({vars.api_exact})"
+        - "NOT multiMatchAny(concat(host, if(notEmpty(url_route), url_route, url)), [{vars.api_regex}])"
 
   measures:
     lastTime:

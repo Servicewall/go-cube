@@ -4,11 +4,13 @@ cube:
 
   segments:
     org:
-      sql: org = {vars.org}
+      sql:
+        - "org = {vars.org}"
       title: 组织过滤
- 
+
     violations:
-      sql: "(if(notEmpty(url_action[5]), url_action[5]!='外发', ip_geo[5]!='外发') and notEmpty(req_risk) and hasAny(req_risk, ['请求违规', '响应违规']))"
+      sql:
+        - "(if(notEmpty(url_action[5]), url_action[5]!='外发', ip_geo[5]!='外发') and notEmpty(req_risk) and hasAny(req_risk, ['请求违规', '响应违规']))"
       title: 违规过滤
 
   dimensions:

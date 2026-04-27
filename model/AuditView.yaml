@@ -4,22 +4,24 @@ cube:
 
   segments:
     org:
-      sql: org = {vars.org}
+      sql:
+        - "org = {vars.org}"
 
     top:
-      sql: >-
-        content GLOBAL IN (
-          SELECT arrayJoin(approx_top_sum(300, 100)(content, count)).1
-          FROM default.audit
-          WHERE org = {vars.org}
-            AND {filter.dt}
-            AND {filter.channel}
-            AND {filter.type}
-            AND {filter.ipGeoCountry}
-            AND {filter.ipGeoProvince}
-            AND {filter.department}
-            AND {filter.deviceType}
-        )
+      sql:
+        - >-
+          content GLOBAL IN (
+            SELECT arrayJoin(approx_top_sum(300, 100)(content, count)).1
+            FROM default.audit
+            WHERE org = {vars.org}
+              AND {filter.dt}
+              AND {filter.channel}
+              AND {filter.type}
+              AND {filter.ipGeoCountry}
+              AND {filter.ipGeoProvince}
+              AND {filter.department}
+              AND {filter.deviceType}
+          )
 
   dimensions:
     dt:

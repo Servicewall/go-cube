@@ -4,7 +4,8 @@ cube:
 
   segments:
     org:
-      sql: "1 = 1"
+      sql:
+        - "1 = 1"
 
   measures:
     # 最近5分钟的健康次数，如果为0可认为节点离线

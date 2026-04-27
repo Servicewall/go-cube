@@ -27,8 +27,8 @@ type Measure struct {
 }
 
 type Segment struct {
-	SQL   string `yaml:"sql"`
-	Title string `yaml:"title,omitempty"`
+	SQL   []string `yaml:"sql"`
+	Title string   `yaml:"title,omitempty"`
 }
 
 // Annotatable 表示可被 annotation 描述的 cube 成员。

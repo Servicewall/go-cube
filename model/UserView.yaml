@@ -5,7 +5,8 @@ cube:
 
   segments:
     org:
-      sql: ""
+      sql:
+        - ""
 
   measures:
     count:

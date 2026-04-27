@@ -4,10 +4,12 @@ cube:
 
   segments:
     org:
-      sql: org = ''
+      sql:
+        - "org = ''"
 
     confFilter:
-      sql: (concat(multiIf(notEmpty(dictGet(host_dict, 'info', assumeNotNull(host))), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet(host_dict, 'info', assumeNotNull(host)))[2], notEmpty(dictGet(host_dict, 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet(host_dict, 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*'))[2], host), url, login_auth_key) not in (SELECT concat(host, url, auth_key) AS c FROM postgres.api_token_configs WHERE type = '3' OR type = '2'))
+      sql:
+        - "(concat(multiIf(notEmpty(dictGet(host_dict, 'info', assumeNotNull(host))), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet(host_dict, 'info', assumeNotNull(host)))[2], notEmpty(dictGet(host_dict, 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet(host_dict, 'info', splitByRegexp(':\\d+$', assumeNotNull(host))[1] || ':*'))[2], host), url, login_auth_key) not in (SELECT concat(host, url, auth_key) AS c FROM postgres.api_token_configs WHERE type = '3' OR type = '2'))"
 
   dimensions:
     host:

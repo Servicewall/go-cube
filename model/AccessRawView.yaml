@@ -4,10 +4,12 @@ cube:
 
   segments:
     org:
-      sql: ""
+      sql:
+        - ""
 
     black:
-      sql: ""
+      sql:
+        - ""
 
   dimensions:
     id:

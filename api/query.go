@@ -369,14 +369,16 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	for _, seg := range req.Segments {
 		_, segName, _ := splitMemberName(seg)
 		s, ok := cube.Segments[segName]
-		if !ok || s.SQL == "" {
+		if !ok || len(s.SQL) == 0 {
 			if !ok {
 				log.Printf("WARN: unknown segment %q not found in cube %q, skipped", seg, cube.Name)
 			}
 			continue
 		}
-		if result := applyVars(s.SQL); result != "" {
-			where = append(where, result)
+		for _, clause := range s.SQL {
+			if result := applyVars(clause); result != "" {
+				where = append(where, result)
+			}
 		}
 	}
 

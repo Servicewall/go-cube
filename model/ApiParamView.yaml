@@ -26,7 +26,8 @@ cube:
 
   segments:
     org:
-      sql: ""
+      sql:
+        - ""
 
   dimensions:
     key:

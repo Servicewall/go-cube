@@ -6,7 +6,8 @@ cube:
 
   segments:
     org:
-      sql: "org = {vars.org}"
+      sql:
+        - "org = {vars.org}"
 
   measures:
     tokenArray:

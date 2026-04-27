@@ -43,10 +43,13 @@ cube:
 
   segments:
     org:
-      sql: ""
+      sql:
+        - ""
 
     black:
-      sql: "concat(host, url_route) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url_route), [{vars.api_regex}])"
+      sql:
+        - "concat(host, url_route) NOT IN ({vars.api_exact})"
+        - "NOT multiMatchAny(concat(host, url_route), [{vars.api_regex}])"
 
   dimensions:
     host:

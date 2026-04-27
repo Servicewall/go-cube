@@ -4,10 +4,12 @@ cube:
 
   segments:
     org:
-      sql: ""
+      sql:
+        - ""
 
     expired:
-      sql: ts + exp < now()
+      sql:
+        - "ts + exp < now()"
 
   dimensions:
     ts:
