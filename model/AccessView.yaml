@@ -758,6 +758,11 @@ cube:
       type: number
       title: 访问量
 
+    sensLevelCount:
+      sql: "toJSONString(uniqMap(mapFromArrays((arrayFilter(x->x.3 != '',arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v),arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel,dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))) AS _scl).3, arrayZip(_scl.1, _scl.2, arrayMap(x-> host, _scl), arrayMap(x-> channel, _scl)))))"
+      type: string
+      title: 敏感分类计数
+
     minCountArray:
       sql: sumMap([toUnixTimestamp(toStartOfMinute(ts))], [1])
       type: string
