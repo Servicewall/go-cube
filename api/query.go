@@ -290,7 +290,6 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	}
 
 	// applyVars 替换 SQL 中的 {vars.key} 和 {filter.field} 占位符。
-	// {vars.key}：有值内联带引号；key 不存在或值为空时返回 "" 跳过整个 segment。
 	// {filter.field}：有匹配内联条件；无匹配降级为 1=1。
 	applyVars := func(tmpl string) string {
 		for k, vals := range req.Vars {
@@ -304,8 +303,14 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			}
 			tmpl = strings.ReplaceAll(tmpl, ph, strings.Join(quoted, ","))
 		}
-		if strings.Contains(tmpl, "{vars.") {
-			return "" // key 不存在或值为空，跳过该 segment
+		// 未提供的 {vars.X} 直接清空，使外层 [{vars.X}] 退化为 [] 由 CH 原生语义处理
+		for strings.Contains(tmpl, "{vars.") {
+			s := strings.Index(tmpl, "{vars.")
+			e := strings.Index(tmpl[s:], "}")
+			if e < 0 {
+				break
+			}
+			tmpl = tmpl[:s] + tmpl[s+e+1:]
 		}
 		for strings.Contains(tmpl, "{filter.") {
 			s := strings.Index(tmpl, "{filter.")

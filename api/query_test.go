@@ -31,7 +31,7 @@ func testCube() *model.Cube {
 		},
 		Segments: map[string]model.Segment{
 			"org":   {SQL: "org = {vars.org}"},
-			"black": {SQL: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url), [{vars.api_regex}])"},
+			"black": {SQL: "NOT has([{vars.api_exact}], concat(host, url)) AND NOT arrayExists(p -> match(concat(host, url), p), [{vars.api_regex}])"},
 		},
 	}
 }
@@ -369,16 +369,138 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 	if !contains(sql, "WHERE") {
 		t.Errorf("expected WHERE clause, got: %s", sql)
 	}
-	if !contains(sql, "concat(host, url) NOT IN ('host1/api/v1','host2/api/v2')") {
-		t.Errorf("expected exact list quoted in NOT IN, got: %s", sql)
+	if !contains(sql, "has(['host1/api/v1','host2/api/v2'], concat(host, url))") {
+		t.Errorf("expected exact list passed to has, got: %s", sql)
 	}
-	if !contains(sql, "multiMatchAny(concat(host, url), ['\\.php$','^/admin/.*'])") {
-		t.Errorf("expected regex list quoted in multiMatchAny, got: %s", sql)
+	if !contains(sql, "arrayExists(p -> match(concat(host, url), p), ['\\.php$','^/admin/.*'])") {
+		t.Errorf("expected regex list passed to arrayExists, got: %s", sql)
+	}
+}
+
+// testCubeWithBlack 构建带 black segment（CH 原生空数组语义），用于测试单 var 缺失时的自然降级。
+func testCubeWithBlack() *model.Cube {
+	return &model.Cube{
+		Name:     "ApiView",
+		SQLTable: "default.api",
+		Dimensions: map[string]model.Dimension{
+			"id": {SQL: "id", Type: "string"},
+		},
+		Measures: map[string]model.Measure{
+			"count": {SQL: "count()", Type: "number"},
+		},
+		Segments: map[string]model.Segment{
+			"org":   {SQL: "org = {vars.org}"},
+			"black": {SQL: "(notEmpty(mgt_status) or arrayAll(x -> NOT has([{vars.api_exact}], concat(x, url)) AND NOT arrayExists(p -> match(concat(x, url), p), [{vars.api_regex}]), host_list))"},
+		},
+	}
+}
+
+func TestBuildQuery_Black_OnlyExact(t *testing.T) {
+	// 只传 api_exact，不传 api_regex；api_regex 占位符自然退化为 [] 由 CH 处理
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Segments:   []string{"ApiView.black"},
+		Vars: map[string][]string{
+			"api_exact": {"host1/api/v1", "host2/api/v2"},
+		},
+	}
+
+	sql, _, err := BuildQuery(req, testCubeWithBlack())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause, got: %s", sql)
+	}
+	if !contains(sql, "has(['host1/api/v1','host2/api/v2'], concat(x, url))") {
+		t.Errorf("expected api_exact passed to has, got: %s", sql)
+	}
+	if !contains(sql, "arrayExists(p -> match(concat(x, url), p), [])") {
+		t.Errorf("expected api_regex degraded to [], got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_Black_OnlyRegex(t *testing.T) {
+	// 只传 api_regex，不传 api_exact；api_exact 占位符退化为 []
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Segments:   []string{"ApiView.black"},
+		Vars: map[string][]string{
+			"api_regex": {"\\.php$", "^/admin/.*"},
+		},
+	}
+
+	sql, _, err := BuildQuery(req, testCubeWithBlack())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause, got: %s", sql)
+	}
+	if !contains(sql, "arrayExists(p -> match(concat(x, url), p), ['\\.php$','^/admin/.*'])") {
+		t.Errorf("expected api_regex passed to arrayExists, got: %s", sql)
+	}
+	if !contains(sql, "has([], concat(x, url))") {
+		t.Errorf("expected api_exact degraded to [], got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_Black_BothProvided(t *testing.T) {
+	// 两个 var 都传值时，占位符正常替换
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Segments:   []string{"ApiView.black"},
+		Vars: map[string][]string{
+			"api_exact": {"host1/api/v1"},
+			"api_regex": {"\\.php$"},
+		},
+	}
+
+	sql, _, err := BuildQuery(req, testCubeWithBlack())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "has(['host1/api/v1'], concat(x, url))") {
+		t.Errorf("expected api_exact substituted, got: %s", sql)
+	}
+	if !contains(sql, "arrayExists(p -> match(concat(x, url), p), ['\\.php$'])") {
+		t.Errorf("expected api_regex substituted, got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_Black_NeitherProvided(t *testing.T) {
+	// 两个 var 都不传，segment 仍生效，两个数组皆为 []，CH 原生处理
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Segments:   []string{"ApiView.black"},
+	}
+
+	sql, _, err := BuildQuery(req, testCubeWithBlack())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause (segment not skipped), got: %s", sql)
+	}
+	if !contains(sql, "has([], concat(x, url))") || !contains(sql, "arrayExists(p -> match(concat(x, url), p), [])") {
+		t.Errorf("expected both arrays degraded to [], got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
 	}
 }
 
 func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
-	// 空 slice 时整体跳过该 segment，不产生自动 WHERE 条件
+	// 空 slice 等同于未传：占位符退化为 []，CH 原生空数组语义保证子句恒真
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},
 		Segments:   []string{"AccessView.black"},
@@ -392,11 +514,11 @@ func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if contains(sql, "WHERE") {
-		t.Errorf("expected no WHERE for empty vars, got: %s", sql)
+	if !contains(sql, "has([], concat(host, url))") || !contains(sql, "arrayExists(p -> match(concat(host, url), p), [])") {
+		t.Errorf("expected empty arrays passed through, got: %s", sql)
 	}
-	if contains(sql, "NOT IN ()") || contains(sql, "multiMatchAny(concat") {
-		t.Errorf("should not produce invalid SQL for empty lists, got: %s", sql)
+	if contains(sql, "NOT IN ()") {
+		t.Errorf("should not produce NOT IN (), got: %s", sql)
 	}
 }
 

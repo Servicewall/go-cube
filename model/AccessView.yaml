@@ -745,7 +745,7 @@ cube:
     org:
       sql: "org = {vars.org}"
     black:
-      sql: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url), [{vars.api_regex}])"
+      sql: "NOT has([{vars.api_exact}], concat(host, url)) AND NOT arrayExists(p -> match(concat(host, url), p), [{vars.api_regex}])"
     riskConfirmed:
       sql: 1=1 # Placeholder - requires custom dim filter
     riskNotConfirmed:

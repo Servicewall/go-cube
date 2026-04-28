@@ -64,7 +64,7 @@ cube:
 
     # 未被忽略的API：存在管理状态 或 未被黑名单过滤配置忽略
     black:
-      sql: (notEmpty(mgt_status) or arrayAll(x -> concat(x, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(x, url), [{vars.api_regex}]), host_list))
+      sql: (notEmpty(mgt_status) or arrayAll(x -> NOT has([{vars.api_exact}], concat(x, url)) AND NOT arrayExists(p -> match(concat(x, url), p), [{vars.api_regex}]), host_list))
 
   dimensions:
     id:
