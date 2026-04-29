@@ -365,7 +365,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		}
 		fromSQL = applyVars(t)
 	}
-	isSubquery := cube.SQL != ""
+
 	for _, seg := range req.Segments {
 		_, segName, _ := splitMemberName(seg)
 		s, ok := cube.Segments[segName]
@@ -420,7 +420,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 
 		clause, p := buildFilterClause(filter, cube)
 		if clause != "" {
-			if isMeasure(filter.Member) && !isSubquery {
+			if isMeasure(filter.Member) {
 				having = append(having, clause)
 				havingParams = append(havingParams, p...)
 			} else {
