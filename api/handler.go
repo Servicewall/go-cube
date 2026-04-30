@@ -113,9 +113,8 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	if v := r.Header.Get("X-Sw-Api-Exact"); v != "" {
 		vars["api_exact"] = strings.Split(v, ",")
 	}
-	if v := r.Header.Get("X-Sw-Api-Regex"); v != "" {
-		vars["api_regex"] = strings.Split(v, ",")
-	}
+	// api_regex 始终注入，未传时 Split("", ",") 返回 [""]，SQL 中 != [''] 短路跳过 multiMatchAny
+	vars["api_regex"] = strings.Split(r.Header.Get("X-Sw-Api-Regex"), ",")
 	if v := r.Header.Get("Search-Target"); v != "" {
 		vars["search_target"] = []string{v}
 	}

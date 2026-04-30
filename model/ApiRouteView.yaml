@@ -46,7 +46,7 @@ cube:
       sql: ""
 
     black:
-      sql: "concat(host, url_route) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url_route), [{vars.api_regex}])"
+      sql: "concat(host, url_route) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url_route), [{vars.api_regex}]))"
 
   dimensions:
     host:

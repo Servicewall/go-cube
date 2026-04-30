@@ -31,7 +31,7 @@ func testCube() *model.Cube {
 		},
 		Segments: map[string]model.Segment{
 			"org":   {SQL: "org = {vars.org}"},
-			"black": {SQL: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url), [{vars.api_regex}])"},
+			"black": {SQL: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"},
 		},
 	}
 }
@@ -374,6 +374,33 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 	}
 	if !contains(sql, "multiMatchAny(concat(host, url), ['\\.php$','^/admin/.*'])") {
 		t.Errorf("expected regex list quoted in multiMatchAny, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSegmentNoRegex(t *testing.T) {
+	// 调用侧（sheikah）api_regex 未配置时注入哨兵 [""]，black segment 仍生效，multiMatchAny 被短路跳过
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Segments:   []string{"AccessView.black"},
+		Vars: map[string][]string{
+			"api_exact": {"host1/api/v1"},
+			"api_regex": {""}, // 调用侧注入哨兵
+		},
+	}
+
+	sql, _, err := BuildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause, got: %s", sql)
+	}
+	if !contains(sql, "concat(host, url) NOT IN ('host1/api/v1')") {
+		t.Errorf("expected exact NOT IN, got: %s", sql)
+	}
+	// 参数 [{vars.api_regex}] 渲染为 ['']，触发 != [''] 为 false，短路跳过 multiMatchAny
+	if !contains(sql, "[''] != ['']") {
+		t.Errorf("expected sentinel [''] != [''] in SQL, got: %s", sql)
 	}
 }
 
