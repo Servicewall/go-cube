@@ -30,8 +30,8 @@ func testCube() *model.Cube {
 			"count": {SQL: "count()", Type: "number"},
 		},
 		Segments: map[string]model.Segment{
-			"org":   {SQL: "org = {vars.org}"},
-			"black": {SQL: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url), [{vars.api_regex}])"},
+			"org":   {SQL: []string{"org = {vars.org}"}},
+			"black": {SQL: []string{"concat(host, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(host, url), [{vars.api_regex}])"}},
 		},
 	}
 }
@@ -1008,7 +1008,7 @@ func TestBuildQuery_SubquerySQLVarsOrg(t *testing.T) {
 			"host": {SQL: "host", Type: "string"},
 		},
 		Segments: map[string]model.Segment{
-			"org": {SQL: ""},
+			"org": {},
 		},
 	}
 
@@ -1039,7 +1039,7 @@ func TestBuildQuery_SubquerySQLVarsOrgMissing(t *testing.T) {
 			"host": {SQL: "host", Type: "string"},
 		},
 		Segments: map[string]model.Segment{
-			"org": {SQL: ""},
+			"org": {},
 		},
 	}
 
@@ -1270,11 +1270,11 @@ func riskCube() *model.Cube {
 			"listFilterShowTime": {SQL: "if(min(first_ts) >= today(), '首次出现', '重复出现')", Type: "string"},
 		},
 		Segments: map[string]model.Segment{
-			"org":               {SQL: "org = {vars.org}"},
-			"whiteFilter":       {SQL: "arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = {vars.org})"},
-			"whiteRiskFilter":   {SQL: "risk not in (select tag from risk_dict where score <= 0)"},
-			"riskDenoiseFilter": {SQL: "risk in (select risk from risk_agg_local final where ts > today() group by risk having count() < 100)"},
-			"statusFilter":      {SQL: filterStatusSQL + " = '待确认'"},
+			"org":               {SQL: []string{"org = {vars.org}"}},
+			"whiteFilter":       {SQL: []string{"arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = {vars.org})"}},
+			"whiteRiskFilter":   {SQL: []string{"risk not in (select tag from risk_dict where score <= 0)"}},
+			"riskDenoiseFilter": {SQL: []string{"risk in (select risk from risk_agg_local final where ts > today() group by risk having count() < 100)"}},
+			"statusFilter":      {SQL: []string{filterStatusSQL + " = '待确认'"}},
 		},
 	}
 }

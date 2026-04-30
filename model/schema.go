@@ -1,6 +1,11 @@
 package model
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
 
 type Cube struct {
 	Name       string               `yaml:"name"`
@@ -26,9 +31,38 @@ type Measure struct {
 	Title   string `yaml:"title,omitempty"`
 }
 
+// Segment 的 sql 支持 string 或 []string 两种写法。
+// 数组形式会按顺序对每个子句独立做 {vars.*} 替换，未解析变量的子句被丢弃，
+// 剩余子句以 AND 连接；这让"互相独立的可选条件"无需在 SQL 中再写守卫。
 type Segment struct {
-	SQL   string `yaml:"sql"`
-	Title string `yaml:"title,omitempty"`
+	SQL   []string `yaml:"sql"`
+	Title string   `yaml:"title,omitempty"`
+}
+
+func (s *Segment) UnmarshalYAML(node *yaml.Node) error {
+	var r struct {
+		SQL   any    `yaml:"sql"`
+		Title string `yaml:"title,omitempty"`
+	}
+	if err := node.Decode(&r); err != nil {
+		return err
+	}
+	s.Title = r.Title
+	switch v := r.SQL.(type) {
+	case nil:
+	case string:
+		if v != "" {
+			s.SQL = []string{v}
+		}
+	case []any:
+		s.SQL = make([]string, len(v))
+		for i, x := range v {
+			s.SQL[i], _ = x.(string)
+		}
+	default:
+		return fmt.Errorf("segment.sql must be string or []string, got %T", v)
+	}
+	return nil
 }
 
 // Annotatable 表示可被 annotation 描述的 cube 成员。

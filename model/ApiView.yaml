@@ -63,8 +63,11 @@ cube:
       sql: ((count > (today() - toDate(first_ts))) or channel = '手工导入')
 
     # 未被忽略的API：存在管理状态 或 未被黑名单过滤配置忽略
+    # 拆为多子句：每条独立解析 {vars.*}，未提供变量的子句自动跳过，剩余子句 AND 拼接
     black:
-      sql: (notEmpty(mgt_status) or arrayAll(x -> concat(x, url) NOT IN ({vars.api_exact}) AND NOT multiMatchAny(concat(x, url), [{vars.api_regex}]), host_list))
+      sql:
+        - (notEmpty(mgt_status) or arrayAll(x -> concat(x, url) NOT IN ({vars.api_exact}), host_list))
+        - (notEmpty(mgt_status) or arrayAll(x -> NOT multiMatchAny(concat(x, url), [{vars.api_regex}]), host_list))
 
   dimensions:
     id:

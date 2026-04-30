@@ -369,14 +369,21 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	for _, seg := range req.Segments {
 		_, segName, _ := splitMemberName(seg)
 		s, ok := cube.Segments[segName]
-		if !ok || s.SQL == "" {
+		if !ok || len(s.SQL) == 0 {
 			if !ok {
 				log.Printf("WARN: unknown segment %q not found in cube %q, skipped", seg, cube.Name)
 			}
 			continue
 		}
-		if result := applyVars(s.SQL); result != "" {
-			where = append(where, result)
+		// 多子句 segment：每条独立解析，未解析变量的子句丢弃，剩余 AND 连接（单子句即特例）
+		var clauses []string
+		for _, sql := range s.SQL {
+			if r := applyVars(sql); r != "" {
+				clauses = append(clauses, "("+r+")")
+			}
+		}
+		if len(clauses) > 0 {
+			where = append(where, strings.Join(clauses, " AND "))
 		}
 	}
 
