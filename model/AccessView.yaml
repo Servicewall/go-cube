@@ -60,7 +60,7 @@ cube:
       title: IP(位置)
 
     resultRisk:
-      sql: arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,req_risk)
+      sql: arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0 or hasAny(dictGet('default.risk_dict','group',x),['数据脱敏','文件脱敏']),req_risk)
       type: string
       title: 命中规则
 
@@ -229,7 +229,7 @@ cube:
       title: 请求大小
 
     responseRisk:
-      sql: arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0,res_risk)
+      sql: arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0 or hasAny(dictGet('default.risk_dict','group',x),['数据脱敏','文件脱敏']),res_risk)
       type: array
       title: 响应风险
 
