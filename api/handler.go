@@ -110,9 +110,8 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	req.Mask = r.Header.Get("X-Auth-Mask") == "true"
 	vars := map[string][]string{}
 	vars["org"] = []string{r.Header.Get("X-Sw-Org")}
-	if v := r.Header.Get("X-Sw-Api-Exact"); v != "" {
-		vars["api_exact"] = strings.Split(v, ",")
-	}
+	// api_exact 始终注入，未传时 Split("", ",") 返回 [""]，SQL 中 NOT IN ('') 对 host+url 无影响
+	vars["api_exact"] = strings.Split(r.Header.Get("X-Sw-Api-Exact"), ",")
 	// api_regex 始终注入，未传时 Split("", ",") 返回 [""]，SQL 中 != [''] 短路跳过 multiMatchAny
 	vars["api_regex"] = strings.Split(r.Header.Get("X-Sw-Api-Regex"), ",")
 	if v := r.Header.Get("Search-Target"); v != "" {
