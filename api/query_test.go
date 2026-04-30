@@ -377,6 +377,133 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 	}
 }
 
+// testCubeWithSentinel 构建带 empty black segment，用于测试只传一个 var 时的 bypass 逻辑。
+func testCubeWithSentinel() *model.Cube {
+	return &model.Cube{
+		Name:     "ApiView",
+		SQLTable: "default.api",
+		Dimensions: map[string]model.Dimension{
+			"id": {SQL: "id", Type: "string"},
+		},
+		Measures: map[string]model.Measure{
+			"count": {SQL: "count()", Type: "number"},
+		},
+		Segments: map[string]model.Segment{
+			"org":   {SQL: "org = {vars.org}"},
+			"black": {SQL: "(notEmpty(mgt_status) or arrayAll(x -> if(empty([{vars.api_exact}]), 1, concat(x, url) NOT IN ({vars.api_exact})) AND if(empty([{vars.api_regex}]), 1, NOT multiMatchAny(concat(x, url), [{vars.api_regex}])), host_list))"},
+		},
+	}
+}
+
+func TestBuildQuery_BlackSentinel_OnlyExact(t *testing.T) {
+	// 只传 api_exact，不传 api_regex；api_regex 注入 '' bypass
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Segments:   []string{"ApiView.black"},
+		Vars: map[string][]string{
+			"api_exact": {"host1/api/v1", "host2/api/v2"},
+		},
+	}
+
+	sql, _, err := BuildQuery(req, testCubeWithSentinel())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause, got: %s", sql)
+	}
+	if !contains(sql, "NOT IN ('host1/api/v1','host2/api/v2')") {
+		t.Errorf("expected api_exact substituted in NOT IN, got: %s", sql)
+	}
+	// api_regex 未传，empty 替换为 1 → bypass regex 检查
+	if !contains(sql, "if(1, 1,") {
+		t.Errorf("expected sentinel empty replaced with 1 for missing api_regex, got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSentinel_OnlyRegex(t *testing.T) {
+	// 只传 api_regex，不传 api_exact； api_exact 注入 '' bypass
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Segments:   []string{"ApiView.black"},
+		Vars: map[string][]string{
+			"api_regex": {"\\.php$", "^/admin/.*"},
+		},
+	}
+
+	sql, _, err := BuildQuery(req, testCubeWithSentinel())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause, got: %s", sql)
+	}
+	if !contains(sql, "multiMatchAny(concat(x, url), ['\\.php$','^/admin/.*'])") {
+		t.Errorf("expected api_regex substituted in multiMatchAny, got: %s", sql)
+	}
+	// api_exact 未传，empty 哨兵替换为 1 → bypass exact 检查
+	if !contains(sql, "if(1, 1,") {
+		t.Errorf("expected sentinel empty replaced with 1 for missing api_exact, got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSentinel_BothProvided(t *testing.T) {
+	// 两个 var 都传值时，占位符被正常替换
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Segments:   []string{"ApiView.black"},
+		Vars: map[string][]string{
+			"api_exact": {"host1/api/v1"},
+			"api_regex": {"\\.php$"},
+		},
+	}
+
+	sql, _, err := BuildQuery(req, testCubeWithSentinel())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "NOT IN ('host1/api/v1')") {
+		t.Errorf("expected api_exact substituted, got: %s", sql)
+	}
+	if !contains(sql, "empty(['host1/api/v1'])") {
+		t.Errorf("expected empty with substituted value, got: %s", sql)
+	}
+	if contains(sql, "if(1, 1,") {
+		t.Errorf("empty should have real values when var is provided, got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSentinel_NeitherProvided(t *testing.T) {
+	// 两个 var 都不传，所有占位符→ 全部注入空 bypass，segment 仍生效
+	req := &QueryRequest{
+		Dimensions: []string{"ApiView.id"},
+		Segments:   []string{"ApiView.black"},
+	}
+
+	sql, _, err := BuildQuery(req, testCubeWithSentinel())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "WHERE") {
+		t.Errorf("expected WHERE clause (sentinel bypass, not skip), got: %s", sql)
+	}
+	if !contains(sql, "if(1, 1,") {
+		t.Errorf("expected sentinel bypass (empty replaced with 1), got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
+	}
+}
+
 func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
 	// 空 slice 时整体跳过该 segment，不产生自动 WHERE 条件
 	req := &QueryRequest{
