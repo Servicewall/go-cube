@@ -200,6 +200,11 @@ cube:
       type: string
       title: AI业务分析
 
+    bizDescription:
+      sql: if(dictHas('biz_dict', url_action[3]), dictGetString('biz_dict', 'description', url_action[3]), '')
+      type: string
+      title: 业务描述
+
     director:
       sql: dictGetString('app_dict', 'director', multiIf(notEmpty(dictGet('host_dict', 'info', assumeNotNull(last_host))), arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(last_host)))[3], notEmpty(dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*')), arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\\d+$', assumeNotNull(last_host))[1] || ':*'))[3], ''))
       type: string
