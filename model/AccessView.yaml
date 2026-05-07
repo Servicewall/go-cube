@@ -449,11 +449,6 @@ cube:
       type: array
       title: 敏感数据类型标签
 
-    sensValFilterTag:
-      sql: arrayConcat(req_sens_v, res_sens_v)
-      type: array
-      title: 敏感数据值过滤标签
-
     weakKey:
       sql: weak_k
       type: array
