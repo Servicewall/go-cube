@@ -1,0 +1,104 @@
+cube:
+  name: ApiDBFlowView
+  sql_table: |
+    (WITH parsed_nodes AS (
+       SELECT
+         org,
+         splitByChar('|', JSONExtract(coalesce(req, '{}'), 'Headers', 'X-Sw-Gorid', 'Array(String)')[1])[1] AS trace_id,
+         ts, first_ts, count,
+         splitByChar('|', method)[1] AS db_type,
+         host AS db_host,
+         splitByChar('.', splitByChar('/', url)[3]) AS db_table_parts,
+         db_table_parts[-2] AS db_name,
+         db_table_parts[-1] AS table_name,
+         JSONExtract(assumeNotNull(req), 'QueryMap', 'Map(String, Array(String))') AS columns_map,
+         arrayMap((k, v) -> (k, v[1]), mapKeys(columns_map), mapValues(columns_map)) AS columns_tuples
+       FROM access_sample_raw
+       WHERE splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE')
+         AND length(splitByChar('|', JSONExtract(coalesce(req, '{}'), 'Headers', 'X-Sw-Gorid', 'Array(String)')[1])) >= 2
+     ),
+     h AS (
+       SELECT
+         splitByChar('|', id)[1] AS trace_id,
+         org,
+         groupArray((
+           ts,
+           uid,
+           host,
+           splitByChar('|', method)[1] AS m_type,
+           splitByChar('.', splitByChar('/', url)[3]) AS url_parts,
+           multiIf(notEmpty(url_route), url_route, countSubstrings(url, '/') < 2, url,
+             arrayStringConcat(arrayMap(seg -> if(countMatches(seg, '[0-9a-fA-F-]') > (0.8 * length(seg)), '{parameter}', seg), splitByChar('/', url)), '/')),
+           JSONExtract(req, 'QueryMap', 'Map(String, Array(String))') AS query_map,
+           JSONExtractString(req, 'Body') AS http_req_body,
+           JSONExtractString(res, 'Body') AS http_res_body
+         )) AS spans
+       FROM default.access
+       WHERE length(splitByChar('|', id)) >= 2
+       GROUP BY org, trace_id
+     )
+     SELECT
+       org, ts, first_ts, db_type, db_host, db_name, table_name,
+       arrayMap(g -> (g.1.1, g.1.2, g.1.3, g.2.7, g.2.8, g.2.9),
+         arrayMap(key -> (key, arraySort(x -> -toInt64(x.1), arrayFilter(x -> x.3 = key.1 AND x.4 = key.2 AND x.6 = key.3, http_raw))[1]),
+           arrayDistinct(arrayMap(x -> (x.3, x.4, x.6), http_raw)))) AS http_data,
+       columns_array
+     FROM (
+       SELECT
+         p.org,
+         min(p.ts) AS ts,
+         min(p.first_ts) AS first_ts,
+         p.db_type, p.db_host, p.db_name, p.table_name,
+         arrayFilter(x -> NOT (x.3 = p.db_host AND x.4 = p.db_type AND x.5[-2] = p.db_name AND x.5[-1] = p.table_name),
+           groupUniqArrayArray(h.spans)) AS http_raw,
+         arrayDistinct(arrayFlatten(groupArray(p.columns_tuples))) AS columns_array
+       FROM parsed_nodes AS p
+       LEFT JOIN h ON p.org = h.org
+       WHERE arrayExists(x -> x.3 = p.db_host AND x.4 = p.db_type AND x.5[-2] = p.db_name AND x.5[-1] = p.table_name, h.spans)
+       GROUP BY p.org, p.db_type, p.db_host, p.db_name, p.table_name))
+
+  segments:
+    org:
+      sql: "org = {vars.org}"
+
+    white:
+      sql: "db_host IN ({vars.api_exact}) OR ([{vars.api_regex}] != [''] AND multiMatchAny(db_host, [{vars.api_regex}]))"
+
+    black:
+      sql: "db_host NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(db_host, [{vars.api_regex}]))"
+
+  dimensions:
+    ts:
+      sql: ts
+      type: time
+      title: 时间
+
+    dbType:
+      sql: db_type
+      type: string
+      title: 数据库类型
+
+    dbHost:
+      sql: db_host
+      type: string
+      title: 数据库主机
+
+    dbName:
+      sql: db_name
+      type: string
+      title: 数据库名
+
+    tableName:
+      sql: table_name
+      type: string
+      title: 表名
+
+    tableColumns:
+      sql: toString(columns_array)
+      type: string
+      title: 表列信息
+
+    httpData:
+      sql: toString(http_data)
+      type: string
+      title: HTTP 请求数据

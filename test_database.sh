@@ -30,6 +30,17 @@ check "columns by dbType+database+table (segment org)" "$result"
 
 echo ""
 echo "========================================"
+echo "=== ApiDBFlowView queries ==="
+echo "========================================"
+
+echo ""
+echo "=== 3. ApiDBFlowView all dimensions (no segment) ==="
+# dimensions: [ts, dbType, dbHost, dbName, tableName, tableColumns, httpData]
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22dimensions%22%3A%5B%22ApiDBFlowView.ts%22%2C%22ApiDBFlowView.dbType%22%2C%22ApiDBFlowView.dbHost%22%2C%22ApiDBFlowView.dbName%22%2C%22ApiDBFlowView.tableName%22%2C%22ApiDBFlowView.tableColumns%22%2C%22ApiDBFlowView.httpData%22%5D%2C%22filters%22%3A%5B%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ApiDBFlowView all dimensions" "$result"
+
+echo ""
+echo "========================================"
 echo "Results: $pass passed, $fail failed"
 echo "========================================"
 
