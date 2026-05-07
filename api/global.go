@@ -12,7 +12,7 @@ import (
 var defaultHandler *Handler
 
 // Init initializes the global Handler with the given ClickHouse connection parameters.
-// An optional queryTimeout can be provided; defaults to 30s if zero or omitted.
+// An optional queryTimeout can be provided; defaults to 60s if zero or omitted.
 func Init(hosts []string, database, username, password string, queryTimeout ...time.Duration) error {
 	cfg := &config.ClickHouseConfig{
 		Hosts:    hosts,

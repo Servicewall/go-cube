@@ -24,13 +24,11 @@ type ClickHouseConfig struct {
 	Database     string        `yaml:"database"`
 	Username     string        `yaml:"username"`
 	Password     string        `yaml:"password"`
-	DialTimeout  time.Duration `yaml:"dial_timeout"`
 	QueryTimeout time.Duration `yaml:"query_timeout"`
 }
 
 type ModelsConfig struct {
-	Path  string `yaml:"path"`
-	Watch bool   `yaml:"watch"`
+	Path string `yaml:"path"`
 }
 
 func Load(path string) (*Config, error) {
@@ -59,12 +57,10 @@ func DefaultConfig() *Config {
 			Database:     "default",
 			Username:     "default",
 			Password:     "",
-			DialTimeout:  10 * time.Second,
-			QueryTimeout: 30 * time.Second,
+			QueryTimeout: 60 * time.Second,
 		},
 		Models: ModelsConfig{
-			Path:  "./models",
-			Watch: false,
+			Path: "./models",
 		},
 	}
 }

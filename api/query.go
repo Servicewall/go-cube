@@ -211,7 +211,6 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	mask := req.Mask
 
 	var sql strings.Builder
-	var params []interface{}
 	var whereParams []interface{}
 	var havingParams []interface{}
 
@@ -241,39 +240,27 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 	}
 
 	// SELECT
-	sql.WriteString("SELECT ")
-	first := true
-	writeFields := func(names []string) {
-		for _, name := range names {
-			_, fieldName, subKey := splitMemberName(name)
-			field, ok := cube.GetField(fieldName, subKey)
-			if !ok {
-				log.Printf("WARN: unknown member %q not found in cube %q, skipped", name, cube.Name)
-				continue
-			}
-			if !first {
-				sql.WriteString(", ")
-			}
-			effectiveSQL := field.SQL
-			if mask && field.SQLMask != "" {
-				effectiveSQL = field.SQLMask
-			}
-			fmt.Fprintf(&sql, "%s AS \"%s\"", effectiveSQL, name)
-			first = false
+	var cols []string
+	for _, name := range append(req.Dimensions, req.Measures...) {
+		_, fieldName, subKey := splitMemberName(name)
+		field, ok := cube.GetField(fieldName, subKey)
+		if !ok {
+			log.Printf("WARN: unknown member %q not found in cube %q, skipped", name, cube.Name)
+			continue
 		}
+		effectiveSQL := field.SQL
+		if mask && field.SQLMask != "" {
+			effectiveSQL = field.SQLMask
+		}
+		cols = append(cols, fmt.Sprintf("%s AS \"%s\"", effectiveSQL, name))
 	}
-	writeFields(req.Dimensions)
-	writeFields(req.Measures)
-	// granularity 截断列追加在 SELECT 末尾
 	for _, gc := range granByDim {
-		if !first {
-			sql.WriteString(", ")
-		}
-		fmt.Fprintf(&sql, "%s AS \"%s\"", gc.expr, gc.alias)
-		first = false
+		cols = append(cols, fmt.Sprintf("%s AS \"%s\"", gc.expr, gc.alias))
 	}
-	if first {
-		sql.WriteString("1")
+	if len(cols) == 0 {
+		sql.WriteString("SELECT 1")
+	} else {
+		sql.WriteString("SELECT " + strings.Join(cols, ", "))
 	}
 
 	sql.WriteString(" FROM ")
@@ -447,9 +434,6 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		sql.WriteString(strings.Join(having, " AND "))
 	}
 
-	// params: WHERE params, then HAVING
-	params = append(whereParams, havingParams...)
-
 	// ORDER BY
 	// 如果显式指定了排序，按请求排序；否则若存在带粒度的时间维度，隐式升序（兼容 CubeJS 默认行为）
 	if len(req.Order) > 0 {
@@ -494,7 +478,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		fmt.Fprintf(&sql, " OFFSET %d", req.Offset)
 	}
 
-	return sql.String(), params, nil
+	return sql.String(), append(whereParams, havingParams...), nil
 }
 
 func validateQuery(req *QueryRequest) error {
@@ -512,8 +496,7 @@ func validateQuery(req *QueryRequest) error {
 
 // buildInClause 构建普通字段的 IN/NOT IN 子句
 func buildInClause(fieldSQL string, operator string, values []interface{}) (string, []interface{}) {
-	placeholders := strings.Repeat("?,", len(values))
-	placeholders = placeholders[:len(placeholders)-1]
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(values)), ",")
 	if operator == "notEquals" {
 		return fmt.Sprintf("%s NOT IN (%s)", fieldSQL, placeholders), values
 	}
@@ -532,8 +515,7 @@ func buildArrayClause(fieldSQL string, operator string, values []interface{}) (s
 	if len(values) == 1 {
 		return fmt.Sprintf("%shas(%s, ?)", neg, fieldSQL), values
 	}
-	placeholders := strings.Repeat("?,", len(values))
-	placeholders = placeholders[:len(placeholders)-1]
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(values)), ",")
 	fn := "hasAny"
 	if operator == "equals" || operator == "notEquals" {
 		fn = "hasAll"
@@ -553,17 +535,17 @@ var operatorMap = map[string]string{
 	"lte":         "<=",
 }
 
-func convertOperator(op string) string {
-	if sqlOp, ok := operatorMap[op]; ok {
-		return sqlOp
-	}
-	return op
-}
-
 // processFilterValue 根据操作符和值列表生成 SQL 条件片段和绑定参数。
 // contains/notContains 支持多值，多值时用 OR/AND 拼接并加括号。
 func processFilterValue(fieldSQL string, operator string, valuesArr []interface{}) (string, []interface{}) {
-	op := convertOperator(operator)
+	op, ok := operatorMap[operator]
+	if !ok {
+		op = operator
+	}
+	sep := " OR "
+	if operator == "notContains" {
+		sep = " AND "
+	}
 	clauses := make([]string, 0, len(valuesArr))
 	params := make([]interface{}, 0, len(valuesArr))
 	for _, v := range valuesArr {
@@ -584,10 +566,7 @@ func processFilterValue(fieldSQL string, operator string, valuesArr []interface{
 			params = append(params, v)
 		}
 	}
-	combined := strings.Join(clauses, " OR ")
-	if operator == "notContains" {
-		combined = strings.Join(clauses, " AND ")
-	}
+	combined := strings.Join(clauses, sep)
 	if len(clauses) > 1 {
 		combined = "(" + combined + ")"
 	}

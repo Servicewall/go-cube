@@ -89,7 +89,7 @@ func (h *Handler) query(ctx context.Context, host string, req *QueryRequest) (*Q
 func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	timeout := h.queryTimeout
 	if timeout == 0 {
-		timeout = 30 * time.Second
+		timeout = 60 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), timeout)
 	defer cancel()
@@ -108,17 +108,14 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Mask = r.Header.Get("X-Auth-Mask") == "true"
-	vars := map[string][]string{}
-	vars["org"] = []string{r.Header.Get("X-Sw-Org")}
-	// api_exact 始终注入，未传时 Split("", ",") 返回 [""]，SQL 中 NOT IN ('') 对 host+url 无影响
-	vars["api_exact"] = strings.Split(r.Header.Get("X-Sw-Api-Exact"), ",")
-	// api_regex 始终注入，未传时 Split("", ",") 返回 [""]，SQL 中 != [''] 短路跳过 multiMatchAny
-	vars["api_regex"] = strings.Split(r.Header.Get("X-Sw-Api-Regex"), ",")
-	if v := r.Header.Get("Search-Target"); v != "" {
-		vars["search_target"] = []string{v}
+	// api_exact/api_regex 始终注入，未传时 Split("", ",") 返回 [""]，SQL 中条件短路无影响
+	req.Vars = map[string][]string{
+		"org":       {r.Header.Get("X-Sw-Org")},
+		"api_exact": strings.Split(r.Header.Get("X-Sw-Api-Exact"), ","),
+		"api_regex": strings.Split(r.Header.Get("X-Sw-Api-Regex"), ","),
 	}
-	if len(vars) > 0 {
-		req.Vars = vars
+	if v := r.Header.Get("Search-Target"); v != "" {
+		req.Vars["search_target"] = []string{v}
 	}
 
 	resp, err := h.query(ctx, r.Header.Get("X-Sw-Node"), req)
