@@ -373,22 +373,18 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			}
 			var orClauses []string
 			var orParams []interface{}
+			hasMeasure := false
 			for _, sub := range filter.Or {
 				clause, p := buildFilterClause(sub, cube)
 				if clause != "" {
 					orClauses = append(orClauses, clause)
 					orParams = append(orParams, p...)
 				}
+				if isMeasure(sub.Member) {
+					hasMeasure = true
+				}
 			}
 			if len(orClauses) > 0 {
-				// or 条件如含 measure 子句放 HAVING，否则 WHERE
-				hasMeasure := false
-				for _, sub := range filter.Or {
-					if isMeasure(sub.Member) {
-						hasMeasure = true
-						break
-					}
-				}
 				combined := "(" + strings.Join(orClauses, " OR ") + ")"
 				if hasMeasure {
 					having = append(having, combined)
@@ -518,31 +514,23 @@ func validateQuery(req *QueryRequest) error {
 func buildInClause(fieldSQL string, operator string, values []interface{}) (string, []interface{}) {
 	placeholders := strings.Repeat("?,", len(values))
 	placeholders = placeholders[:len(placeholders)-1]
-	params := make([]interface{}, len(values))
-	for i, v := range values {
-		params[i] = v
-	}
 	if operator == "notEquals" {
-		return fmt.Sprintf("%s NOT IN (%s)", fieldSQL, placeholders), params
+		return fmt.Sprintf("%s NOT IN (%s)", fieldSQL, placeholders), values
 	}
-	return fmt.Sprintf("%s IN (%s)", fieldSQL, placeholders), params
+	return fmt.Sprintf("%s IN (%s)", fieldSQL, placeholders), values
 }
 
 // buildArrayClause 针对数组类型字段生成 has/hasAll/hasAny 条件
 // 单值：has(arr, ?)
 // 多值：equals -> hasAll，contains -> hasAny
 func buildArrayClause(fieldSQL string, operator string, values []interface{}) (string, []interface{}) {
-	params := make([]interface{}, len(values))
-	for i, v := range values {
-		params[i] = v
-	}
 	negate := operator == "notEquals" || operator == "notContains"
 	neg := ""
 	if negate {
 		neg = "NOT "
 	}
 	if len(values) == 1 {
-		return fmt.Sprintf("%shas(%s, ?)", neg, fieldSQL), params
+		return fmt.Sprintf("%shas(%s, ?)", neg, fieldSQL), values
 	}
 	placeholders := strings.Repeat("?,", len(values))
 	placeholders = placeholders[:len(placeholders)-1]
@@ -550,7 +538,7 @@ func buildArrayClause(fieldSQL string, operator string, values []interface{}) (s
 	if operator == "equals" || operator == "notEquals" {
 		fn = "hasAll"
 	}
-	return fmt.Sprintf("%s%s(%s, [%s])", neg, fn, fieldSQL, placeholders), params
+	return fmt.Sprintf("%s%s(%s, [%s])", neg, fn, fieldSQL, placeholders), values
 }
 
 // operatorMap CubeJS operator -> SQL operator（用于普通字段非 equals 情况）
