@@ -1,0 +1,110 @@
+cube:
+  name: DatabaseView
+  sql_table: |
+    (SELECT base.org, base.ts, base.first_ts, base.url, base.db_type, base.host,
+            base.column_name, base.column_type, base.count, base.app_name,
+            pr.key as privacy_key
+     FROM (
+       SELECT org, ts, first_ts, url, splitByChar('|', method)[1] AS db_type, host,
+              (arrayJoin(arrayZip(mapKeys(JSONExtract(assumeNotNull(req), 'QueryMap', 'Map(String, Array(String))')), mapValues(JSONExtract(assumeNotNull(req), 'QueryMap', 'Map(String, Array(String))')))) as column).1 as column_name, column.2[1] as column_type, count,
+              multiIf(arrayExists(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host))),
+                      arrayFirst(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', assumeNotNull(host)))[2],
+                      arrayExists(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\d+$', assumeNotNull(host))[1] || ':*')),
+                      arrayFirst(x -> startsWith(assumeNotNull(url), x[1]), dictGet('host_dict', 'info', splitByRegexp(':\d+$', assumeNotNull(host))[1] || ':*'))[2],
+                      host) AS app_name,
+              db_type || (if(host != '', '/', '') || host || url) AS db_path
+       FROM access_sample_raw
+       WHERE db_type IN ['MYSQL','POSTGRESQL','ORACLE']
+     ) as base
+     LEFT JOIN (
+       SELECT key, db_path, trim(BOTH '"' FROM raw_column) as column_name
+       FROM (
+         SELECT key, field_path, arrayJoin(JSONExtractKeys(assumeNotNull(field_path))) as db_path
+         FROM postgres.privacy_rules
+         WHERE deleted_at IS NULL AND notEmpty(field_path)
+       ) as pr_paths
+       ARRAY JOIN JSONExtractArrayRaw(assumeNotNull(field_path), db_path) as raw_column
+       WHERE notEmpty(raw_column)
+     ) as pr USING (db_path, column_name))
+
+  segments:
+    org:
+      sql: "org = {vars.org}"
+
+    white:
+      sql: "concat(host, url) IN ({vars.api_exact}) OR ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"
+
+    black:
+      sql: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"
+
+  measures:
+    sum:
+      sql: sum(count)
+      type: number
+      title: 访问量
+
+    allFirstTs:
+      sql: min(first_ts)
+      type: number
+      title: 聚合API的首次时间
+
+    allLastTs:
+      sql: max(ts)
+      type: number
+      title: 聚合API的最后时间
+
+    columns:
+      sql: groupUniqArray(column_name)
+      type: string
+      title: 列名集合
+
+    dbTableGroup:
+      sql: "arrayStringConcat(groupUniqArray(concat(db_type, ':::', splitByChar('.', splitByChar('/', url)[3])[-2], ':::', splitByChar('.', splitByChar('/', url)[3])[-1])), ',')"
+      type: string
+      title: 数据库表分组
+
+  dimensions:
+    ts:
+      sql: ts
+      type: time
+      title: 时间
+
+    hostUrl:
+      sql: concat(host, url)
+      type: string
+      title: URI
+
+    dbType:
+      sql: db_type
+      type: string
+      title: 库类型
+
+    database:
+      sql: "splitByChar('.', splitByChar('/', url)[3])[-2]"
+      type: string
+      title: 库名
+
+    table:
+      sql: "splitByChar('.', splitByChar('/', url)[3])[-1]"
+      type: string
+      title: 表名
+
+    column:
+      sql: column_name
+      type: string
+      title: 列名
+
+    columnType:
+      sql: column_type
+      type: string
+      title: 列类型
+
+    appName:
+      sql: app_name
+      type: string
+      title: 应用
+
+    privacyKey:
+      sql: privacy_key
+      type: string
+      title: 隐私键
