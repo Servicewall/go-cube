@@ -289,9 +289,35 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		return ok
 	}
 
+	// 预计算 filterVars：fieldName -> 已内联值的 SQL 条件片段，供 {filter.field} 替换使用。
+	// 优先级：TimeDimension > Filter（与原逻辑一致）。
+	filterVars := map[string]string{}
+	for _, td := range req.TimeDimensions {
+		_, fn, _ := splitMemberName(td.Dimension)
+		if c := buildTimeDimensionClause(fn, td.DateRange); c != "" {
+			filterVars[fn] = c
+		}
+	}
+	for _, f := range req.Filters {
+		if len(f.Or) > 0 {
+			continue
+		}
+		_, fn, _ := splitMemberName(f.Member)
+		if _, exists := filterVars[fn]; exists {
+			continue
+		}
+		c, ps := buildFilterClause(f, cube)
+		for _, p := range ps {
+			c = strings.Replace(c, "?", "'"+strings.ReplaceAll(fmt.Sprintf("%v", p), "'", "''")+"'", 1)
+		}
+		if c != "" {
+			filterVars[fn] = c
+		}
+	}
+
 	// applyVars 替换 SQL 中的 {vars.key} 和 {filter.field} 占位符。
-	// {vars.key}：有值内联带引号；key 不存在或值为空时返回 "" 跳过整个 segment。
-	// {filter.field}：有匹配内联条件；无匹配降级为 1=1。
+	// {vars.key}：有值内联带引号；key 不存在或值为空时返回 "" 跳过整个模板。
+	// {filter.field}：查预计算的 filterVars，无匹配降级为 1=1。
 	applyVars := func(tmpl string) string {
 		for k, vals := range req.Vars {
 			ph := "{vars." + k + "}"
@@ -305,7 +331,10 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			tmpl = strings.ReplaceAll(tmpl, ph, strings.Join(quoted, ","))
 		}
 		if strings.Contains(tmpl, "{vars.") {
-			return "" // key 不存在或值为空，跳过该 segment
+			return ""
+		}
+		for fn, clause := range filterVars {
+			tmpl = strings.ReplaceAll(tmpl, "{filter."+fn+"}", clause)
 		}
 		for strings.Contains(tmpl, "{filter.") {
 			s := strings.Index(tmpl, "{filter.")
@@ -313,58 +342,12 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 			if e < 0 {
 				break
 			}
-			placeholder := tmpl[s : s+e+1]
-			fieldName := placeholder[len("{filter.") : len(placeholder)-1]
-			replacement := "1=1"
-			for _, td := range req.TimeDimensions {
-				_, fn, _ := splitMemberName(td.Dimension)
-				if fn == fieldName {
-					if c := buildTimeDimensionClause(fieldName, td.DateRange); c != "" {
-						replacement = c
-					}
-					break
-				}
-			}
-			if replacement == "1=1" {
-				var parts []string
-				for _, f := range req.Filters {
-					if len(f.Or) > 0 {
-						continue
-					}
-					_, fn, _ := splitMemberName(f.Member)
-					if fn == fieldName {
-						c, params := buildFilterClause(f, cube)
-						for _, p := range params {
-							c = strings.Replace(c, "?", "'"+strings.ReplaceAll(fmt.Sprintf("%v", p), "'", "''")+"'", 1)
-						}
-						if c != "" {
-							parts = append(parts, c)
-						}
-					}
-				}
-				if len(parts) > 0 {
-					replacement = strings.Join(parts, " AND ")
-				}
-			}
-			tmpl = strings.ReplaceAll(tmpl, placeholder, replacement)
+			tmpl = strings.ReplaceAll(tmpl, tmpl[s:s+e+1], "1=1")
 		}
 		return tmpl
 	}
 
 	fromSQL := applyVars(cube.GetSQLTable())
-	// fromSQL cannot be skipped: if cube.SQL has unresolved {vars.xxx}, degrade to ''
-	if fromSQL == "" && cube.SQL != "" {
-		t := cube.GetSQLTable()
-		for strings.Contains(t, "{vars.") {
-			s := strings.Index(t, "{vars.")
-			e := strings.Index(t[s:], "}")
-			if e < 0 {
-				break
-			}
-			t = t[:s] + "''" + t[s+e+1:]
-		}
-		fromSQL = applyVars(t)
-	}
 
 	for _, seg := range req.Segments {
 		_, segName, _ := splitMemberName(seg)

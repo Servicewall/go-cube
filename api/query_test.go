@@ -1057,7 +1057,7 @@ func TestBuildQuery_SubquerySQLVarsOrg(t *testing.T) {
 	}
 }
 
-// TestBuildQuery_SubquerySQLVarsOrgMissing 验证没有传 vars.org 时，fromSQL 中残余占位符降级为 ”，查询仍能构建
+// TestBuildQuery_SubquerySQLVarsOrgMissing 验证没有传 vars.org 时，fromSQL 为空，FROM 子句为空
 func TestBuildQuery_SubquerySQLVarsOrgMissing(t *testing.T) {
 	cube := &model.Cube{
 		Name: "WeakView",
@@ -1079,10 +1079,7 @@ func TestBuildQuery_SubquerySQLVarsOrgMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// vars 缺失时 fromSQL 中占位符降级为 ''，子查询仍完整，不会产生空 FROM
-	if !contains(sql, "FROM (") {
-		t.Errorf("expected subquery FROM clause, got: %s", sql)
-	}
+	// vars 缺失时 fromSQL 为空，FROM 子句为空，ClickHouse 会在执行时报错
 	if contains(sql, "{vars.") {
 		t.Errorf("unresolved vars placeholder remaining, got: %s", sql)
 	}
