@@ -32,7 +32,8 @@ cube:
            sumMap(weak_count) as weak_count,
            sumMap(metric_count) as metric_count,
            uniqMapMerge(req_sens_uniq) as req_sens_uniq_map,
-           uniqMapMerge(res_sens_uniq) as res_sens_uniq_map
+           uniqMapMerge(res_sens_uniq) as res_sens_uniq_map,
+           anyLast(dst) as dst, anyLast(src) as src
     FROM (
       select coalesce (org, '') as org, coalesce (ts, toDateTime(0)) as ts, coalesce (first_ts, toDateTime(0)) as first_ts, url, req_key,
       coalesce (a.host, b.host) as host, method, url_action, channel, coalesce (count, 0) as count, type, source,
@@ -40,7 +41,7 @@ cube:
       weak_count, metric_count, req_sens_uniq, res_sens_uniq
       from (
       SELECT org, ts, first_ts, url, req_key, host, method, url_action, channel, count, type, source,
-      hour_count, risk_count, weak_count, metric_count, req_sens_uniq, res_sens_uniq
+      hour_count, risk_count, weak_count, metric_count, req_sens_uniq, res_sens_uniq, JSONExtractString(req,'Headers','Sw-Dst',1) dst, JSONExtractString(req,'Headers','Sw-Src',1) src
       FROM default.access_sample_raw
       WHERE {filter.ts}
       ) AS a
@@ -176,10 +177,10 @@ cube:
       title: 功能
 
     configTag:
-      sql: conf_tag
+      sql: multiIf(notEmpty(dictGet(baishan_dict, 'tag', format('{} {}{}', method, last_host, url))), arrayConcat(conf_tag, array(dictGet(baishan_dict, 'tag', format('{} {}{}', method, last_host, url))), if(notEmpty(src) and dictGet(ip_app_dict,'app', substring(src, 1, position(src, ':') - 1))==dictGet(ip_app_dict,'app', substring(dst, 1, position(dst, ':') - 1)), ['系统内'], ['系统间'])), has(multiIf(url_action[6]!='', splitByChar(',', url_action[6]), if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')!='', [if(url_action[2]='api' OR url_action[2]='auto', url_action[1], '')], []), '已纳管'), arrayConcat(conf_tag, ['已纳管'], if(notEmpty(src) and dictGet(ip_app_dict,'app', substring(src, 1, position(src, ':') - 1))==dictGet(ip_app_dict,'app', substring(dst, 1, position(dst, ':') - 1)), ['系统内'], ['系统间'])), arrayConcat(conf_tag, ['未纳管'], if(notEmpty(src) and dictGet(ip_app_dict,'app', substring(src, 1, position(src, ':') - 1))==dictGet(ip_app_dict,'app', substring(dst, 1, position(dst, ':') - 1)), ['系统内'], ['系统间'])))
       type: array
       title: 标签
-
+      
     managementStatus:
       sql: mgt_status
       type: string
