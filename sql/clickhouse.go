@@ -38,20 +38,13 @@ func NewClient(cfg *config.ClickHouseConfig) (*Client, error) {
 
 // Query 执行 SQL。host 为空时使用默认地址；非空时替换目标节点，
 // host 可为纯 IP（默认追加 :8123）或 IP:port 格式。
-func (c *Client) Query(ctx context.Context, host, query string, args ...interface{}) ([]map[string]interface{}, error) {
+func (c *Client) Query(ctx context.Context, host, query string) ([]map[string]interface{}, error) {
 	targetURL := c.url
 	if host != "" {
 		if !strings.Contains(host, ":") {
 			host = host + ":8123"
 		}
 		targetURL = "http://" + host + c.url[strings.Index(c.url, "?"):]
-	}
-	for _, arg := range args {
-		val := fmt.Sprintf("%v", arg)
-		if s, ok := arg.(string); ok {
-			val = "'" + strings.ReplaceAll(s, "'", "''") + "'"
-		}
-		query = strings.Replace(query, "?", val, 1)
 	}
 	req, _ := http.NewRequestWithContext(ctx, "POST", targetURL, strings.NewReader(query))
 	if c.user != "" {

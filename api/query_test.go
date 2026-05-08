@@ -42,12 +42,9 @@ func TestBuildQuery_DimensionsOnly(t *testing.T) {
 		Limit:      10,
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no params, got %v", params)
 	}
 
 	for _, substr := range []string{`id AS "AccessView.id"`, `ts AS "AccessView.ts"`, "default.access", "LIMIT 10"} {
@@ -64,7 +61,7 @@ func TestBuildQuery_MeasuresWithGroupBy(t *testing.T) {
 		Limit:      5,
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -83,7 +80,7 @@ func TestBuildQuery_MeasuresOnlyNoGroupBy(t *testing.T) {
 		Measures: []string{"AccessView.count"},
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -104,15 +101,12 @@ func TestBuildQuery_FilterEquals(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "ip IN (?)") {
-		t.Errorf("expected IN clause, got: %s", sql)
-	}
-	if len(params) != 1 || params[0] != "1.2.3.4" {
-		t.Errorf("unexpected params: %v", params)
+	if !contains(sql, "ip IN ('1.2.3.4')") {
+		t.Errorf("expected IN clause with literal, got: %s", sql)
 	}
 }
 
@@ -124,15 +118,12 @@ func TestBuildQuery_FilterContains(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "LIKE") {
-		t.Errorf("expected LIKE clause, got: %s", sql)
-	}
-	if len(params) != 1 || params[0] != "%192%" {
-		t.Errorf("expected wildcard param, got: %v", params)
+	if !contains(sql, "LIKE '%192%'") {
+		t.Errorf("expected LIKE with literal, got: %s", sql)
 	}
 }
 
@@ -158,18 +149,15 @@ func TestBuildQuery_FilterContainsMultiValue(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testApiCube())
+	sql, err := buildQuery(req, testApiCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !contains(sql, "OR") {
 		t.Errorf("expected OR clause for multi-value contains, got: %s", sql)
 	}
-	if len(params) != 2 {
-		t.Fatalf("expected 2 params, got %d: %v", len(params), params)
-	}
-	if params[0] != "%已发现->%" || params[1] != "%已梳理->%" {
-		t.Errorf("expected wildcard params, got: %v", params)
+	if !contains(sql, "'%已发现->%'") || !contains(sql, "'%已梳理->%'") {
+		t.Errorf("expected wildcard literals in SQL, got: %s", sql)
 	}
 }
 
@@ -181,7 +169,7 @@ func TestBuildQuery_FilterNotContainsMultiValue(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testApiCube())
+	sql, err := buildQuery(req, testApiCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -192,11 +180,8 @@ func TestBuildQuery_FilterNotContainsMultiValue(t *testing.T) {
 	if !contains(sql, "AND") {
 		t.Errorf("expected AND clause for multi-value notContains, got: %s", sql)
 	}
-	if len(params) != 2 {
-		t.Fatalf("expected 2 params, got %d: %v", len(params), params)
-	}
-	if params[0] != "%已发现->%" || params[1] != "%已梳理->%" {
-		t.Errorf("expected wildcard params, got: %v", params)
+	if !contains(sql, "'%已发现->%'") || !contains(sql, "'%已梳理->%'") {
+		t.Errorf("expected wildcard literals in SQL, got: %s", sql)
 	}
 }
 
@@ -208,15 +193,12 @@ func TestBuildQuery_FilterSet(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !contains(sql, "notEmpty(ip)") {
 		t.Errorf("expected notEmpty(), got: %s", sql)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no params for 'set' operator, got: %v", params)
 	}
 }
 
@@ -226,7 +208,7 @@ func TestBuildQuery_OrderBy(t *testing.T) {
 		Order:      OrderList{{Member: "AccessView.ts", Direction: "desc"}},
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -246,15 +228,12 @@ func TestBuildQuery_TimeDimensionRange(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !contains(sql, "ts >= '2024-01-01'") || !contains(sql, "ts <= '2024-01-31'") {
 		t.Errorf("expected date range WHERE clause, got: %s", sql)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected 0 date params (inlined), got: %v", params)
 	}
 }
 
@@ -269,15 +248,12 @@ func TestBuildQuery_TimeDimensionRelative(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !contains(sql, "now()") {
 		t.Errorf("expected ClickHouse now() expr, got: %s", sql)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no bind params for relative time, got: %v", params)
 	}
 }
 
@@ -292,15 +268,12 @@ func TestBuildQuery_TimeDimensionThisMonth(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !contains(sql, "toStartOfMonth(now())") {
 		t.Errorf("expected toStartOfMonth(now()) in SQL, got: %s", sql)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no bind params, got: %v", params)
 	}
 }
 
@@ -315,7 +288,7 @@ func TestBuildQuery_TimeDimensionLastMonth(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -324,9 +297,6 @@ func TestBuildQuery_TimeDimensionLastMonth(t *testing.T) {
 	}
 	if !contains(sql, ">=") || !contains(sql, "<=") {
 		t.Errorf("expected >= and <= for range, got: %s", sql)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no bind params, got: %v", params)
 	}
 }
 
@@ -337,12 +307,9 @@ func TestBuildQuery_Segments(t *testing.T) {
 		Vars:       map[string][]string{"org": {"tenant_abc"}},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no params, got %v", params)
 	}
 	if !contains(sql, "WHERE") {
 		t.Errorf("expected WHERE clause, got: %s", sql)
@@ -362,7 +329,7 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 		},
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -388,7 +355,7 @@ func TestBuildQuery_BlackSegmentNoRegex(t *testing.T) {
 		},
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -415,7 +382,7 @@ func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
 		},
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -435,7 +402,7 @@ func TestBuildQuery_SegmentsOrgEmptyVar(t *testing.T) {
 		Vars:       map[string][]string{"org": {""}},
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -455,7 +422,7 @@ func TestBuildQuery_SegmentVarsSQLInjection(t *testing.T) {
 		Vars:       map[string][]string{"org": {"evil' OR '1'='1"}},
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -476,7 +443,7 @@ func TestBuildQuery_UnknownFilterSkipped(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -485,9 +452,6 @@ func TestBuildQuery_UnknownFilterSkipped(t *testing.T) {
 	}
 	if contains(sql, "WHERE") {
 		t.Errorf("no WHERE clause expected when all filters skipped, got: %s", sql)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no params, got %v", params)
 	}
 }
 
@@ -505,15 +469,12 @@ func TestBuildQuery_FilterTagUsesSchemaSQL(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "has(arrayConcat(req_risk, res_risk), ?)") {
-		t.Errorf("expected has() for array equals, got: %s", sql)
-	}
-	if len(params) != 1 || params[0] != "SQL注入" {
-		t.Errorf("unexpected params: %v", params)
+	if !contains(sql, "has(arrayConcat(req_risk, res_risk), 'SQL注入')") {
+		t.Errorf("expected has() with literal, got: %s", sql)
 	}
 }
 
@@ -531,15 +492,12 @@ func TestBuildQuery_FilterTagMultiValue(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "hasAll(arrayConcat(req_risk, res_risk), [?,?])") {
+	if !contains(sql, "hasAll(arrayConcat(req_risk, res_risk), ['SQL注入','XSS'])") {
 		t.Errorf("expected hasAll() for array equals multi-value, got: %s", sql)
-	}
-	if len(params) != 2 {
-		t.Errorf("expected 2 params, got: %v", params)
 	}
 }
 
@@ -557,15 +515,12 @@ func TestBuildQuery_FilterTagContains(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "hasAny(arrayConcat(req_risk, res_risk), [?,?])") {
+	if !contains(sql, "hasAny(arrayConcat(req_risk, res_risk), ['SQL注入','XSS'])") {
 		t.Errorf("expected hasAny() for array contains, got: %s", sql)
-	}
-	if len(params) != 2 {
-		t.Errorf("expected 2 params, got: %v", params)
 	}
 }
 
@@ -583,15 +538,12 @@ func TestBuildQuery_FilterTagNotEquals(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "NOT has(arrayConcat(req_risk, res_risk), ?)") {
-		t.Errorf("expected NOT has() for array notEquals, got: %s", sql)
-	}
-	if len(params) != 1 {
-		t.Errorf("expected 1 param, got: %v", params)
+	if !contains(sql, "NOT has(arrayConcat(req_risk, res_risk), 'SQL注入')") {
+		t.Errorf("expected NOT has() with literal, got: %s", sql)
 	}
 }
 
@@ -607,14 +559,14 @@ func TestBuildQuery_OrFilter(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "ip LIKE ?") {
+	if !contains(sql, "ip LIKE '%192%'") {
 		t.Errorf("expected ip LIKE clause in OR, got: %s", sql)
 	}
-	if !contains(sql, "id LIKE ?") {
+	if !contains(sql, "id LIKE '%192%'") {
 		t.Errorf("expected id LIKE clause in OR, got: %s", sql)
 	}
 	if !contains(sql, " OR ") {
@@ -624,13 +576,8 @@ func TestBuildQuery_OrFilter(t *testing.T) {
 	if !contains(sql, "(") || !contains(sql, ")") {
 		t.Errorf("expected parentheses around OR clause, got: %s", sql)
 	}
-	if len(params) != 2 {
-		t.Errorf("expected 2 params, got: %v", params)
-	}
-	for _, p := range params {
-		if p != "%192%" {
-			t.Errorf("expected wildcard param %%192%%, got: %v", p)
-		}
+	if !contains(sql, "LIKE '%192%'") {
+		t.Errorf("expected wildcard literal in OR clause, got: %s", sql)
 	}
 }
 
@@ -646,7 +593,7 @@ func TestBuildQuery_OrFilterSkipsUnknown(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -657,11 +604,8 @@ func TestBuildQuery_OrFilterSkipsUnknown(t *testing.T) {
 	if contains(sql, " OR ") {
 		t.Errorf("should not have OR when only one valid condition, got: %s", sql)
 	}
-	if !contains(sql, "ip LIKE ?") {
+	if !contains(sql, "ip LIKE '%test%'") {
 		t.Errorf("expected ip LIKE clause, got: %s", sql)
-	}
-	if len(params) != 1 {
-		t.Errorf("expected 1 param, got: %v", params)
 	}
 }
 
@@ -677,15 +621,12 @@ func TestBuildQuery_OrFilterAllUnknown(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if contains(sql, "WHERE") {
 		t.Errorf("no WHERE clause expected when all or-filters skipped, got: %s", sql)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no params, got %v", params)
 	}
 }
 
@@ -705,7 +646,7 @@ func TestBuildQuery_OrFilterMutualExclusion(t *testing.T) {
 		},
 	}
 
-	_, _, err := BuildQuery(req, testCube())
+	_, err := buildQuery(req, testCube())
 	if err == nil {
 		t.Error("expected error when or and member/operator/values are both set")
 	}
@@ -808,7 +749,7 @@ func TestBuildQuery_CustomDataSubKey(t *testing.T) {
 		Dimensions: []string{"AccessView.customData.UserToken"},
 	}
 
-	sql, params, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -817,9 +758,6 @@ func TestBuildQuery_CustomDataSubKey(t *testing.T) {
 	}
 	if !contains(sql, `"AccessView.customData.UserToken"`) {
 		t.Errorf("expected full alias in SQL, got: %s", sql)
-	}
-	if len(params) != 0 {
-		t.Errorf("expected no params, got %v", params)
 	}
 }
 
@@ -836,15 +774,12 @@ func TestBuildQuery_CustomDataSubKeyFilter(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, `data[indexOf(key, 'UserToken')] IN (?)`) {
-		t.Errorf("expected filter with subKey substitution, got: %s", sql)
-	}
-	if len(params) != 1 || params[0] != "abc" {
-		t.Errorf("unexpected params: %v", params)
+	if !contains(sql, `data[indexOf(key, 'UserToken')] IN ('abc')`) {
+		t.Errorf("expected filter with subKey substitution and literal, got: %s", sql)
 	}
 }
 
@@ -859,7 +794,7 @@ func TestBuildQuery_CustomDataSubKeyOrderBy(t *testing.T) {
 		Order:      OrderList{{Member: "AccessView.customData.UserToken", Direction: "desc"}},
 	}
 
-	sql, _, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -879,7 +814,7 @@ func TestBuildQuery_CustomDataSubKeyGroupBy(t *testing.T) {
 		Measures:   []string{"AccessView.count"},
 	}
 
-	sql, _, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -992,7 +927,7 @@ func TestBuildQuery_MeasureFilterGoesToHaving(t *testing.T) {
 		},
 	}
 
-	sql, params, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1008,17 +943,14 @@ func TestBuildQuery_MeasureFilterGoesToHaving(t *testing.T) {
 	}
 
 	// dimension filter in WHERE, before HAVING
-	if !contains(sql[:havingIdx], "ip IN (?)") {
+	if !contains(sql[:havingIdx], "ip IN ('1.2.3.4')") {
 		t.Errorf("expected dimension filter in WHERE section, got: %s", sql)
 	}
 	// measure filter in HAVING, after GROUP BY
-	if !contains(sql[havingIdx:], "count() >= ?") {
+	if !contains(sql[havingIdx:], "count() >= '5'") {
 		t.Errorf("expected measure filter in HAVING section, got: %s", sql)
 	}
 
-	if len(params) != 2 {
-		t.Errorf("expected 2 params, got %v", params)
-	}
 }
 
 // contains reports whether s contains substr.
@@ -1044,7 +976,7 @@ func TestBuildQuery_SubquerySQLVarsOrg(t *testing.T) {
 		Vars:       map[string][]string{"org": {"tenant_abc"}},
 	}
 
-	sql, _, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1075,7 +1007,7 @@ func TestBuildQuery_SubquerySQLVarsOrgMissing(t *testing.T) {
 		// 不传 vars
 	}
 
-	sql, _, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1095,7 +1027,7 @@ func TestBuildQuery_TimeDimension_PhysicalTableToWhere(t *testing.T) {
 		Vars:     map[string][]string{"org": {"tenant_abc"}},
 	}
 
-	sql, _, err := BuildQuery(req, testCube())
+	sql, err := buildQuery(req, testCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1130,7 +1062,7 @@ func TestBuildQuery_TimeDimension_SubqueryStaysInWhere(t *testing.T) {
 		},
 	}
 
-	sql, _, err := BuildQuery(req, cube)
+	sql, err := buildQuery(req, cube)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1315,7 +1247,7 @@ func TestRiskView_FilterShowTime_WHERE(t *testing.T) {
 		Limit:    20,
 		Vars:     map[string][]string{"org": {"testorg"}},
 	}
-	sql, _, err := BuildQuery(req, riskCube())
+	sql, err := buildQuery(req, riskCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1345,7 +1277,7 @@ func TestRiskView_ListFilterShowTime_HAVING(t *testing.T) {
 		Limit:    20,
 		Vars:     map[string][]string{"org": {"testorg"}},
 	}
-	sql, _, err := BuildQuery(req, riskCube())
+	sql, err := buildQuery(req, riskCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1369,7 +1301,7 @@ func TestRiskView_StatusFilter_Segment(t *testing.T) {
 		Segments: []string{"RiskView.statusFilter"},
 		Limit:    10,
 	}
-	sql, _, err := BuildQuery(req, riskCube())
+	sql, err := buildQuery(req, riskCube())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

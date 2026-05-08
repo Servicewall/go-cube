@@ -207,19 +207,24 @@ func buildTimeDimensionClause(colSQL string, dr DateRange) string {
 	return ""
 }
 
-func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, error) {
+// formatArg 将绑定参数格式化为 SQL 字面值：字符串加单引号并转义，其余 fmt.Sprintf。
+func formatArg(v interface{}) string {
+	s, ok := v.(string)
+	if !ok {
+		return fmt.Sprintf("%v", v)
+	}
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
 	mask := req.Mask
 
 	var sql strings.Builder
-	var whereParams []interface{}
-	var havingParams []interface{}
+	var where, having []string
 
 	// 收集有 granularity 的时间维度：dimension -> (alias, expr)
-	type granularityCol struct {
-		alias string
-		expr  string
-	}
-	granByDim := map[string]granularityCol{}
+	type granCol struct{ alias, expr string }
+	granByDim := map[string]granCol{}
 	for _, td := range req.TimeDimensions {
 		if td.Granularity == "" {
 			continue
@@ -233,7 +238,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		if !ok {
 			continue
 		}
-		granByDim[td.Dimension] = granularityCol{
+		granByDim[td.Dimension] = granCol{
 			alias: td.Dimension + "." + td.Granularity,
 			expr:  fmt.Sprintf("%s(%s)", fn, field.SQL),
 		}
@@ -265,10 +270,6 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 
 	sql.WriteString(" FROM ")
 
-	// WHERE / HAVING
-	var where []string
-	var having []string
-
 	// isMeasure 判断某个 member 是否为 measure 字段（需走 HAVING）
 	isMeasure := func(member string) bool {
 		_, fieldName, _ := splitMemberName(member)
@@ -293,10 +294,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		if _, exists := filterVars[fn]; exists {
 			continue
 		}
-		c, ps := buildFilterClause(f, cube)
-		for _, p := range ps {
-			c = strings.Replace(c, "?", "'"+strings.ReplaceAll(fmt.Sprintf("%v", p), "'", "''")+"'", 1)
-		}
+		c := buildFilterClause(f, cube)
 		if c != "" {
 			filterVars[fn] = c
 		}
@@ -356,16 +354,14 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		if len(filter.Or) > 0 {
 			// or 与普通条件字段互斥，不允许同时存在
 			if filter.Member != "" || filter.Operator != "" || filter.Values != nil {
-				return "", nil, fmt.Errorf("filter 不能同时包含 or 和 member/operator/values 字段")
+				return "", fmt.Errorf("filter 不能同时包含 or 和 member/operator/values 字段")
 			}
 			var orClauses []string
-			var orParams []interface{}
 			hasMeasure := false
 			for _, sub := range filter.Or {
-				clause, p := buildFilterClause(sub, cube)
+				clause := buildFilterClause(sub, cube)
 				if clause != "" {
 					orClauses = append(orClauses, clause)
-					orParams = append(orParams, p...)
 				}
 				if isMeasure(sub.Member) {
 					hasMeasure = true
@@ -375,23 +371,19 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 				combined := "(" + strings.Join(orClauses, " OR ") + ")"
 				if hasMeasure {
 					having = append(having, combined)
-					havingParams = append(havingParams, orParams...)
 				} else {
 					where = append(where, combined)
-					whereParams = append(whereParams, orParams...)
 				}
 			}
 			continue
 		}
 
-		clause, p := buildFilterClause(filter, cube)
+		clause := buildFilterClause(filter, cube)
 		if clause != "" {
 			if isMeasure(filter.Member) {
 				having = append(having, clause)
-				havingParams = append(havingParams, p...)
 			} else {
 				where = append(where, clause)
-				whereParams = append(whereParams, p...)
 			}
 		}
 	}
@@ -478,7 +470,7 @@ func BuildQuery(req *QueryRequest, cube *model.Cube) (string, []interface{}, err
 		fmt.Fprintf(&sql, " OFFSET %d", req.Offset)
 	}
 
-	return sql.String(), append(whereParams, havingParams...), nil
+	return sql.String(), nil
 }
 
 func validateQuery(req *QueryRequest) error {
@@ -494,33 +486,28 @@ func validateQuery(req *QueryRequest) error {
 	return nil
 }
 
-// buildInClause 构建普通字段的 IN/NOT IN 子句
-func buildInClause(fieldSQL string, operator string, values []interface{}) (string, []interface{}) {
-	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(values)), ",")
-	if operator == "notEquals" {
-		return fmt.Sprintf("%s NOT IN (%s)", fieldSQL, placeholders), values
-	}
-	return fmt.Sprintf("%s IN (%s)", fieldSQL, placeholders), values
-}
-
 // buildArrayClause 针对数组类型字段生成 has/hasAll/hasAny 条件
-// 单值：has(arr, ?)
+// 单值：has(arr, val)
 // 多值：equals -> hasAll，contains -> hasAny
-func buildArrayClause(fieldSQL string, operator string, values []interface{}) (string, []interface{}) {
+func buildArrayClause(fieldSQL string, operator string, values []interface{}) string {
 	negate := operator == "notEquals" || operator == "notContains"
 	neg := ""
 	if negate {
 		neg = "NOT "
 	}
 	if len(values) == 1 {
-		return fmt.Sprintf("%shas(%s, ?)", neg, fieldSQL), values
+		return fmt.Sprintf("%shas(%s, %s)", neg, fieldSQL, formatArg(values[0]))
 	}
-	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(values)), ",")
+	lit := make([]string, len(values))
+	for i, v := range values {
+		lit[i] = formatArg(v)
+	}
+	placeholders := strings.Join(lit, ",")
 	fn := "hasAny"
 	if operator == "equals" || operator == "notEquals" {
 		fn = "hasAll"
 	}
-	return fmt.Sprintf("%s%s(%s, [%s])", neg, fn, fieldSQL, placeholders), values
+	return fmt.Sprintf("%s%s(%s, [%s])", neg, fn, fieldSQL, placeholders)
 }
 
 // operatorMap CubeJS operator -> SQL operator（用于普通字段非 equals 情况）
@@ -535,9 +522,9 @@ var operatorMap = map[string]string{
 	"lte":         "<=",
 }
 
-// processFilterValue 根据操作符和值列表生成 SQL 条件片段和绑定参数。
+// processFilterValue 根据操作符和值列表生成 SQL 条件片段（值直接内联）。
 // contains/notContains 支持多值，多值时用 OR/AND 拼接并加括号。
-func processFilterValue(fieldSQL string, operator string, valuesArr []interface{}) (string, []interface{}) {
+func processFilterValue(fieldSQL string, operator string, valuesArr []interface{}) string {
 	op, ok := operatorMap[operator]
 	if !ok {
 		op = operator
@@ -547,30 +534,23 @@ func processFilterValue(fieldSQL string, operator string, valuesArr []interface{
 		sep = " AND "
 	}
 	clauses := make([]string, 0, len(valuesArr))
-	params := make([]interface{}, 0, len(valuesArr))
 	for _, v := range valuesArr {
-		clauses = append(clauses, fmt.Sprintf("%s %s ?", fieldSQL, op))
-		s, ok := v.(string)
-		if !ok {
-			params = append(params, v)
-			continue
-		}
+		s := fmt.Sprintf("%v", v)
 		switch operator {
 		case "contains", "notContains":
-			params = append(params, "%"+s+"%")
+			s = "%" + s + "%"
 		case "startsWith":
-			params = append(params, s+"%")
+			s = s + "%"
 		case "endsWith":
-			params = append(params, "%"+s)
-		default:
-			params = append(params, v)
+			s = "%" + s
 		}
+		clauses = append(clauses, fmt.Sprintf("%s %s %s", fieldSQL, op, formatArg(s)))
 	}
 	combined := strings.Join(clauses, sep)
 	if len(clauses) > 1 {
 		combined = "(" + combined + ")"
 	}
-	return combined, params
+	return combined
 }
 
 // parseRelativeTimeRange 解析 "from X to Y" 格式为 ClickHouse 时间表达式对
@@ -641,23 +621,23 @@ func convertUnit(unit string) string {
 	return strings.ToUpper(unit)
 }
 
-// buildFilterClause 将单个非 or 的 Filter 转换为 SQL 条件片段和绑定参数。
+// buildFilterClause 将单个非 or 的 Filter 转换为 SQL 条件片段（值直接内联）。
 // 若字段不存在或条件无法生成，返回空字符串。
-func buildFilterClause(filter Filter, cube *model.Cube) (string, []interface{}) {
+func buildFilterClause(filter Filter, cube *model.Cube) string {
 	_, fieldName, subKey := splitMemberName(filter.Member)
 	field, ok := cube.GetField(fieldName, subKey)
 	if !ok || field.SQL == "" {
 		if !ok {
 			log.Printf("WARN: filter references unknown member %q not found in cube %q, skipped", filter.Member, cube.Name)
 		}
-		return "", nil
+		return ""
 	}
 
 	switch filter.Operator {
 	case "set":
-		return fmt.Sprintf("notEmpty(%s)", field.SQL), nil
+		return fmt.Sprintf("notEmpty(%s)", field.SQL)
 	case "notSet":
-		return fmt.Sprintf("empty(%s)", field.SQL), nil
+		return fmt.Sprintf("empty(%s)", field.SQL)
 	}
 
 	valuesArr, _ := filter.Values.([]interface{})
@@ -665,14 +645,22 @@ func buildFilterClause(filter Filter, cube *model.Cube) (string, []interface{}) 
 		valuesArr = []interface{}{filter.Values}
 	}
 	if len(valuesArr) == 0 {
-		return "", nil
+		return ""
 	}
 
 	if field.Type == "array" {
 		return buildArrayClause(field.SQL, filter.Operator, valuesArr)
 	}
 	if filter.Operator == "equals" || filter.Operator == "notEquals" {
-		return buildInClause(field.SQL, filter.Operator, valuesArr)
+		lit := make([]string, len(valuesArr))
+		for i, v := range valuesArr {
+			lit[i] = formatArg(v)
+		}
+		neg := ""
+		if filter.Operator == "notEquals" {
+			neg = "NOT "
+		}
+		return fmt.Sprintf("%s %sIN (%s)", field.SQL, neg, strings.Join(lit, ","))
 	}
 	return processFilterValue(field.SQL, filter.Operator, valuesArr)
 }

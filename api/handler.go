@@ -48,15 +48,15 @@ func (h *Handler) query(ctx context.Context, host string, req *QueryRequest) (*Q
 		}
 	}
 
-	query, params, err := BuildQuery(req, m)
+	query, err := buildQuery(req, m)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("SQL: %s %v", query, params)
+	log.Printf("SQL: %s", query)
 
-	data, err := h.chClient.Query(ctx, host, query, params...)
+	data, err := h.chClient.Query(ctx, host, query)
 	if err != nil {
-		log.Printf("SQL error: %v | query: %s | params: %v", err, query, params)
+		log.Printf("SQL error: %v | query: %s", err, query)
 		return nil, err
 	}
 
