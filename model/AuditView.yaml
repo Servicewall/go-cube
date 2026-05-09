@@ -61,7 +61,7 @@ cube:
       title: 设备种类
 
     nameGroup:
-      sql: dictGet('default.name_group_dict', 'groups', content)
+      sql: dictGet('default.name_group_dict', 'groups', toIPv6OrDefault(content))
       type: string
       title: 名单分组
 
