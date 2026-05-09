@@ -1149,7 +1149,8 @@ cube:
       title: 隐私值重复度
 
     resSensCountMapValExcluded:
-      sql: 0
+      sql: "(has((select groupArrayArray(arrayMap(x-> key||x, splitByString(':::', assumeNotNull(exclude_val)))) from postgres.privacy_rules where notEmpty(exclude_val) ), splitByChar(';', arrayJoin(arrayZip((sumMap(arrayMap((x,y) -> x||';'||y,res_sens_k, res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1, sensMap.2)).1)[1] || splitByChar(';', arrayJoin(arrayZip((sumMap(arrayMap((x,y) -> x||';'||y,res_sens_k, res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1, sensMap.2)).1)[2])
+            or has((select groupArrayArray(arrayMap(x-> key||':'||JSONExtractString(x, 'host')||JSONExtractString(x, 'url'), JSONExtractArrayRaw(assumeNotNull(exclude_urls)))) from postgres.privacy_rules where notEmpty(exclude_urls) ), splitByChar(';', arrayJoin(arrayZip((sumMap(arrayMap((x,y) -> x||';'||y,res_sens_k, res_sens_v),arrayMap(x->1,res_sens_v)) as sensMap).1, sensMap.2)).1)[1] || ':' || host || url))"
       type: number
       title: 敏感值是否被忽略
 
