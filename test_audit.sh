@@ -74,6 +74,28 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22Aud
 check "AuditView: count by channel+ipGeoCountry+ipGeoProvince+deviceType limit 10" "$result"
 
 echo ""
+echo "=== 9. AuditView: IP维度明细 自定义时间范围 (explicit dateRange [start, end], type=IP) ==="
+# measures: [sidUniq, ipUniq, uaUniq, uidUniq, apiUniq, appUniq, count, ipGeo, riskScoreTuple, reqSensScoreTuple, resSensScoreTuple]
+# timeDimensions: [{AuditView.dt, dateRange: ["2026-05-06 00:00:00","2026-05-09 23:59:59"]}]
+# order: [[AuditView.count, desc]]
+# filters: [{member: AuditView.type, operator: equals, values: [IP]}]
+# dimensions: [type, content, nameGroup, department]
+# segments: [AuditView.org, AuditView.top]
+# Same shape as test 2 but with explicit dateRange array instead of "today",
+# exercising the Date-column path that previously triggered TYPE_MISMATCH.
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuditView.sidUniq%22%2C%22AuditView.ipUniq%22%2C%22AuditView.uaUniq%22%2C%22AuditView.uidUniq%22%2C%22AuditView.apiUniq%22%2C%22AuditView.appUniq%22%2C%22AuditView.count%22%2C%22AuditView.ipGeo%22%2C%22AuditView.riskScoreTuple%22%2C%22AuditView.reqSensScoreTuple%22%2C%22AuditView.resSensScoreTuple%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AuditView.dt%22%2C%22dateRange%22%3A%5B%222026-05-06%2000%3A00%3A00%22%2C%222026-05-09%2023%3A59%3A59%22%5D%7D%5D%2C%22order%22%3A%5B%5B%22AuditView.count%22%2C%22desc%22%5D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22AuditView.type%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22IP%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22AuditView.type%22%2C%22AuditView.content%22%2C%22AuditView.nameGroup%22%2C%22AuditView.department%22%5D%2C%22limit%22%3A100%2C%22segments%22%3A%5B%22AuditView.org%22%2C%22AuditView.top%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "IP dimension detail with explicit dateRange (type=IP, limit 100)" "$result"
+
+echo ""
+echo "=== 10. AuditView: 地图分析汇总指标 自定义时间范围(explicit dateRange [start, end]) ==="
+# measures: [countryIpSumMap, provinceIpSumMap, departmentUserSumMap, deviceTypeSumMap]
+# timeDimensions: [{AuditView.dt, dateRange: ["2026-05-06 00:00:00","2026-05-09 23:59:59"]}]
+# segments: [AuditView.org]
+# Same shape as test 1 but with explicit dateRange array instead of "today".
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuditView.countryIpSumMap%22%2C%22AuditView.provinceIpSumMap%22%2C%22AuditView.departmentUserSumMap%22%2C%22AuditView.deviceTypeSumMap%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AuditView.dt%22%2C%22dateRange%22%3A%5B%222026-05-06%2000%3A00%3A00%22%2C%222026-05-09%2023%3A59%3A59%22%5D%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22AuditView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "map aggregation with explicit dateRange" "$result"
+
+echo ""
 echo "========================================"
 echo "Results: $pass passed, $fail failed"
 echo "========================================"

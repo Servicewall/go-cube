@@ -232,7 +232,7 @@ func TestBuildQuery_TimeDimensionRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "ts >= '2024-01-01'") || !contains(sql, "ts <= '2024-01-31'") {
+	if !contains(sql, "ts >= toDateTime('2024-01-01')") || !contains(sql, "ts <= toDateTime('2024-01-31')") {
 		t.Errorf("expected date range WHERE clause, got: %s", sql)
 	}
 }
@@ -1037,7 +1037,7 @@ func TestBuildQuery_TimeDimension_PhysicalTableToWhere(t *testing.T) {
 	if !contains(sql, "org = 'tenant_abc'") {
 		t.Errorf("expected segment in WHERE, got: %s", sql)
 	}
-	if !contains(sql, "ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+	if !contains(sql, "ts >= toDateTime('2026-04-01 00:00:00') AND ts <= toDateTime('2026-04-07 23:59:59')") {
 		t.Errorf("expected time dimension in WHERE, got: %s", sql)
 	}
 }
@@ -1066,13 +1066,13 @@ func TestBuildQuery_TimeDimension_SubqueryStaysInWhere(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if contains(sql, ") AS WeakView PREWHERE ts >= '2026-04-01 00:00:00'") {
+	if contains(sql, ") AS WeakView PREWHERE ts >= toDateTime('2026-04-01 00:00:00')") {
 		t.Errorf("expected no outer PREWHERE for subquery cube, got: %s", sql)
 	}
-	if !contains(sql, ") AS WeakView WHERE ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+	if !contains(sql, ") AS WeakView WHERE ts >= toDateTime('2026-04-01 00:00:00') AND ts <= toDateTime('2026-04-07 23:59:59')") {
 		t.Errorf("expected time dimension in outer WHERE, got: %s", sql)
 	}
-	if !contains(sql, "SELECT ts, host FROM weak WHERE ts >= '2026-04-01 00:00:00' AND ts <= '2026-04-07 23:59:59'") {
+	if !contains(sql, "SELECT ts, host FROM weak WHERE ts >= toDateTime('2026-04-01 00:00:00') AND ts <= toDateTime('2026-04-07 23:59:59')") {
 		t.Errorf("expected {filter.ts} replacement in subquery, got: %s", sql)
 	}
 }

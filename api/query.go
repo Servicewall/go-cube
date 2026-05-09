@@ -192,8 +192,10 @@ func buildTimeDimensionClause(colSQL string, dr DateRange) string {
 	switch v := dr.V.(type) {
 	case []string:
 		if len(v) == 2 {
-			start := "'" + strings.ReplaceAll(v[0], "'", "''") + "'"
-			end := "'" + strings.ReplaceAll(v[1], "'", "''") + "'"
+			// 值侧用 toDateTime() 包裹：保留列裸露以走分区/主键裁剪；
+			// 对 Date 列 CH 会把常量降到 Date 比较，避免 'YYYY-MM-DD HH:MM:SS' 直接对 Date 触发 TYPE_MISMATCH。
+			start := "toDateTime('" + strings.ReplaceAll(v[0], "'", "''") + "')"
+			end := "toDateTime('" + strings.ReplaceAll(v[1], "'", "''") + "')"
 			return fmt.Sprintf("%s >= %s AND %s <= %s", colSQL, start, colSQL, end)
 		}
 	case string:
