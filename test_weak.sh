@@ -123,6 +123,18 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22Wea
 check "WeakView: secondCategoryCount+riskCount by firstCategory limit 10" "$result"
 
 echo ""
+echo "========================================"
+echo "=== WeakView: dateRange 'last N days' ==="
+echo "========================================"
+
+echo ""
+echo "=== 14. WeakView: dateRange 'last 7 days' (host+method+urlRoute+defectId+weakScore) ==="
+# 验证相对时间范围 "last 7 days" 不会产生 SQL 语法错误
+#{"measures":[],"timeDimensions":[{"dimension":"WeakView.last","dateRange":"last 7 days"}],"filters":[{"member":"WeakView.host","operator":"equals","values":["www.anquanquan.info"]},{"member":"WeakView.method","operator":"equals","values":["GET"]},{"member":"WeakView.urlRoute","operator":"equals","values":["/shudan.html"]},{"member":"WeakView.tag","operator":"equals","values":["first","repeated"]},{"member":"WeakView.weakScore","operator":"gte","values":["0"]}],"dimensions":["WeakView.host","WeakView.method","WeakView.urlRoute","WeakView.defectId","WeakView.weakScore"],"segments":["WeakView.org","WeakView.black"],"timezone":"Asia/Shanghai"}
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22WeakView.last%22%2C%22dateRange%22%3A%22last%207%20days%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22WeakView.host%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22www.anquanquan.info%22%5D%7D%2C%7B%22member%22%3A%22WeakView.method%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22GET%22%5D%7D%2C%7B%22member%22%3A%22WeakView.urlRoute%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22%2Fshudan.html%22%5D%7D%2C%7B%22member%22%3A%22WeakView.tag%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22first%22%2C%22repeated%22%5D%7D%2C%7B%22member%22%3A%22WeakView.weakScore%22%2C%22operator%22%3A%22gte%22%2C%22values%22%3A%5B%220%22%5D%7D%5D%2C%22dimensions%22%3A%5B%22WeakView.host%22%2C%22WeakView.method%22%2C%22WeakView.urlRoute%22%2C%22WeakView.defectId%22%2C%22WeakView.weakScore%22%5D%2C%22segments%22%3A%5B%22WeakView.org%22%2C%22WeakView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "WeakView: dateRange 'last 7 days' host+method+urlRoute+defectId+weakScore" "$result"
+
+echo ""
 echo "--- $pass passed, $fail failed ---"
 
 echo ""

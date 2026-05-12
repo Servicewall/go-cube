@@ -68,6 +68,14 @@ result=$(curl -s "$BASE/load?query=%7B%22measures%22%3A%5B%22ApiDayView.count%22
 echo "Raw: $result"
 check "ApiDayView 服务器端口列表" "$result"
 
+echo ""
+echo "=== ApiDayView dateRange 'last 7 days' ==="
+# 验证 "last 7 days" 相对时间范围不会产生 SQL 语法错误
+#{"measures":["ApiDayView.hourSumMap","ApiDayView.riskSumMap","ApiDayView.reqSensTuple","ApiDayView.resSensTuple","ApiDayView.statusSumMap","ApiDayView.count"],"timeDimensions":[{"dimension":"ApiDayView.dt","dateRange":"last 7 days"}],"filters":[{"member":"ApiDayView.urlRoute","operator":"equals","values":["/shudan.html"]},{"member":"ApiDayView.method","operator":"equals","values":["GET"]},{"member":"ApiDayView.host","operator":"equals","values":["www.anquanquan.info"]}],"dimensions":[],"segments":["ApiDayView.org","ApiDayView.black"],"timezone":"Asia/Shanghai"}
+result=$(curl -s "$BASE/load?query=%7B%22measures%22%3A%5B%22ApiDayView.hourSumMap%22%2C%22ApiDayView.riskSumMap%22%2C%22ApiDayView.reqSensTuple%22%2C%22ApiDayView.resSensTuple%22%2C%22ApiDayView.statusSumMap%22%2C%22ApiDayView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22ApiDayView.dt%22%2C%22dateRange%22%3A%22last%207%20days%22%7D%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22ApiDayView.urlRoute%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22%2Fshudan.html%22%5D%7D%2C%7B%22member%22%3A%22ApiDayView.method%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22GET%22%5D%7D%2C%7B%22member%22%3A%22ApiDayView.host%22%2C%22operator%22%3A%22equals%22%2C%22values%22%3A%5B%22www.anquanquan.info%22%5D%7D%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22ApiDayView.org%22%2C%22ApiDayView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D&queryType=multi")
+echo "Raw: $result"
+check "ApiDayView dateRange 'last 7 days'" "$result"
+
 echo "========================================"
 echo "Results: $pass passed, $fail failed"
 echo "========================================"

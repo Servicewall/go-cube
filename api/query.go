@@ -578,6 +578,13 @@ func parseRelativeTimeRange(s string) (string, string, bool) {
 	case "yesterday":
 		return "toStartOfDay(addDays(now(), -1))", "toStartOfDay(now())", true
 	}
+	// "last N <unit>"，例如 "last 7 days"
+	if rest, ok := strings.CutPrefix(s, "last "); ok {
+		if parts := strings.Fields(rest); len(parts) == 2 {
+			return fmt.Sprintf("now() - INTERVAL %s %s", parts[0], convertUnit(parts[1])), "now()", true
+		}
+	}
+
 	s = strings.TrimPrefix(s, "from ")
 	if idx := strings.LastIndex(s, " to "); idx > 0 {
 		start, end := strings.TrimSpace(s[:idx]), strings.TrimSpace(s[idx+4:])

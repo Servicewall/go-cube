@@ -704,6 +704,7 @@ func TestParseRelativeTimeRange(t *testing.T) {
 		{"from 15 minutes ago to now", "now() - INTERVAL 15 MINUTE", "now()", true},
 		{"from 1 hour ago to now", "now() - INTERVAL 1 HOUR", "now()", true},
 		{"from 7 days ago to now", "now() - INTERVAL 7 DAY", "now()", true},
+		{"last 7 days", "now() - INTERVAL 7 DAY", "now()", true},
 		{"today", "toStartOfDay(now())", "toStartOfDay(addDays(now(), 1))", true},
 	}
 	for _, c := range cases {
