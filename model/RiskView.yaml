@@ -1,6 +1,6 @@
 cube:
   name: RiskView
-  sql_table: default.risk_agg_local
+  sql_table: default.risk_agg_local final
 
   segments:
     org:
