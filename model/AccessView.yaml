@@ -595,7 +595,7 @@ cube:
       title: 响应含敏感数据
 
     isApi:
-      sql: url_action[2] = 'api'
+      sql: url_action[2] NOT IN ('res', 'file', 'cgi')
       type: string
       title: 是否API
 
