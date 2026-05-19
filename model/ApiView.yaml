@@ -444,7 +444,7 @@ cube:
       title: 今日小时趋势
 
     daySum:
-      sql: sum((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']))
+      sql: arraySum(arrayFilter((v, k) -> k >= toUnixTimestamp(today()), sumMap(hour_count).2, sumMap(hour_count).1))
       type: number
       title: 今日访问量
 
