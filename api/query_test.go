@@ -202,18 +202,35 @@ func TestBuildQuery_FilterSet(t *testing.T) {
 	}
 }
 
-func TestBuildQuery_OrderBy(t *testing.T) {
+func testCubeWithSensValNum() *model.Cube {
+	cube := testCube()
+	cube.Dimensions["reqSensValNum"] = model.Dimension{SQL: "length(req_sens_v)", Type: "number"}
+	cube.Dimensions["respSensValNum"] = model.Dimension{SQL: "length(res_sens_v)", Type: "number"}
+	return cube
+}
+
+func TestBuildQuery_OrderBySensitiveValueCount(t *testing.T) {
 	req := &QueryRequest{
-		Dimensions: []string{"AccessView.ts"},
-		Order:      OrderList{{Member: "AccessView.ts", Direction: "desc"}},
+		Dimensions: []string{"AccessView.id", "AccessView.ts"},
+		Order: OrderList{
+			{Member: "AccessView.respSensValNum", Direction: "desc"},
+			{Member: "AccessView.ts", Direction: "desc"},
+		},
 	}
 
-	sql, err := buildQuery(req, testCube())
+	sql, err := buildQuery(req, testCubeWithSensValNum())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "ORDER BY") || !contains(sql, "DESC") {
-		t.Errorf("expected ORDER BY ts DESC, got: %s", sql)
+
+	if !contains(sql, "ORDER BY") {
+		t.Fatalf("expected ORDER BY clause, got: %s", sql)
+	}
+	if !contains(sql, "length(res_sens_v) DESC") {
+		t.Errorf("expected respSensValNum to resolve to SQL expression, got: %s", sql)
+	}
+	if contains(sql, "ORDER BY AccessView.respSensValNum") {
+		t.Errorf("expected no raw member fallback in ORDER BY, got: %s", sql)
 	}
 }
 
