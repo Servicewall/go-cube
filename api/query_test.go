@@ -133,7 +133,7 @@ func testApiCube() *model.Cube {
 		SQLTable: "default.api",
 		Dimensions: map[string]model.Dimension{
 			"id":          {SQL: "id", Type: "string"},
-			"sidebarType": {SQL: "arrayStringConcat(arrayFilter(x->x!='',sidebar_arr), ',')", Type: "string"},
+			"sidebarTypeArray": {SQL: "arrayFilter(x->x!='',sidebar_arr)", Type: "array"},
 		},
 		Measures: map[string]model.Measure{
 			"count": {SQL: "count()", Type: "number"},
@@ -145,7 +145,7 @@ func TestBuildQuery_FilterContainsMultiValue(t *testing.T) {
 	req := &QueryRequest{
 		Dimensions: []string{"ApiView.id"},
 		Filters: []Filter{
-			{Member: "ApiView.sidebarType", Operator: "contains", Values: []interface{}{"已发现->", "已梳理->"}},
+			{Member: "ApiView.sidebarTypeArray", Operator: "contains", Values: []interface{}{"已发现->活跃", "已梳理->已确认"}},
 		},
 	}
 
@@ -153,11 +153,11 @@ func TestBuildQuery_FilterContainsMultiValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "OR") {
-		t.Errorf("expected OR clause for multi-value contains, got: %s", sql)
+	if !contains(sql, "hasAny") {
+		t.Errorf("expected hasAny for multi-value array contains, got: %s", sql)
 	}
-	if !contains(sql, "'%已发现->%'") || !contains(sql, "'%已梳理->%'") {
-		t.Errorf("expected wildcard literals in SQL, got: %s", sql)
+	if !contains(sql, "'已发现->活跃'") || !contains(sql, "'已梳理->已确认'") {
+		t.Errorf("expected value literals in SQL, got: %s", sql)
 	}
 }
 
@@ -165,7 +165,7 @@ func TestBuildQuery_FilterNotContainsMultiValue(t *testing.T) {
 	req := &QueryRequest{
 		Dimensions: []string{"ApiView.id"},
 		Filters: []Filter{
-			{Member: "ApiView.sidebarType", Operator: "notContains", Values: []interface{}{"已发现->", "已梳理->"}},
+			{Member: "ApiView.sidebarTypeArray", Operator: "notContains", Values: []interface{}{"已发现->活跃", "已梳理->已确认"}},
 		},
 	}
 
@@ -173,15 +173,11 @@ func TestBuildQuery_FilterNotContainsMultiValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !contains(sql, "NOT LIKE") {
-		t.Errorf("expected NOT LIKE clause, got: %s", sql)
+	if !contains(sql, "NOT hasAny") {
+		t.Errorf("expected NOT hasAny clause, got: %s", sql)
 	}
-	// notContains 多值用 AND
-	if !contains(sql, "AND") {
-		t.Errorf("expected AND clause for multi-value notContains, got: %s", sql)
-	}
-	if !contains(sql, "'%已发现->%'") || !contains(sql, "'%已梳理->%'") {
-		t.Errorf("expected wildcard literals in SQL, got: %s", sql)
+	if !contains(sql, "'已发现->活跃'") || !contains(sql, "'已梳理->已确认'") {
+		t.Errorf("expected value literals in SQL, got: %s", sql)
 	}
 }
 
