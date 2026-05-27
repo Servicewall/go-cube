@@ -338,11 +338,6 @@ cube:
       type: number
       title: 风险评分
 
-    respSensTagSet:
-      sql: arrayStringConcat(mapKeys(res_sens_uniq_map), ', ')
-      type: string
-      title: 涉敏信息
-
     timeSum:
       sql: mapFromArrays(metric_count.1, metric_count.2)['time']
       type: number
@@ -388,9 +383,19 @@ cube:
       title: 路径
 
     weakTag:
-      sql: arrayStringConcat(weak_count.1, ', ')
-      type: string
+      sql: weak_count.1
+      type: array
       title: 弱点信息
+
+    riskTag:
+      sql: risk_count.1
+      type: array
+      title: 风险
+
+    # metricTag 内联了 timeAvg 和 lengthAvg 的完整 SQL（go-cube 不支持 dimension 引用）
+    metricTag:
+      sql: "arrayFilter(x -> (x != ''), [multiIf(round((mapFromArrays(metric_count.1, metric_count.2)['time'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0)/1000, 2) < 100, '毫秒级', round((mapFromArrays(metric_count.1, metric_count.2)['time'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0)/1000, 2) < 1000, '百毫秒级', round((mapFromArrays(metric_count.1, metric_count.2)['time'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0)/1000, 2) < 10000, '秒级', '异常'), multiIf(round((mapFromArrays(metric_count.1, metric_count.2)['length'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0), 2)/1024 > 100, '请求体超大', round((mapFromArrays(metric_count.1, metric_count.2)['length'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0), 2)/1024 > 10, '请求体大', '')])"
+      type: array
 
   measures:
     sum:
@@ -488,21 +493,11 @@ cube:
       type: array
       title: 各类资产计数
 
-    riskTag:
-      sql: arrayStringConcat(risk_count.1, ', ')
-      type: string
-      title: 风险
-
     # category 与原 webServerTypeTag 含义相同，统一使用 category
     category:
       sql: if(type='HTTP2/gRPC', 'gRPC', type)
       type: string
       title: 规范类型
-
-    # metricTag 内联了 timeAvg 和 lengthAvg 的完整 SQL（go-cube 不支持 dimension 引用）
-    metricTag:
-      sql: "arrayStringConcat(arrayFilter(x -> (x != ''), [multiIf(round((mapFromArrays(metric_count.1, metric_count.2)['time'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0)/1000, 2) < 100, '毫秒级', round((mapFromArrays(metric_count.1, metric_count.2)['time'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0)/1000, 2) < 1000, '百毫秒级', round((mapFromArrays(metric_count.1, metric_count.2)['time'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0)/1000, 2) < 10000, '秒级', '异常'), multiIf(round((mapFromArrays(metric_count.1, metric_count.2)['length'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0), 2)/1024 > 100, '请求体超大', round((mapFromArrays(metric_count.1, metric_count.2)['length'])/nullIf((mapFromArrays(metric_count.1, metric_count.2)['success']) + (mapFromArrays(metric_count.1, metric_count.2)['fail']), 0), 2)/1024 > 10, '请求体大', '')]), ',')"
-      type: string
 
     sidebarFirstLevelTypeCount:
       sql: arrayMap(x -> concat(x.1, ',', toString(x.2)), arrayZip((sumMap(arrayConcat(arrayDistinct(arrayMap(x->splitByString('->', assumeNotNull(x))[1], arrayFilter(x->x!='',arrayConcat(multiIf(mgt_status = '' AND if((select count() from postgres.configs where (type = 'api_filter' or type = 'api_filter_regex') and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, concat(last_host, url) in (select JSONExtractString(config, 'api') from postgres.configs where type = 'api_filter' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(concat(last_host, url), (select groupArray(JSONExtractString(config, 'api')) from postgres.configs where type = 'api_filter_regex' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))))), ['始终忽略'],mgt_status='下线',['已梳理->下线'],mgt_status='已确认',['已梳理->已确认'],arrayConcat([if(multiIf(mgt_status='下线', '下线', first_ts > (toStartOfDay(now()) - (3600 * 24) * 1), '新上线', '')='新上线','已发现->新上线', ''), if(length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1)) > 1 and current_req_key_ts > toStartOfDay(now()) - (3600 * 24 * 1), '已发现->参数变化', ''), if(multiIf(mgt_status='下线', '下线', max_ts > (toStartOfDay(now()) - ((3600 * 24) * 7)), '活跃', '失活')='活跃','已发现->活跃', '已发现->失活')])), [if(multiIf(importance!='', importance, '')!='', '资产价值'||'->'||multiIf(importance!='', importance, ''), ''), if(app_name!=last_host, '已梳理应用'||'->'||app_name, '')],arrayMap(x->if(position(x, '第三方组件-')>0 or position(x, '认证方式-')>0 or position(x, '鉴权-')>0, replaceOne(x, '-', '->'), '功能'||'->'||x),if(url_action[6]!='', splitByChar(',', url_action[6]), [])))))), ['已发现', '已梳理','资产价值','鉴权','第三方组件','功能','始终忽略']), arrayConcat(arrayMap(x->1, arrayDistinct(arrayMap(x->splitByString('->', assumeNotNull(x))[1], arrayFilter(x->x!='',arrayConcat(multiIf(mgt_status = '' AND if((select count() from postgres.configs where (type = 'api_filter' or type = 'api_filter_regex') and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) < 1, 0, concat(last_host, url) in (select JSONExtractString(config, 'api') from postgres.configs where type = 'api_filter' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))) or multiMatchAny(concat(last_host, url), (select groupArray(JSONExtractString(config, 'api')) from postgres.configs where type = 'api_filter_regex' and name = 'black' and coalesce(org_id, '') = '' and (JSONExtractString(config, 'view') = 'ApiView' or JSONExtractString(config, 'view') = 'All') and (empty(JSONExtractString(config, 'expireTime')) OR JSONExtractString(config, 'expireTime') > toString(toUnixTimestamp(now())))))), ['始终忽略'],mgt_status='下线',['已梳理->下线'],mgt_status='已确认',['已梳理->已确认'],arrayConcat([if(multiIf(mgt_status='下线', '下线', first_ts > (toStartOfDay(now()) - (3600 * 24) * 1), '新上线', '')='新上线','已发现->新上线', ''), if(length(arrayDistinct(arrayReverseSort(x -> x.2, req_key_first_ts_tuple_array).1)) > 1 and current_req_key_ts > toStartOfDay(now()) - (3600 * 24 * 1), '已发现->参数变化', ''), if(multiIf(mgt_status='下线', '下线', max_ts > (toStartOfDay(now()) - ((3600 * 24) * 7)), '活跃', '失活')='活跃','已发现->活跃', '已发现->失活')])), [if(multiIf(importance!='', importance, '')!='', '资产价值'||'->'||multiIf(importance!='', importance, ''), ''), if(app_name!=last_host, '已梳理应用'||'->'||app_name, '')],arrayMap(x->if(position(x, '第三方组件-')>0 or position(x, '认证方式-')>0 or position(x, '鉴权-')>0, replaceOne(x, '-', '->'), '功能'||'->'||x),if(url_action[6]!='', splitByChar(',', url_action[6]), []))))))), arrayMap(x->toNullable(0),range(0,7)))) as first_result).1, first_result.2))
