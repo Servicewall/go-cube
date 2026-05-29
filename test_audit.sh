@@ -96,6 +96,14 @@ result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22Aud
 check "map aggregation with explicit dateRange" "$result"
 
 echo ""
+echo "=== 11. AuditView: appSumMap (应用->访问次数, today, segment: org) ==="
+# measures: [appSumMap]
+# timeDimensions: [{AuditView.dt, dateRange: today}]
+# segments: [AuditView.org]
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AuditView.appSumMap%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AuditView.dt%22%2C%22dateRange%22%3A%22today%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22AuditView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "appSumMap (应用访问次数, today)" "$result"
+
+echo ""
 echo "========================================"
 echo "Results: $pass passed, $fail failed"
 echo "========================================"
