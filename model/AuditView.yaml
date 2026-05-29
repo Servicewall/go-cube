@@ -154,8 +154,8 @@ cube:
       type: string
       title: 设备种类数
 
-    # 地图: 应用->访问次数
+    # 地图: 应用->唯一主体数
     appSumMap:
-      sql: sumMap([channel], [toUInt64(count)])
+      sql: uniqMapIf(CAST(([channel], [content]), 'Map(String, String)'), channel <> '')
       type: string
-      title: 应用访问次数
+      title: 应用唯一主体数
