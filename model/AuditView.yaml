@@ -156,6 +156,6 @@ cube:
 
     # 地图: 应用->访问次数
     appSumMap:
-      sql: sumMap([channel], [count])
+      sql: sumMap([channel], [toUInt64(count)])
       type: string
       title: 应用访问次数
