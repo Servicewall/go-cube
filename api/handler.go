@@ -14,6 +14,9 @@ import (
 	"github.com/Servicewall/go-cube/sql"
 )
 
+// PrintSQL 控制是否打印生成的 SQL 语句，默认关闭。
+var PrintSQL bool
+
 type Handler struct {
 	modelLoader  *model.Loader
 	chClient     *sql.Client
@@ -52,7 +55,9 @@ func (h *Handler) query(ctx context.Context, host string, req *QueryRequest) (*Q
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("SQL: %s", query)
+	if PrintSQL {
+		log.Printf("SQL: %s", query)
+	}
 
 	data, err := h.chClient.Query(ctx, host, query)
 	if err != nil {
