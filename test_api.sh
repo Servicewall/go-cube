@@ -300,6 +300,7 @@ result=$(curl -s "$BASE/load?query=%7B%22renewQuery%22%3Afalse%2C%22measures%22%
 echo "Raw: $result"
 check "Apiview metricTag filter equals 毫秒级 with app list" "$result"
 
+
 echo ""
 echo "=== 44. ApiView 列表明细 sidebarFirstLevelTypeArray contains多值 + appName过滤 ==="
 #{"ungrouped":true,"measures":[],"timeDimensions":[{"dimension":"ApiView.ts","dateRange":["2026-06-04 00:00:00","2026-06-04 23:59:59"]}],"order":[["ApiView.count","desc"],["ApiView.ts","desc"]],"filters":[{"member":"ApiView.sidebarFirstLevelTypeArray","operator":"contains","values":["已发现","已梳理"]},{"member":"ApiView.topoNetwork","operator":"notEquals","values":["外发"]},{"member":"ApiView.apiTypeTag","operator":"equals","values":["API"]},{"member":"ApiView.appName","operator":"equals","values":["统一认证与服务治理系统"]}],"dimensions":["ApiView.count","ApiView.activeTag","ApiView.bizImportance","ApiView.category","ApiView.topoNetwork","ApiView.customRuleTag","ApiView.configTag","ApiView.apiTypeTag","ApiView.riskKeyScoreTuple","ApiView.weakKeyScoreTuple","ApiView.firstTs","ApiView.ts","ApiView.appName","ApiView.currentReqKey","ApiView.reqSensScoreTupleRaw","ApiView.resSensScoreTupleRaw","ApiView.channel","ApiView.host","ApiView.method","ApiView.urlRoute","ApiView.bizName","ApiView.bizAIAnalysis","ApiView.managementStatus","ApiView.filtered","ApiView.dctSection","ApiView.director"],"limit":20,"offset":0,"segments":["ApiView.org","ApiView.black","ApiView.onePerDay"],"timezone":"Asia/Shanghai"}
