@@ -343,7 +343,7 @@ cube:
       title: 文件敏感数据统计
 
     resultScore:
-      sql: multiIf(arrayExists(x -> dictGetInt64('default.risk_dict', 'score', x) = -100, req_risk), -100, notEmpty(req_risk), 100 - (100 * arrayProduct(arrayMap(x -> 1 - dictGetInt64('default.risk_dict', 'score', x) * 0.01, req_risk))), 0)
+      sql: risk_score
       type: number
       title: 结果得分
 
