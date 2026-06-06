@@ -40,12 +40,6 @@ cube:
       type: string
       title: URL路由
 
-    api:
-      sql: method || ' ' || if(channel='default' or channel='', host, channel) || url
-      type: string
-      primary_key: true
-      title: API
-
     risk:
       sql: arrayJoin(arrayFilter(x -> dictGetInt64('default.risk_dict','score',x.1)!=0, arrayMap((x, y) -> (x, y), risk_count.1, risk_count.2))).1
       type: string
@@ -66,11 +60,6 @@ cube:
       type: number
       title: 是否响应涉敏
 
-    hasReqSens:
-      sql: length(finalizeAggregation(req_sens_uniq))
-      type: number
-      title: 是否请求涉敏
-
     hasSens:
       sql: length(finalizeAggregation(res_sens_uniq)) + length(finalizeAggregation(req_sens_uniq))
       type: number
@@ -80,7 +69,7 @@ cube:
       sql: arrayJoin(arrayMap((x, y) -> (x, y), status_count.1, status_count.2)).1
       type: string
       title: 状态码
-  
+
     upstreamNode:
       sql: if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1])
       type: string
@@ -90,7 +79,7 @@ cube:
       sql: If(position(if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1]), '(') AS startPos <> 0, substring(if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1]), startPos+1, length(if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1]))-startPos-1), if(position(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ']')!=0, regexpExtract(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, '\\[(.*)\\]', 1), splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[1]))
       type: string
       title: 服务器地址IP
-    
+
     upstreamPort:
       sql: if(countSubstrings(arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1, ':')=0 OR position(splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[-1], ']')>0, '80', splitByChar(':', arrayJoin(arrayZip(upstream_count.1, upstream_count.2)).1)[-1])
       type: string
@@ -107,11 +96,6 @@ cube:
       type: number
       title: 保护次数
 
-    riskTuple:
-      sql: arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2))
-      type: string
-      title: 风险元组
-
     riskSumMap:
       sql: sumMap(arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).1, arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).2)
       type: string
@@ -121,16 +105,6 @@ cube:
       sql: "multiIf(arrayExists(x -> dictGetInt64('default.risk_dict', 'score', x) = -100, sumMap(arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).1, arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).2).1), -100, notEmpty(sumMap(arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).1, arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).2).1), 100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.risk_dict','score',x), sumMap(arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).1, arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).2).1)), 0)"
       type: number
       title: 聚合风险评分
-
-    reqSensUniqMap:
-      sql: uniqMapMerge(req_sens_uniq)
-      type: string
-      title: 请求涉敏Map
-
-    resSensUniqMap:
-      sql: uniqMapMerge(res_sens_uniq)
-      type: string
-      title: 响应涉敏Map
 
     reqSensTuple:
       sql: (mapKeys(uniqMapMerge(req_sens_uniq)), mapValues(uniqMapMerge(req_sens_uniq)))
@@ -231,7 +205,7 @@ cube:
       sql: arraySum(mapValues(uniqMapMerge(res_sens_uniq)))
       type: number
       title: 响应涉敏总数
-    
+
     sensCategory:
       sql: arrayDistinct(arrayConcat(mapKeys(uniqMapMerge(req_sens_uniq)), mapKeys(uniqMapMerge(res_sens_uniq))))
       type: string
@@ -242,20 +216,10 @@ cube:
       type: number
       title: 涉敏总数
 
-    hostSet:
-      sql: groupUniqArray(host)
-      type: string
-      title: Host
-
     hostCount:
       sql: length(groupUniqArray(host))
       type: number
       title: Host数
-
-    appSet:
-      sql: groupUniqArray(if(channel='default' or channel='', host, channel))
-      type: string
-      title: 应用/站点
 
     appCount:
       sql: length(groupUniqArray(if(channel='default' or channel='', host, channel)))
