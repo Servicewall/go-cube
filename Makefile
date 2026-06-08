@@ -1,4 +1,4 @@
-.PHONY: build run test test-unit test-script clean
+.PHONY: build run test test-unit test-script install-git-hook clean
 
 build:
 	go build -o go-cube .
@@ -43,6 +43,11 @@ test-script: build
 	fi; \
 	echo "======================================"; \
 	[ $$total_fail -eq 0 ]
+
+install-git-hook:
+	cp scripts/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "Git hook installed: .git/hooks/pre-commit"
 
 clean:
 	rm -f go-cube

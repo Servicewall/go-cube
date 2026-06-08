@@ -194,8 +194,8 @@ func buildTimeDimensionClause(colSQL string, dr DateRange) string {
 		if len(v) == 2 {
 			// 值侧用 toDateTime() 包裹：保留列裸露以走分区/主键裁剪；
 			// 对 Date 列 CH 会把常量降到 Date 比较，避免 'YYYY-MM-DD HH:MM:SS' 直接对 Date 触发 TYPE_MISMATCH。
-			start := "toDateTime('" + strings.ReplaceAll(v[0], "'", "''") + "')"
-			end := "toDateTime('" + strings.ReplaceAll(v[1], "'", "''") + "')"
+			start := "toDateTime('" + strings.ReplaceAll(strings.ReplaceAll(v[0], `\`, `\\`), "'", "''") + "')"
+			end := "toDateTime('" + strings.ReplaceAll(strings.ReplaceAll(v[1], `\`, `\\`), "'", "''") + "')"
 			return fmt.Sprintf("%s >= %s AND %s <= %s", colSQL, start, colSQL, end)
 		}
 	case string:
@@ -203,7 +203,12 @@ func buildTimeDimensionClause(colSQL string, dr DateRange) string {
 			if start, end, ok := parseRelativeTimeRange(v); ok {
 				return fmt.Sprintf("%s >= %s AND %s <= %s", colSQL, start, colSQL, end)
 			}
-			return fmt.Sprintf("toDate(%s) = %s", colSQL, convertToClickHouseTimeExpr(v))
+			expr := convertToClickHouseTimeExpr(v)
+			if expr == "" {
+				log.Printf("WARN: unrecognized dateRange format %q, ignoring time filter", v)
+				return ""
+			}
+			return fmt.Sprintf("toDate(%s) = %s", colSQL, expr)
 		}
 	}
 	return ""
@@ -431,24 +436,28 @@ func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
 	// ORDER BY
 	// 如果显式指定了排序，按请求排序；否则若存在带粒度的时间维度，隐式升序（兼容 CubeJS 默认行为）
 	if len(req.Order) > 0 {
-		sql.WriteString(" ORDER BY ")
-		for i, item := range req.Order {
-			if i > 0 {
-				sql.WriteString(", ")
-			}
+		var orderParts []string
+		for _, item := range req.Order {
+			var expr string
 			if gc, ok := granByDim[item.Member]; ok {
-				sql.WriteString(gc.expr)
+				expr = gc.expr
 			} else {
 				_, fieldName, subKey := splitMemberName(item.Member)
-				if f, ok := cube.GetField(fieldName, subKey); ok {
-					sql.WriteString(f.SQL)
-				} else {
-					sql.WriteString(item.Member)
+				f, ok := cube.GetField(fieldName, subKey)
+				if !ok {
+					log.Printf("WARN: unknown ORDER BY member %q, skipped", item.Member)
+					continue
 				}
+				expr = f.SQL
 			}
 			if item.Direction == "desc" {
-				sql.WriteString(" DESC")
+				expr += " DESC"
 			}
+			orderParts = append(orderParts, expr)
+		}
+		if len(orderParts) > 0 {
+			sql.WriteString(" ORDER BY ")
+			sql.WriteString(strings.Join(orderParts, ", "))
 		}
 	} else if len(granByDim) > 0 {
 		// 隐式排序：取第一个带粒度的时间维度，按 timeDimensions 顺序确定
@@ -531,7 +540,7 @@ var operatorMap = map[string]string{
 func processFilterValue(fieldSQL string, operator string, valuesArr []interface{}) string {
 	op, ok := operatorMap[operator]
 	if !ok {
-		op = operator
+		return ""
 	}
 	sep := " OR "
 	if operator == "notContains" {
@@ -609,7 +618,7 @@ func convertToClickHouseTimeExpr(s string) string {
 			return fmt.Sprintf("now() + INTERVAL %s %s", parts[0], convertUnit(parts[1]))
 		}
 	}
-	return s
+	return ""
 }
 
 var unitMap = map[string]string{

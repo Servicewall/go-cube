@@ -1,0 +1,21 @@
+#!/bin/bash
+# Pre-commit hook: run Go build, unit tests, and integration tests
+
+set -e
+
+echo "=== Pre-commit: building ==="
+go build ./...
+echo "OK"
+
+echo ""
+echo "=== Pre-commit: unit tests ==="
+go test ./api/ -count=1
+echo "OK"
+
+echo ""
+echo "=== Pre-commit: integration tests (test*.sh) ==="
+if curl -s http://localhost:8123/ping > /dev/null 2>&1; then
+    make test 2>&1
+else
+    echo "ClickHouse not available, skipping shell tests"
+fi
