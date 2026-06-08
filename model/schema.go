@@ -50,9 +50,10 @@ func (c *Cube) GetField(name string, subKey string) (Field, bool) {
 		sql := dim.SQL
 		sqlMask := dim.SQLMask
 		if subKey != "" {
-			sql = strings.ReplaceAll(sql, "{key}", subKey)
+			safeKey := strings.ReplaceAll(subKey, "'", "''")
+			sql = strings.ReplaceAll(sql, "{key}", safeKey)
 			if sqlMask != "" {
-				sqlMask = strings.ReplaceAll(sqlMask, "{key}", subKey)
+				sqlMask = strings.ReplaceAll(sqlMask, "{key}", safeKey)
 			}
 		}
 		return Field{
