@@ -177,14 +177,11 @@ func splitMemberName(s string) (string, string, string) {
 
 // granularityFunc 将 CubeJS granularity 映射到 ClickHouse 截断函数名
 var granularityFunc = map[string]string{
-	"second":  "toDateTime",
-	"minute":  "toStartOfMinute",
-	"hour":    "toStartOfHour",
-	"day":     "toStartOfDay",
-	"week":    "toStartOfWeek",
-	"month":   "toStartOfMonth",
-	"quarter": "toStartOfQuarter",
-	"year":    "toStartOfYear",
+	"minute": "toStartOfMinute(%s)",
+	"hour":   "toStartOfHour(%s)",
+	"day":    "toStartOfDay(%s)",
+	"week":   "toDateTime(toStartOfWeek(%s))",
+	"month":  "toDateTime(toStartOfMonth(%s))",
 }
 
 // buildTimeDimensionClause 根据 dateRange 生成时间过滤片段，值直接内联进 SQL。
@@ -242,7 +239,7 @@ func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
 		}
 		granByDim[td.Dimension] = granCol{
 			alias: td.Dimension + "." + td.Granularity,
-			expr:  fmt.Sprintf("%s(%s)", fn, field.SQL),
+			expr:  fmt.Sprintf(fn, field.SQL),
 		}
 	}
 

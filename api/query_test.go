@@ -132,7 +132,7 @@ func testApiCube() *model.Cube {
 		Name:     "ApiView",
 		SQLTable: "default.api",
 		Dimensions: map[string]model.Dimension{
-			"id":          {SQL: "id", Type: "string"},
+			"id":               {SQL: "id", Type: "string"},
 			"sidebarTypeArray": {SQL: "arrayFilter(x->x!='',sidebar_arr)", Type: "array"},
 		},
 		Measures: map[string]model.Measure{
@@ -310,6 +310,28 @@ func TestBuildQuery_TimeDimensionLastMonth(t *testing.T) {
 	}
 	if !contains(sql, ">=") || !contains(sql, "<=") {
 		t.Errorf("expected >= and <= for range, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_TimeDimensionMonthGranularity(t *testing.T) {
+	req := &QueryRequest{
+		Measures:   []string{"AccessView.count"},
+		Dimensions: []string{"AccessView.ts"},
+		TimeDimensions: []TimeDimension{
+			{
+				Dimension:   "AccessView.ts",
+				DateRange:   DateRange{V: []string{"2025-06-11 00:00:00", "2026-06-09 23:59:59"}},
+				Granularity: "month",
+			},
+		},
+	}
+
+	sql, err := buildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "toDateTime(toStartOfMonth(") {
+		t.Errorf("expected toDateTime(toStartOfMonth(...)) for month granularity, got: %s", sql)
 	}
 }
 
