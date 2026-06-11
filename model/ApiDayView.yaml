@@ -38,7 +38,7 @@ cube:
     urlRoute:
       sql: url
       type: string
-      title: URL路由
+      title: API/资源路径
 
     api:
       sql: method || ' ' || if(channel='default' or channel='', host, channel) || url
@@ -107,11 +107,6 @@ cube:
       type: number
       title: 保护次数
 
-    riskTuple:
-      sql: arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2))
-      type: string
-      title: 风险元组
-
     riskSumMap:
       sql: sumMap(arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).1, arrayFilter(x -> dictGetInt64('default.risk_dict', 'score', x.1) > 0, arrayZip(risk_count.1, risk_count.2)).2)
       type: string
@@ -125,22 +120,12 @@ cube:
     reqSensUniqMap:
       sql: uniqMapMerge(req_sens_uniq)
       type: string
-      title: 请求涉敏Map
+      title: 敏感数据(请求)
 
     resSensUniqMap:
       sql: uniqMapMerge(res_sens_uniq)
       type: string
-      title: 响应涉敏Map
-
-    reqSensTuple:
-      sql: (mapKeys(uniqMapMerge(req_sens_uniq)), mapValues(uniqMapMerge(req_sens_uniq)))
-      type: string
-      title: 请求涉敏元组
-
-    resSensTuple:
-      sql: (mapKeys(uniqMapMerge(res_sens_uniq)), mapValues(uniqMapMerge(res_sens_uniq)))
-      type: string
-      title: 响应涉敏元组
+      title: 敏感数据(响应)
 
     aggResSensScore:
       sql: "if(notEmpty(mapKeys(uniqMapMerge(res_sens_uniq))), 100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.privacy_dict','score',x), mapKeys(uniqMapMerge(res_sens_uniq)))), 0)"
