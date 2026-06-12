@@ -1,0 +1,152 @@
+cube:
+  name: ChatView
+  sql_table: chat_local
+
+  segments:
+    org:
+      sql: org = {vars.org}
+
+  measures:
+    count:
+      sql: count()
+      type: number
+      title: 总对话数
+    sumTokens:
+      sql: sum(usage.total_tokens)
+      type: number
+      title: 总token使用
+    avgTokens:
+      sql: sum(usage.total_tokens)/count()
+      type: number
+      title: 平均token使用
+    countUid:
+      sql: uniq(uid)
+      type: number
+      title: 用户数量
+
+  dimensions:
+    ts:
+      sql: ts
+      type: time
+      title: 时间
+    id:
+      sql: id
+      type: string
+      title: ID
+    ip:
+      sql: ip
+      type: string
+      title: IP
+    url:
+      sql: url
+      type: string
+      title: URL
+    host:
+      sql: host
+      type: string
+      title: 域名
+    uid:
+      sql: uid
+      type: string
+      title: 用户标识
+    channel:
+      sql: channel
+      type: string
+      title: 应用
+    modelName:
+      sql: model.model
+      type: string
+      title: 模型名称
+    modelUser:
+      sql: model.user
+      type: string
+      title: 调用用户
+    prompt:
+      sql: prompt
+      type: string
+      title: 提示词
+    answer:
+      sql: answer
+      type: string
+      title: 回答
+    risk:
+      sql: risk.1
+      type: string
+      title: 风险
+    reqAction:
+      sql: risk.2
+      type: string
+      title: 动作
+    reqReason:
+      sql: risk.3
+      type: string
+      title: 原因
+    resultScore:
+      sql: multiIf(arrayExists(x -> dictGetInt64('default.risk_dict', 'score', x) = -100, req_risk), -100, notEmpty(req_risk), 100 - (100 * arrayProduct(arrayMap(x -> 1 - dictGetInt64('default.risk_dict', 'score', x) * 0.01, req_risk))), 0)
+      type: number
+      title: 风险分数
+    resultLevel:
+      sql: multiIf(multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=80,'高风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=50,'中风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=20,'低风险','无风险')
+      type: string
+      title: 风险级别
+    promptTokens:
+      sql: usage.prompt_tokens
+      type: number
+      title: 提示词token数量
+    completionTokens:
+      sql: usage.completion_tokens
+      type: number
+      title: 回答token数量
+    totalTokens:
+      sql: usage.total_tokens
+      type: number
+      title: 单次问答token数量
+    maxTokens:
+      sql: model.max_tokens
+      type: number
+      title: 最大token限制
+    temperature:
+      sql: model.temperature
+      type: string
+      title: 采样温度
+    stream:
+      sql: "if(model.stream='false',false,true)"
+      type: string
+      title: 流式响应
+    user:
+      sql: model.user
+      type: string
+      title: 模型用户标识
+    reqSensKeyNum:
+      sql: "toJSONString(arrayReduce('sumMap', arrayMap(x -> map(x, 1), req_sens_k)))"
+      type: string
+      title: 统计隐私数量(请求)
+    resSensKeyNum:
+      sql: "toJSONString(arrayReduce('sumMap', arrayMap(x -> map(x, 1), res_sens_k)))"
+      type: string
+      title: 统计隐私数量(响应)
+    # 展示50条
+    reqSampleKey:
+      sql: "arraySlice(req_sens_k,1,50)"
+      type: string
+      title: 敏感数据名称采样(请求)
+    respSampleKey:
+      sql: "arraySlice(res_sens_k,1,50)"
+      type: string
+      title: 敏感数据名称采样(响应)
+    reqSampleValue:
+      sql: arraySlice(req_sens_v,1,1000)
+      sql_mask: "arrayMap(v -> concat(substringUTF8(v,1,1),'***',substringUTF8(v,lengthUTF8(v),1)), arraySlice(req_sens_v,1,1000))"
+      type: string
+      title: 敏感数据采样(请求)
+    respSampleValue:
+      sql: arraySlice(res_sens_v,1,1000)
+      sql_mask: "arrayMap(v -> concat(substringUTF8(v,1,1),'***',substringUTF8(v,lengthUTF8(v),1)), arraySlice(res_sens_v,1,1000))"
+      type: string
+      title: 敏感数据采样(响应)
+
+    # APP名称: 1.优先host配置的站点名 2.然后是APP配置的名称 3.最后一次匹配的非default站点 4.域名兜底
+    appName:
+      sql: "multiIf( notEmpty(dictGet(host_dict, 'info', assumeNotNull(host))), arrayFirst(x-> startsWith(assumeNotNull(url), x[1]), dictGet(host_dict, 'info', assumeNotNull(host)))[2], notEmpty(dictGet(host_dict, 'info', splitByRegexp(':\\\\d+$',assumeNotNull(host))[1] || ':*' )), arrayFirst(x-> startsWith(assumeNotNull(url), x[1]), dictGet(host_dict, 'info', splitByRegexp(':\\\\d+$',assumeNotNull(host))[1] || ':*' ))[2] , host)"
+      type: string
+      title: 应用名称
