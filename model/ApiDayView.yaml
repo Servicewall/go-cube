@@ -118,12 +118,12 @@ cube:
       title: 聚合风险评分
 
     reqSensUniqMap:
-      sql: uniqMapMerge(req_sens_uniq)
+      sql: mapReverseSort((k, v) -> v, uniqMapMerge(req_sens_uniq))
       type: string
       title: 敏感数据(请求)
 
     resSensUniqMap:
-      sql: uniqMapMerge(res_sens_uniq)
+      sql: mapReverseSort((k, v) -> v, uniqMapMerge(res_sens_uniq))
       type: string
       title: 敏感数据(响应)
 
