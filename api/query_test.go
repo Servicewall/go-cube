@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +16,15 @@ import (
 	"github.com/Servicewall/go-cube/model"
 	"github.com/Servicewall/go-cube/sql"
 )
+
+func newTestLoaderFromFS(t *testing.T, fsys fs.FS) *model.Loader {
+	t.Helper()
+	l, err := model.NewLoaderFromFS(fsys)
+	if err != nil {
+		t.Fatalf("load test models: %v", err)
+	}
+	return l
+}
 
 // testCube builds a minimal Cube fixture for unit tests.
 func testCube() *model.Cube {
@@ -870,7 +880,7 @@ func TestHandleLoad_PostWrapped(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	h := &Handler{modelLoader: model.NewLoader(model.InternalFS), chClient: nil}
+	h := &Handler{modelLoader: newTestLoaderFromFS(t, model.InternalFS), chClient: nil}
 	h.HandleLoad(rr, req)
 
 	if rr.Code == http.StatusBadRequest {
@@ -885,7 +895,7 @@ func TestHandleLoad_GetQuery(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/load?query="+q, nil)
 	rr := httptest.NewRecorder()
 
-	h := &Handler{modelLoader: model.NewLoader(model.InternalFS), chClient: nil}
+	h := &Handler{modelLoader: newTestLoaderFromFS(t, model.InternalFS), chClient: nil}
 	h.HandleLoad(rr, req)
 
 	if rr.Code == http.StatusBadRequest {
@@ -935,7 +945,7 @@ func TestHandleLoad_MissingOrgHeaderGeneratesEmptyOrg(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	h := &Handler{modelLoader: model.NewLoader(modelFS), chClient: chClient}
+	h := &Handler{modelLoader: newTestLoaderFromFS(t, modelFS), chClient: chClient}
 	h.HandleLoad(rr, req)
 
 	if rr.Code != http.StatusOK {
@@ -1391,7 +1401,7 @@ func newTestHandler(t *testing.T) (*Handler, *string) {
 	if err != nil {
 		t.Fatalf("create clickhouse client: %v", err)
 	}
-	return &Handler{modelLoader: model.NewLoader(modelFS), chClient: chClient}, &captured
+	return &Handler{modelLoader: newTestLoaderFromFS(t, modelFS), chClient: chClient}, &captured
 }
 
 func TestHandleLoad_SearchTargetOffline_SwitchesTable(t *testing.T) {
@@ -1506,7 +1516,7 @@ func TestOfflineTrace(t *testing.T) {
 	}
 
 	h := &Handler{
-		modelLoader:  model.NewLoader(modelFS),
+		modelLoader:  newTestLoaderFromFS(t, modelFS),
 		chClient:     chClient,
 		queryTimeout: 5 * time.Second,
 	}

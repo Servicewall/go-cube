@@ -33,10 +33,22 @@ func Init(hosts []string, database, username, password string, queryTimeout ...t
 	if err != nil {
 		return err
 	}
-	h := NewHandler(model.NewLoader(model.InternalFS), chClient)
+	loader, err := model.NewLoaderFromFS(model.InternalFS)
+	if err != nil {
+		return fmt.Errorf("load embedded models: %w", err)
+	}
+	h := NewHandler(loader, chClient)
 	h.queryTimeout = qt
 	defaultHandler = h
 	return nil
+}
+
+// PutCube parses yamlData and hot-loads it into the global model cache.
+func PutCube(name string, yamlData []byte) error {
+	if defaultHandler == nil {
+		panic("go-cube: call Init before PutCube")
+	}
+	return defaultHandler.modelLoader.PutCube(name, yamlData)
 }
 
 // HTTPHandler 返回全局 Handler 作为 http.Handler，供注册到外部路由器使用。

@@ -36,9 +36,10 @@ func main() {
 	}
 
 	// 初始化模型加载器
-	modelLoader := model.NewLoader(os.DirFS(cfg.Models.Path))
-	if _, err := modelLoader.LoadAll(); err != nil {
+	modelLoader, err := model.NewLoaderFromFS(os.DirFS(cfg.Models.Path))
+	if err != nil {
 		log.Printf("Warning: load models: %v", err)
+		modelLoader = model.NewLoader()
 	}
 
 	// 初始化ClickHouse客户端

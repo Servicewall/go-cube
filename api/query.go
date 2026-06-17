@@ -310,7 +310,7 @@ func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
 			}
 			quoted := make([]string, len(vals))
 			for i, v := range vals {
-				quoted[i] = "'" + strings.ReplaceAll(v, "'", "''") + "'"
+				quoted[i] = formatArg(v)
 			}
 			tmpl = strings.ReplaceAll(tmpl, ph, strings.Join(quoted, ","))
 		}
