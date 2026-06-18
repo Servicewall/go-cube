@@ -471,7 +471,18 @@ func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
 
 	sql.WriteString(" SETTINGS priority = 1")
 
-	return sql.String(), nil
+	query := sql.String()
+	var withClauses []string
+	for alias, expr := range cube.With {
+		if strings.Contains(query, alias) {
+			withClauses = append(withClauses, expr+" AS "+alias)
+		}
+	}
+	if len(withClauses) > 0 {
+		query = "WITH " + strings.Join(withClauses, ", ") + " " + query
+	}
+
+	return query, nil
 }
 
 func validateQuery(req *QueryRequest) error {

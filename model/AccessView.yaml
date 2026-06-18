@@ -2,6 +2,9 @@ cube:
   name: AccessView
   sql_table: default.access
 
+  with:
+    _scl: "arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k))))"
+
   dimensions:
     id:
       sql: id
@@ -727,23 +730,23 @@ cube:
     # sensCombineExtList: [(key, val, privacyLevel, score), ...]，过滤掉 privacy 为空的项
     # sensCombineExt: arrayJoin 展开为单行 tuple
     sensKeyCombineExt:
-      sql: (arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).1
+      sql: (arrayJoin(_scl)).1
       type: string
       title: 数据类型
 
     sensValCombineExt:
-      sql: (arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).2
-      sql_mask: "arrayJoin(arrayMap(t -> if(lengthUTF8(t.2) <= 2, concat(substringUTF8(t.2, 1, 1), '*'), concat(substringUTF8(t.2, 1, 1), repeat('*', lengthUTF8(t.2) - 2), substringUTF8(t.2, lengthUTF8(t.2), 1))), arrayFilter(x -> x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) = '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k))))))"
+      sql: (arrayJoin(_scl)).2
+      sql_mask: "arrayJoin(arrayMap(t -> if(lengthUTF8(t.2) <= 2, concat(substringUTF8(t.2, 1, 1), '*'), concat(substringUTF8(t.2, 1, 1), repeat('*', lengthUTF8(t.2) - 2), substringUTF8(t.2, lengthUTF8(t.2), 1))), _scl))"
       type: string
       title: 数据值
 
     sensPrivacyCombineExt:
-      sql: (arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).3
+      sql: (arrayJoin(_scl)).3
       type: string
       title: 数据分类
 
     sensScoreCombineExt:
-      sql: (arrayJoin(arrayFilter(x->x.3 != '', arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v), arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel, dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))))).4
+      sql: (arrayJoin(_scl)).4
       type: number
       title: 数据级别分数
 
@@ -770,7 +773,7 @@ cube:
       title: 访问量
 
     sensLevelCount:
-      sql: uniqMap(mapFromArrays((arrayFilter(x->x.3 != '',arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v),arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel,dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))) AS _scl).3, arrayZip(_scl.1, _scl.2, arrayMap(x -> host, _scl), arrayMap(x -> channel, _scl))))
+      sql: uniqMap(mapFromArrays(_scl.3, arrayZip(_scl.1, _scl.2, arrayMap(x -> host, _scl), arrayMap(x -> channel, _scl))))
       type: string
       title: 敏感分类计数
 

@@ -6,6 +6,7 @@ type Cube struct {
 	Name       string               `yaml:"name"`
 	SQL        string               `yaml:"sql"`
 	SQLTable   string               `yaml:"sql_table"`
+	With       map[string]string    `yaml:"with,omitempty"`
 	Dimensions map[string]Dimension `yaml:"dimensions"`
 	Measures   map[string]Measure   `yaml:"measures"`
 	Segments   map[string]Segment   `yaml:"segments,omitempty"`
@@ -100,6 +101,10 @@ func (c *Cube) Clone() *Cube {
 	cp.Segments = make(map[string]Segment, len(c.Segments))
 	for k, v := range c.Segments {
 		cp.Segments[k] = v
+	}
+	cp.With = make(map[string]string, len(c.With))
+	for k, v := range c.With {
+		cp.With[k] = v
 	}
 	return &cp
 }

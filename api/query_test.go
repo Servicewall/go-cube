@@ -1554,3 +1554,52 @@ func TestOfflineTrace(t *testing.T) {
 		t.Errorf("expected filter param replaced, got: %s", insertSQL)
 	}
 }
+
+func TestBuildQuery_WithClause(t *testing.T) {
+	cube := &model.Cube{
+		Name:     "TestView",
+		SQLTable: "test_table",
+		With: map[string]string{
+			"_scl": "arrayFilter(x->x.3 != '', some_expr)",
+		},
+		Dimensions: map[string]model.Dimension{
+			"key":   {SQL: "(arrayJoin(_scl)).1", Type: "string"},
+			"val":   {SQL: "(arrayJoin(_scl)).2", Type: "string"},
+			"other": {SQL: "other_col", Type: "string"},
+		},
+		Measures: map[string]model.Measure{
+			"count": {SQL: "count()", Type: "number"},
+		},
+	}
+
+	t.Run("with injected when referenced", func(t *testing.T) {
+		req := &QueryRequest{
+			Dimensions: []string{"TestView.key"},
+			Measures:   []string{"TestView.count"},
+		}
+		sql, err := buildQuery(req, cube)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(sql, "WITH ") {
+			t.Errorf("expected WITH prefix, got: %s", sql)
+		}
+		if !strings.Contains(sql, "arrayFilter(x->x.3 != '', some_expr) AS _scl") {
+			t.Errorf("expected WITH expression, got: %s", sql)
+		}
+	})
+
+	t.Run("no with when not referenced", func(t *testing.T) {
+		req := &QueryRequest{
+			Dimensions: []string{"TestView.other"},
+			Measures:   []string{"TestView.count"},
+		}
+		sql, err := buildQuery(req, cube)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.HasPrefix(sql, "WITH ") {
+			t.Errorf("expected no WITH prefix, got: %s", sql)
+		}
+	})
+}
