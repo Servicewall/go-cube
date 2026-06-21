@@ -75,7 +75,6 @@ cube:
     api:
       sql: method || ' ' || app_name || url
       type: string
-      primary_key: true
       title: API
 
     urlRoute:

@@ -13,26 +13,32 @@ cube:
     ts:
       sql: ts
       type: time
+      title: 时间
 
     risk:
       sql: risk
       type: string
+      title: 风险
 
     content:
       sql: content
       type: string
+      title: 内容
 
     level:
       sql: level
       type: string
+      title: 级别
 
     data:
       sql: data
       type: string
+      title: 数据
 
     channel:
       sql: channel
       type: string
+      title: 渠道
 
     desc:
       sql: dictGet('default.risk_dict', 'desc', risk)
@@ -43,6 +49,7 @@ cube:
     count:
       sql: count(risk)
       type: number
+      title: 数量
 
     firstTs:
       sql: min(ts)

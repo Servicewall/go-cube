@@ -9,7 +9,6 @@ cube:
   dimensions:
     id:
       sql: weak_data.1
-      primary_key: true
       type: string
       title: 请求ID
 

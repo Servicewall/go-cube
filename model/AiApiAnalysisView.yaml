@@ -32,7 +32,6 @@ cube:
     api:
       sql: "concat(method, ' ', host, url)"
       type: string
-      primary_key: true
       title: API标识
 
     urlRoute:

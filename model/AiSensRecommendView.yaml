@@ -77,7 +77,6 @@ cube:
     api:
       sql: "concat(method, ' ', host, if(notEmpty(url_route), url_route, url))"
       type: string
-      primary_key: true
       title: API标识
 
     urlRoute:

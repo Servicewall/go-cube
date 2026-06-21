@@ -25,10 +25,12 @@ cube:
     dt:
       sql: dt
       type: time
+      title: 日期
 
     channel:
       sql: channel
       type: string
+      title: 渠道
 
     type:
       sql: type

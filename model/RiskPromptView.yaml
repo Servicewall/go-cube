@@ -17,7 +17,6 @@ cube:
     id:
       sql: toString(id)
       type: string
-      primary_key: true
       title: ID
 
     ts:

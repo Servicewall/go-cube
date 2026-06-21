@@ -1,0 +1,70 @@
+cube:
+  name: DataAuditView
+  sql_table: default.data_audit
+
+  segments:
+    org:
+      sql: org = {vars.org}
+
+  dimensions:
+    dt:
+      sql: dt
+      type: time
+      title: 日期
+
+    type:
+      sql: type
+      type: string
+      title: 来源
+
+    sens_v:
+      sql: sens_v
+      sql_mask: "concat(substringUTF8(sens_v,1,1),'***',substringUTF8(sens_v,lengthUTF8(sens_v),1))"
+      type: string
+      title: 隐私值
+
+    sens_k:
+      sql: sens_k
+      type: string
+      title: 隐私类型
+
+    channel:
+      sql: channel
+      type: string
+      title: 应用
+
+    org:
+      sql: org
+      type: string
+      title: 组织
+
+  measures:
+    count:
+      sql: sum(count)
+      type: number
+      title: 访问次数
+
+    uidUniq:
+      sql: uniqHLL12Merge(uid_uniq)
+      type: number
+      title: 关联用户
+
+    ipUniq:
+      sql: uniqHLL12Merge(ip_uniq)
+      type: number
+      title: 关联IP
+
+    apiUniq:
+      sql: uniqHLL12Merge(api_uniq)
+      type: number
+      title: 关联API
+
+    lastTs:
+      sql: max(ts)
+      type: time
+      title: 最近发现时间
+
+    traceIds:
+      sql: groupArrayLastMerge(20)(trace_ids)
+      type: array
+      title: 溯源ID
