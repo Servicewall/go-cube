@@ -12,18 +12,23 @@ cube:
       type: time
       title: 日期
 
+    ts:
+      sql: ts
+      type: time
+      title: 最近时间
+
     type:
       sql: type
       type: string
       title: 来源
 
-    sens_v:
+    sensV:
       sql: sens_v
       sql_mask: "concat(substringUTF8(sens_v,1,1),'***',substringUTF8(sens_v,lengthUTF8(sens_v),1))"
       type: string
       title: 隐私值
 
-    sens_k:
+    sensK:
       sql: sens_k
       type: string
       title: 隐私类型
@@ -37,6 +42,16 @@ cube:
       sql: org
       type: string
       title: 组织
+
+    sensCategory:
+      sql: dictGetString('default.privacy_dict', 'enabled_standard', sens_k)
+      type: string
+      title: 数据分类
+
+    sensScore:
+      sql: dictGetInt64('default.privacy_dict', 'score', sens_k)
+      type: number
+      title: 数据级别分数
 
   measures:
     count:
@@ -53,11 +68,6 @@ cube:
       sql: uniqHLL12Merge(ip_uniq)
       type: number
       title: 关联IP
-
-    apiUniq:
-      sql: uniqHLL12Merge(api_uniq)
-      type: number
-      title: 关联API
 
     lastTs:
       sql: max(ts)
