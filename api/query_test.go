@@ -335,6 +335,34 @@ func TestBuildQuery_TimeDimensionMonthGranularity(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_TimeDimensionSecondGranularity(t *testing.T) {
+	req := &QueryRequest{
+		Measures:   []string{"AccessView.count"},
+		Dimensions: []string{"AccessView.ip"},
+		TimeDimensions: []TimeDimension{
+			{
+				Dimension:   "AccessView.ts",
+				DateRange:   DateRange{V: "from 15 minutes ago to 15 minutes from now"},
+				Granularity: "second",
+			},
+		},
+	}
+
+	sql, err := buildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, substr := range []string{
+		`toStartOfSecond(ts) AS "AccessView.ts.second"`,
+		`GROUP BY "AccessView.ip", toStartOfSecond(ts)`,
+		`ORDER BY toStartOfSecond(ts) ASC`,
+	} {
+		if !contains(sql, substr) {
+			t.Errorf("expected SQL to contain %q, got: %s", substr, sql)
+		}
+	}
+}
+
 func TestBuildQuery_Segments(t *testing.T) {
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},
