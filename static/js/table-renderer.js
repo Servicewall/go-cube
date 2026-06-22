@@ -90,32 +90,6 @@ class TableRenderer {
   }
 
   /**
-   * 清空表格内容
-   */
-  clear() {
-    if (this.tbody) {
-      this.tbody.innerHTML = '';
-    }
-  }
-
-  /**
-   * 显示加载状态
-   */
-  showLoading() {
-    if (!this.tbody) return;
-    
-    const colspan = this.currentColumns.length + 2; // +2 for 序号列和操作列
-    this.tbody.innerHTML = `
-      <tr>
-        <td colspan="${colspan}" class="text-center py-12 text-slate-500">
-          <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3"></i>
-          <div class="text-xs">正在加载数据...</div>
-        </td>
-      </tr>
-    `;
-  }
-
-  /**
    * 显示空状态
    */
   showEmpty() {

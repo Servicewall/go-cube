@@ -125,8 +125,9 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 		req.Vars["search_target"] = []string{v}
 	}
 
-	if req.Ungrouped && r.Header.Get("Accept") == "application/x-ndjson" {
-		h.handleLoadStream(ctx, w, req)
+	if req.Ungrouped && len(req.Measures) == 0 &&
+		strings.Contains(r.Header.Get("Accept"), "application/x-ndjson") {
+		h.handleLoadStream(ctx, w, r.Header.Get("X-Sw-Node"), req)
 		return
 	}
 
@@ -139,10 +140,10 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleLoadStream 流式处理 ungrouped 查询，使用 NDJSON 逐行返回。
-func (h *Handler) handleLoadStream(ctx context.Context, w http.ResponseWriter, req *QueryRequest) {
-	m, query, err := h.setupQuery(req)
+func (h *Handler) handleLoadStream(ctx context.Context, w http.ResponseWriter, node string, req *QueryRequest) {
+	_, query, err := h.setupQuery(req)
 	if err != nil {
-		writeJSON(w, statusFromErr(err), map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -158,37 +159,35 @@ func (h *Handler) handleLoadStream(ctx context.Context, w http.ResponseWriter, r
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	flusher, _ := w.(http.Flusher)
 
-	_, err = h.chClient.QueryStream(ctx, "", query, func(row map[string]interface{}) error {
+	var wrote bool
+	_, err = h.chClient.QueryStream(ctx, node, query, func(row map[string]interface{}) error {
 		for _, p := range patches {
 			if v, ok := row[p.key]; ok {
 				row[p.dim] = v
 			}
 		}
-		if err := ctx.Err(); err != nil {
+		buf, err := json.Marshal(row)
+		if err != nil {
 			return err
 		}
-		buf, _ := json.Marshal(row)
-		w.Write(buf)
-		w.Write([]byte("\n"))
+		if _, err := w.Write(buf); err != nil {
+			return err
+		}
+		if _, err := w.Write([]byte("\n")); err != nil {
+			return err
+		}
 		if flusher != nil {
 			flusher.Flush()
 		}
-		return nil
+		wrote = true
+		return ctx.Err()
 	})
 	if err != nil {
-		log.Printf("stream error: %v (SQL: %s)", err, query)
-	}
-	_ = m
-}
-
-func statusFromErr(err error) int {
-	switch {
-	case strings.Contains(err.Error(), "无法从查询中确定模型"):
-		return http.StatusBadRequest
-	case strings.Contains(err.Error(), "must have at least"):
-		return http.StatusBadRequest
-	default:
-		return http.StatusInternalServerError
+		if !wrote {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		} else {
+			fmt.Fprintf(w, `{"error":%q}`+"\n", err.Error())
+		}
 	}
 }
 

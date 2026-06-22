@@ -555,8 +555,7 @@ result, risk, rule, asset<br>
                         count++;
                         tableRenderer.appendRow(row);
                         statsEl.textContent = `已加载 ${count} 条... (${((performance.now()-startTime)/1000).toFixed(1)}s)`;
-                    },
-                    (err) => { throw err; }
+                    }
                 );
                 const duration = (performance.now() - startTime).toFixed(1);
                 statsEl.textContent = count ? `共 ${count} 条记录 (耗时 ${duration}ms)` : '没有找到匹配的记录';

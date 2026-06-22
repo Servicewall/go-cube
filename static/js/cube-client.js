@@ -45,6 +45,7 @@ class CubeClient {
    * @param {Function} onError - 错误回调 (err) => void
    */
   async queryStream(cubeQuery, onRow, onError) {
+    if (!onError) onError = (e) => { throw e };
     cubeQuery.ungrouped = true;
     const url = `${this.baseURL}/load?query=${encodeURIComponent(JSON.stringify(cubeQuery))}`;
     const response = await fetch(url, { headers: { 'Accept': 'application/x-ndjson' } });
@@ -63,14 +64,10 @@ class CubeClient {
         buffer = lines.pop();
         for (const line of lines) {
           if (!line.trim()) continue;
-          try {
-            const row = JSON.parse(line);
-            if (row.error) { onError && onError(new Error(row.error)); return; }
-            onRow(row);
-          } catch (e) {
-            if (e.message !== 'row.error') continue;
-            throw e;
-          }
+          let row;
+          try { row = JSON.parse(line); } catch { continue; }
+          if (row.error) { onError(new Error(row.error)); return; }
+          onRow(row);
         }
       }
     } finally {

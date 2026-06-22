@@ -105,6 +105,7 @@ func (c *Client) QueryStream(ctx context.Context, host, query string, fn func(ro
 	}
 	defer resp.Body.Close()
 	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 0, 256*1024), 1*1024*1024)
 	count := 0
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -112,8 +113,8 @@ func (c *Client) QueryStream(ctx context.Context, host, query string, fn func(ro
 			continue
 		}
 		var row map[string]interface{}
-		if json.Unmarshal([]byte(line), &row) != nil {
-			continue
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			return count, fmt.Errorf("ndjson: %w", err)
 		}
 		count++
 		if err := fn(row); err != nil {
