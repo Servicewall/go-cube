@@ -156,21 +156,27 @@ class TableRenderer {
    * @param {Array} records - 记录数组
    */
   renderRecords(records) {
-    if (!this.tbody) return;
-
-    this.clear();
-
-    if (!records || records.length === 0) {
+    this.beginStream();
+    if (!records || !records.length) {
       this.showEmpty();
       return;
     }
+    records.forEach(r => this.appendRow(r));
+  }
 
-    records.forEach((rec, idx) => {
-      const row = this.createRow(rec, idx);
-      const detailsRow = this.createDetailsRow(rec, idx);
-      this.tbody.appendChild(row);
-      this.tbody.appendChild(detailsRow);
-    });
+  beginStream() {
+    if (!this.tbody) return;
+    this.tbody.innerHTML = '';
+    this._rowIdx = 0;
+  }
+
+  appendRow(rec) {
+    if (!this.tbody) return;
+    const idx = this._rowIdx++;
+    const row = this.createRow(rec, idx);
+    const detailsRow = this.createDetailsRow(rec, idx);
+    this.tbody.appendChild(row);
+    this.tbody.appendChild(detailsRow);
   }
 
   /**

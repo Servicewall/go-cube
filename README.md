@@ -161,9 +161,11 @@ curl "http://localhost:4000/load?query=%7B%22dimensions%22%3A%5B%22AccessView.id
 - `offset`: 偏移量
 - `timeDimensions`: 时间维度（简化实现）
 - `timezone`: 时区
+- `ungrouped`: 设为 `true` 跳过 GROUP BY（与 `Accept: application/x-ndjson` 配合可启用流式）
 
 ### 响应格式
 
+标准格式（默认）：
 ```json
 {
   "queryType": "regularQuery",
@@ -178,6 +180,50 @@ curl "http://localhost:4000/load?query=%7B%22dimensions%22%3A%5B%22AccessView.id
   ]
 }
 ```
+
+NDJSON 流式格式（`Accept: application/x-ndjson`）：
+```
+{"field1":"value1","field2":"value2"}
+{"field1":"value3","field2":"value4"}
+```
+
+---
+
+## 流式查询
+
+默认情况下 ClickHouse 查询返回完整 JSON。设置 `ungrouped: true` 并发送 `Accept: application/x-ndjson` 头，go-cube 将使用 NDJSON 格式逐行流式输出——边查边传，首行数据无需等待全表扫描完成。
+
+### 适用场景
+
+- 无 `measures` 的明细查询（`dimensions` only）
+- 大数据量 + 稀疏过滤条件（如按特定 IP 搜索）
+- 需要快速显示首行结果的交互式查询
+
+### 不适用场景
+
+- 含聚合函数（`count()`、`sum()`）或 `GROUP BY` 的查询
+- 不发送 `Accept: application/x-ndjson` 的旧调用方（仍返回标准 JSON，完全向后兼容）
+
+### 使用示例
+
+```bash
+# 流式 NDJSON — 边查边传
+curl -s -N -H "Accept: application/x-ndjson" \
+  "http://localhost:4000/load?query=%7B%22ungrouped%22%3Atrue%2C%22dimensions%22%3A%5B%22AccessView.id%22%2C%22AccessView.ts%22%5D%2C%22limit%22%3A100%7D"
+
+# 标准 JSON — 兼容所有旧调用方
+curl -s \
+  "http://localhost:4000/load?query=%7B%22dimensions%22%3A%5B%22AccessView.id%22%2C%22AccessView.ts%22%5D%2C%22limit%22%3A100%7D"
+```
+
+### 对比
+
+| | NDJSON 流式 | 标准 JSON |
+|------|-----------|----------|
+| 启用条件 | `ungrouped:true` + `Accept: application/x-ndjson` | 默认（无需额外配置） |
+| 首行到达 | 扫描到即发送 | 等待全部结果 |
+| 后端 | `handleLoadStream` (NDJSON + Flusher) | `h.query()` (QueryResponse JSON) |
+| 前端 | `cubeClient.queryStream()` | `cubeClient.query()` |
 
 ## 数组字段过滤
 

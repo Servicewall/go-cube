@@ -29,43 +29,16 @@ func NewHandler(modelLoader *model.Loader, chClient *sql.Client) *Handler {
 }
 
 func (h *Handler) query(ctx context.Context, host string, req *QueryRequest) (*QueryResponse, error) {
-	if err := validateQuery(req); err != nil {
-		return nil, err
-	}
-
-	modelName := extractModelNameFromRequest(req)
-	if modelName == "" {
-		return nil, fmt.Errorf("无法从查询中确定模型")
-	}
-
-	m, err := h.modelLoader.Load(modelName)
+	m, query, err := h.setupQuery(req)
 	if err != nil {
 		return nil, err
 	}
-
-	// search-target=offline 时 AccessView 切换到 access_offline_local 表
-	if m.Name == "AccessView" {
-		if targets, ok := req.Vars["search_target"]; ok && len(targets) > 0 && targets[0] == "offline" {
-			m = m.Clone()
-			m.SQLTable = "default.access_offline_local"
-		}
-	}
-
-	query, err := buildQuery(req, m)
-	if err != nil {
-		return nil, err
-	}
-	if PrintSQL {
-		log.Printf("SQL: %s", query)
-	}
-
 	data, err := h.chClient.Query(ctx, host, query)
 	if err != nil {
 		log.Printf("SQL error: %v | query: %s", err, query)
 		return nil, err
 	}
 
-	// 对有 granularity 的 timeDimension，每行补写 "Cube.field" = "Cube.field.granularity" 的值
 	for _, td := range req.TimeDimensions {
 		if td.Granularity == "" {
 			continue
@@ -82,6 +55,35 @@ func (h *Handler) query(ctx context.Context, host string, req *QueryRequest) (*Q
 		QueryType: "regularQuery",
 		Results:   []QueryResult{{Query: *req, Data: data, Annotation: buildAnnotation(req, m)}},
 	}, nil
+}
+
+// setupQuery 验证请求、加载模型、构建 SQL，query 和 handleLoadStream 共用。
+func (h *Handler) setupQuery(req *QueryRequest) (*model.Cube, string, error) {
+	if err := validateQuery(req); err != nil {
+		return nil, "", err
+	}
+	modelName := extractModelNameFromRequest(req)
+	if modelName == "" {
+		return nil, "", fmt.Errorf("无法从查询中确定模型")
+	}
+	m, err := h.modelLoader.Load(modelName)
+	if err != nil {
+		return nil, "", err
+	}
+	if m.Name == "AccessView" {
+		if targets, ok := req.Vars["search_target"]; ok && len(targets) > 0 && targets[0] == "offline" {
+			m = m.Clone()
+			m.SQLTable = "default.access_offline_local"
+		}
+	}
+	query, err := buildQuery(req, m)
+	if err != nil {
+		return nil, "", err
+	}
+	if PrintSQL {
+		log.Printf("SQL: %s", query)
+	}
+	return m, query, nil
 }
 
 // HandleLoad 是 HTTP 入口，供注册到路由器使用。
@@ -123,12 +125,71 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 		req.Vars["search_target"] = []string{v}
 	}
 
+	if req.Ungrouped && r.Header.Get("Accept") == "application/x-ndjson" {
+		h.handleLoadStream(ctx, w, req)
+		return
+	}
+
 	resp, err := h.query(ctx, r.Header.Get("X-Sw-Node"), req)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// handleLoadStream 流式处理 ungrouped 查询，使用 NDJSON 逐行返回。
+func (h *Handler) handleLoadStream(ctx context.Context, w http.ResponseWriter, req *QueryRequest) {
+	m, query, err := h.setupQuery(req)
+	if err != nil {
+		writeJSON(w, statusFromErr(err), map[string]string{"error": err.Error()})
+		return
+	}
+
+	type granPatch struct{ dim, key string }
+	var patches []granPatch
+	for _, td := range req.TimeDimensions {
+		if td.Granularity != "" {
+			patches = append(patches, granPatch{td.Dimension, td.Dimension + "." + td.Granularity})
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	flusher, _ := w.(http.Flusher)
+
+	_, err = h.chClient.QueryStream(ctx, "", query, func(row map[string]interface{}) error {
+		for _, p := range patches {
+			if v, ok := row[p.key]; ok {
+				row[p.dim] = v
+			}
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		buf, _ := json.Marshal(row)
+		w.Write(buf)
+		w.Write([]byte("\n"))
+		if flusher != nil {
+			flusher.Flush()
+		}
+		return nil
+	})
+	if err != nil {
+		log.Printf("stream error: %v (SQL: %s)", err, query)
+	}
+	_ = m
+}
+
+func statusFromErr(err error) int {
+	switch {
+	case strings.Contains(err.Error(), "无法从查询中确定模型"):
+		return http.StatusBadRequest
+	case strings.Contains(err.Error(), "must have at least"):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
