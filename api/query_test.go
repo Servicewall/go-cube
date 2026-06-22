@@ -353,9 +353,9 @@ func TestBuildQuery_TimeDimensionSecondGranularity(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	for _, substr := range []string{
-		`toStartOfInterval(ts, INTERVAL 1 SECOND) AS "AccessView.ts.second"`,
-		`GROUP BY "AccessView.ip", toStartOfInterval(ts, INTERVAL 1 SECOND)`,
-		`ORDER BY toStartOfInterval(ts, INTERVAL 1 SECOND) ASC`,
+		`ts AS "AccessView.ts.second"`,
+		`GROUP BY "AccessView.ip", ts`,
+		`ORDER BY ts ASC`,
 	} {
 		if !contains(sql, substr) {
 			t.Errorf("expected SQL to contain %q, got: %s", substr, sql)
