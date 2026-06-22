@@ -44,7 +44,10 @@ cube:
       title: 组织
 
     sensCategory:
-      sql: dictGetString('default.privacy_dict', 'enabled_standard', sens_k)
+      sql: >-
+        arrayFirst(x -> startsWith(x,
+          dictGetString('default.privacy_dict', 'enabled_standard', sens_k)),
+        splitByChar(';', assumeNotNull(dictGetString('default.privacy_dict', 'level', sens_k))))
       type: string
       title: 数据分类
 
