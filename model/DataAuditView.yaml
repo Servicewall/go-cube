@@ -34,7 +34,7 @@ cube:
       title: 隐私类型
 
     channel:
-      sql: channel
+      sql: if(channel='default', host, channel)
       type: string
       title: 应用
 
