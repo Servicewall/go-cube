@@ -320,12 +320,6 @@ cube:
       type: string
       title: 文件敏感数据Key展开
 
-    fileSensValExt:
-      sql: if(JSONExtractString(file, 'name') != '', arrayJoin(res_sens_v), arrayJoin(req_sens_v))
-      sql_mask: "concat(substringUTF8(arrayJoin(if(JSONExtractString(file,'name')!='',res_sens_v,req_sens_v)),1,1),'***',substringUTF8(arrayJoin(if(JSONExtractString(file,'name')!='',res_sens_v,req_sens_v)),lengthUTF8(arrayJoin(if(JSONExtractString(file,'name')!='',res_sens_v,req_sens_v))),1))"
-      type: string
-      title: 文件敏感数据值展开
-
     fileSampleKey:
       sql: arraySlice(if(JSONExtractString(file, 'name') != '', res_sens_k, req_sens_k), 1, 1000)
       type: string
