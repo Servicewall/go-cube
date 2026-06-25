@@ -82,11 +82,11 @@ cube:
       type: string
       title: 原因
     resultScore:
-      sql: multiIf(arrayExists(x -> dictGetInt64('default.risk_dict', 'score', x) = -100, req_risk), -100, notEmpty(req_risk), 100 - (100 * arrayProduct(arrayMap(x -> 1 - dictGetInt64('default.risk_dict', 'score', x) * 0.01, req_risk))), 0)
+      sql: multiIf(arrayExists(x -> dictGetInt64('default.risk_dict', 'score', x) = -100, risk.1), -100, notEmpty(risk.1), 100 - (100 * arrayProduct(arrayMap(x -> 1 - dictGetInt64('default.risk_dict', 'score', x) * 0.01, risk.1))), 0)
       type: number
       title: 风险分数
     resultLevel:
-      sql: multiIf(multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=80,'高风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=50,'中风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=20,'低风险','无风险')
+      sql: multiIf(multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,risk.1),-100,notEmpty(risk.1),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,risk.1))),0)>=80,'高风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,risk.1),-100,notEmpty(risk.1),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,risk.1))),0)>=50,'中风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,risk.1),-100,notEmpty(risk.1),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,risk.1))),0)>=20,'低风险','无风险')
       type: string
       title: 风险级别
     promptTokens:
