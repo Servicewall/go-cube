@@ -7,7 +7,7 @@ cube:
       sql: org = {vars.org}
 
     whiteFilter:
-      sql: arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = {vars.org})
+      sql: type IN ('IP', 'Device', 'User', 'UA', 'API') and arrayStringConcat([risk,host,content],',') not in (select filter from postgres.risk_aggs where filter_type = 4 and org = {vars.org})
 
     whiteRiskFilter:
       sql: risk not in (select tag from risk_dict where score <= 0 ) and content not in ( select value from postgres.allow_deny_items where is_allow=1 and time_span=0 and field not in ['ip_net', 'user'] ) and ( type!='IP' or multiIf(isIPv4String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv4(content),-1),isIPv6String(content),dictGetInt8OrDefault(ip_net_dict,'is_allow',toIPv6(content),0),-1) != 1 )
