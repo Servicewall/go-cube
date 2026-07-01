@@ -1,0 +1,76 @@
+cube:
+  name: UrlSeqView
+  sql: |
+    SELECT min(ts) as timestamp,
+        org,
+        if(sid!='', sid, concat(ip,ua)) as dev_id,
+        groupUniqArray(sid) AS sid_set,
+        groupUniqArray(ip) AS ip_set,
+        groupUniqArray(ua) AS ua_set,
+        arraySort(x -> (x.1), groupUniqArray((ts, url))) AS seq_ts,
+        arrayMap(x -> (x.2), seq_ts) AS seq,
+        length(seq_ts) AS len,
+        countIf(result='pass') as pass_count,
+        count() as count
+    FROM access
+    WHERE (ts > now() - 3600)
+    GROUP BY org, dev_id
+    HAVING len >= 2 AND len < 6
+
+  segments:
+    org:
+      sql: "org = {vars.org}"
+
+  measures:
+    count:
+      sql: count()
+      type: number
+
+    total:
+      sql: sum(count)
+      type: number
+
+    pass:
+      sql: sum(pass_count)
+      type: number
+
+    uniqDevCount:
+      sql: arrayUniq(arrayFilter(x -> x != '', flatten(groupUniqArray(sid_set))))
+      type: number
+
+    uniqIpCount:
+      sql: arrayUniq(flatten(groupUniqArray(ip_set)))
+      type: number
+
+    uniqUaCount:
+      sql: arrayUniq(flatten(groupUniqArray(ua_set)))
+      type: number
+
+    statRisk:
+      sql: "[multiIf(arrayUniq(flatten(groupUniqArray(sid_set)))*1.01>count() and arrayUniq(flatten(groupUniqArray(sid_set)))>1000, '同序列设备过多',''), multiIf(arrayUniq(flatten(groupUniqArray(sid_set)))*100<count() and arrayUniq(flatten(groupUniqArray(sid_set)))<10,'同序列设备过少', '')]"
+      type: string
+
+  dimensions:
+    urlSeq:
+      sql: seq
+      type: array
+
+    urlTimeSeq:
+      sql: seq_ts
+      type: array
+
+    sidSet:
+      sql: sid_set
+      type: array
+
+    ipSet:
+      sql: ip_set
+      type: array
+
+    uaSet:
+      sql: ua_set
+      type: array
+
+    ts:
+      sql: timestamp
+      type: time
