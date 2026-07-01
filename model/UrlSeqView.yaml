@@ -1,0 +1,44 @@
+cube:
+  name: UrlSeqView
+  sql: |
+    SELECT min(ts) as timestamp,
+        if(sid!='', sid, concat(ip,ua)) as dev_id,
+        uniqIf(sid, sid != '') as sid_count,
+        arrayMap(x -> (x.2), arraySort(x -> (x.1), groupUniqArray((ts, url)))) AS seq,
+        length(seq) AS len,
+        countIf(result='pass') as pass_count,
+        count() as count
+    FROM access
+    WHERE (ts > now() - 3600) AND org = {vars.org}
+    GROUP BY dev_id
+    HAVING len >= 2 AND len < 6
+
+  segments:
+    org:
+      sql: ""
+
+  measures:
+    count:
+      sql: count()
+      type: number
+
+    total:
+      sql: sum(count)
+      type: number
+
+    pass:
+      sql: sum(pass_count)
+      type: number
+
+    statRisk:
+      sql: "[multiIf(sum(sid_count)*1.01>count() and sum(sid_count)>1000, '同序列设备过多',''), multiIf(sum(sid_count)*100<count() and sum(sid_count)<10,'同序列设备过少', '')]"
+      type: string
+
+  dimensions:
+    urlSeq:
+      sql: seq
+      type: array
+
+    ts:
+      sql: timestamp
+      type: time
