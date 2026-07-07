@@ -149,7 +149,7 @@ cube:
       title: 原因
 
     protocol:
-      sql: multiIf(simpleJSONHas(req, 'authority'), 'HTTP2', position(method,'|')>0, substringIndex(method,'|',1), 'HTTP')
+      sql: if(position(method,'|')>0, substringIndex(method,'|',1), 'HTTP')
       type: string
       title: 协议
 
