@@ -16,7 +16,7 @@ cube:
     tsMs:
       sql: ts_ms
       type: number
-      title: 时间戳
+      title: 时间范围
 
     nameGroup:
       sql: dictGet('default.name_group_dict', 'groups', ip)
@@ -101,7 +101,7 @@ cube:
     urlRoute:
       sql: normalizeUrl(url_route, url)
       type: string
-      title: URL路由
+      title: API
 
     status:
       sql: status
@@ -225,12 +225,12 @@ cube:
     reqSensKeyNum:
       sql: arrayReduce('sumMap', arrayMap(x -> map(x, 1), req_sens_k))
       type: string
-      title: 统计隐私数量(请求)
+      title: 请求含敏感数据
 
     resSensKeyNum:
       sql: arrayReduce('sumMap', arrayMap(x -> map(x, 1), res_sens_k))
       type: string
-      title: 统计隐私数量(响应)
+      title: 响应含敏感数据
 
     reqContentLength:
       sql: metric[3]
@@ -373,7 +373,7 @@ cube:
     dstNode:
       sql: if(position(upstream, ']')!=0, regexpExtract(upstream, '\\[(.*)\\]', 1), splitByChar(':',upstream)[1])
       type: string
-      title: 目标节点地址
+      title: 服务器IP
 
     upstream:
       sql: upstream
@@ -398,7 +398,7 @@ cube:
     sensScore:
       sql: if(notEmpty(res_sens_k),100-100*arrayProduct(arrayMap(x -> 1-0.01*dictGetInt64('default.privacy_dict','score',x),arrayDistinct(res_sens_k))),0)
       type: number
-      title: 敏感得分
+      title: 敏感等级
 
     resSensKV:
       sql: if(empty(res_sens_k), '', toJSONString(mapFromArrays(arrayDistinct(res_sens_k), arrayMap(k -> arrayStringConcat(arrayMap(kv -> kv.2, arrayFilter(kv -> kv.1 = k, arrayZip(res_sens_k, res_sens_v))), ','), arrayDistinct(res_sens_k)))))
