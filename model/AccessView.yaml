@@ -74,7 +74,7 @@ cube:
       title: 防护动作
 
     reason:
-      sql: reason
+      sql: arrayMap(x -> reason[indexOf(req_risk, x)], arrayFilter(x -> dictGetInt64('default.risk_dict','score',x)!=0, req_risk))
       type: string
       title: 原因
 
