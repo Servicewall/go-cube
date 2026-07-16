@@ -139,12 +139,12 @@ cube:
       title: 节点名字
 
     reqAction:
-      sql: req_action
+      sql: arrayFilter((action, risk) -> dictGetInt64('default.risk_dict','score',risk)!=0, req_action, req_risk)
       type: string
       title: 动作
 
     reqReason:
-      sql: req_reason
+      sql: arrayFilter((reason, risk) -> dictGetInt64('default.risk_dict','score',risk)!=0, req_reason, req_risk)
       type: string
       title: 原因
 
@@ -243,12 +243,12 @@ cube:
       title: 响应风险
 
     responseAction:
-      sql: res_action
+      sql: arrayFilter((action, risk) -> dictGetInt64('default.risk_dict','score',risk)!=0, res_action, res_risk)
       type: string
       title: 响应防护动作
 
     responseReason:
-      sql: res_reason
+      sql: arrayFilter((reason, risk) -> dictGetInt64('default.risk_dict','score',risk)!=0, res_reason, res_risk)
       type: string
       title: 响应原因
 
