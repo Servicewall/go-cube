@@ -34,7 +34,14 @@ func (h *Handler) query(ctx context.Context, host string, req *QueryRequest) (*Q
 	if err != nil {
 		return nil, err
 	}
+	var start time.Time
+	if PrintSQL {
+		start = time.Now()
+	}
 	data, err := h.chClient.Query(ctx, host, query)
+	if PrintSQL {
+		log.Printf("SQL execution time: %s | query: %s", time.Since(start), query)
+	}
 	if err != nil {
 		log.Printf("SQL error: %v | query: %s", err, query)
 		return nil, err
@@ -80,9 +87,6 @@ func (h *Handler) setupQuery(req *QueryRequest) (*model.Cube, string, error) {
 	query, err := buildQuery(req, m)
 	if err != nil {
 		return nil, "", err
-	}
-	if PrintSQL {
-		log.Printf("SQL: %s", query)
 	}
 	return m, query, nil
 }
