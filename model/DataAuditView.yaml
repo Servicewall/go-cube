@@ -57,6 +57,11 @@ cube:
       title: 数据级别分数
 
   measures:
+    rows:
+      sql: count()
+      type: number
+      title: 记录数
+
     count:
       sql: sum(count)
       type: number
