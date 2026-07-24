@@ -144,7 +144,7 @@ cube:
       title: 动作
 
     reqReason:
-      sql: arrayFilter((reason, risk) -> dictGetInt64('default.risk_dict','score',risk)!=0, req_reason, req_risk)
+      sql: arrayFilter((_, risk) -> dictGetInt64OrDefault('default.risk_dict', 'score', risk, 0) != 0, arrayResize(coalesce(req_reason, []), length(req_risk), ''), req_risk)
       type: string
       title: 原因
 

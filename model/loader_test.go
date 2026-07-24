@@ -43,6 +43,22 @@ func TestLoadFS(t *testing.T) {
 	}
 }
 
+func TestAccessViewReqReasonPadsMissingElementsBeforeFiltering(t *testing.T) {
+	loader, err := NewLoaderFromFS(InternalFS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cube, err := loader.Load("AccessView")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const want = "arrayFilter((_, risk) -> dictGetInt64OrDefault('default.risk_dict', 'score', risk, 0) != 0, arrayResize(coalesce(req_reason, []), length(req_risk), ''), req_risk)"
+	if got := cube.Dimensions["reqReason"].SQL; got != want {
+		t.Fatalf("reqReason SQL mismatch:\nwant: %s\n got: %s", want, got)
+	}
+}
+
 func TestLoadMiss(t *testing.T) {
 	loader := NewLoader()
 	_, err := loader.Load("NoSuchModel")
