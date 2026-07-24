@@ -1,6 +1,14 @@
 #!/bin/bash
 source "$(dirname "$0")/common.sh"
 
+curl() {
+    command curl \
+        -H "X-Sw-Api-Filter-Min-Count: ${API_FILTER_MIN_COUNT:-0}" \
+        -H "X-Sw-Api-Lifecycle-Active-Days: ${API_LIFECYCLE_ACTIVE_DAYS:-7}" \
+        -H "X-Sw-Api-Lifecycle-New-Days: ${API_LIFECYCLE_NEW_DAYS:-1}" \
+        "$@"
+}
+
 setup_server_trap
 start_server 3 "/tmp/go-cube.log"
 test_health
