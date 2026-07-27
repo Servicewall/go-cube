@@ -248,7 +248,7 @@ cube:
       title: 响应防护动作
 
     responseReason:
-      sql: arrayFilter((reason, risk) -> dictGetInt64('default.risk_dict','score',risk)!=0, res_reason, res_risk)
+      sql: arrayFilter((_, risk) -> dictGetInt64('default.risk_dict','score',risk)!=0, arrayResize(coalesce(res_reason, []), length(res_risk), ''), res_risk)
       type: string
       title: 响应原因
 
