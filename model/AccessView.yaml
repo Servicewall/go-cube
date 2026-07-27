@@ -16,7 +16,7 @@ cube:
     tsMs:
       sql: ts_ms
       type: number
-      title: 时间范围
+      title: 时间
 
     nameGroup:
       sql: dictGet('default.name_group_dict', 'groups', ip)
