@@ -23,7 +23,6 @@ cube:
            coalesce(argMaxIf(mgt_status, ts, mgt_status!=''), '') as mgt_status, 
            argMax(importance, ts) as importance, 
            argMax(biz_analysis, ts) as biz_analysis, 
-           argMax(param_analysis, ts) as param_analysis, 
            argMax(source, ts) as source,
            groupUniqArray((req_key, final_view.first_ts)) as req_key_first_ts_tuple_array,
            max(final_view.first_ts) as current_req_key_ts,
@@ -36,7 +35,7 @@ cube:
     FROM (
       select coalesce (org, '') as org, coalesce (ts, toDateTime(0)) as ts, coalesce (first_ts, toDateTime(0)) as first_ts, url, req_key,
       coalesce (a.host, b.host) as host, method, url_action, channel, coalesce (count, 0) as count, type, source,
-      conf_tag, mgt_status, importance, biz_analysis, param_analysis, hour_count, risk_count,
+      conf_tag, mgt_status, importance, biz_analysis, hour_count, risk_count,
       weak_count, metric_count, req_sens_uniq, res_sens_uniq
       from (
       SELECT org, ts, first_ts, url, req_key, host, method, url_action, channel, count, type, source,
@@ -46,8 +45,8 @@ cube:
       ) AS a
       FULL OUTER JOIN
       (
-      SELECT id, host, mgt_status, importance, biz_analysis, param_analysis, method, path as url,
-      arrayMap(x -> dictGetString('api_tag_dict', 'name', x), tag_ids) AS conf_tag, importance_analysis, param_analysis
+      SELECT host, mgt_status, importance, biz_analysis, method, path as url,
+      arrayMap(x -> dictGetString('api_tag_dict', 'name', x), tag_ids) AS conf_tag
       FROM api_dict
       ) as b
       USING (host, method, url)
