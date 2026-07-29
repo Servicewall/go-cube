@@ -8,6 +8,8 @@ import (
 func makeBaseFS() fstest.MapFS {
 	return fstest.MapFS{
 		"TestModel.yaml": &fstest.MapFile{Data: []byte(`cube:
+  title: Test model
+  display: dataview
   sql_table: default.test_table
   dimensions:
     host:
@@ -37,6 +39,12 @@ func TestLoadFS(t *testing.T) {
 	}
 	if cube.SQLTable != "default.test_table" {
 		t.Errorf("expected default.test_table, got %s", cube.SQLTable)
+	}
+	if cube.Title != "Test model" {
+		t.Errorf("expected title Test model, got %s", cube.Title)
+	}
+	if cube.Display != "dataview" {
+		t.Errorf("expected display dataview, got %s", cube.Display)
 	}
 	if len(cube.Dimensions) != 2 {
 		t.Errorf("expected 2 dimensions, got %d", len(cube.Dimensions))
@@ -116,6 +124,8 @@ func TestPutCubeOverwrite(t *testing.T) {
 	}
 
 	err := loader.PutCube("TestModel", []byte(`cube:
+  title: Updated model
+  display: table
   sql_table: default.overridden
   dimensions:
     host:
@@ -129,6 +139,12 @@ func TestPutCubeOverwrite(t *testing.T) {
 	cube, _ := loader.Load("TestModel")
 	if cube.SQLTable != "default.overridden" {
 		t.Errorf("expected overridden, got %s", cube.SQLTable)
+	}
+	if cube.Title != "Updated model" {
+		t.Errorf("expected title Updated model, got %s", cube.Title)
+	}
+	if cube.Display != "table" {
+		t.Errorf("expected display table, got %s", cube.Display)
 	}
 	if cube.Dimensions["host"].SQL != "new_host_expr" {
 		t.Errorf("host.sql should be overridden, got %s", cube.Dimensions["host"].SQL)
@@ -158,6 +174,12 @@ func TestPutCubeMergePartial(t *testing.T) {
 	}
 
 	cube, _ := loader.Load("TestModel")
+	if cube.Title != "Test model" {
+		t.Errorf("title should be preserved, got %s", cube.Title)
+	}
+	if cube.Display != "dataview" {
+		t.Errorf("display should be preserved, got %s", cube.Display)
+	}
 	if cube.SQLTable != "default.test_table" {
 		t.Errorf("sql_table should be preserved, got %s", cube.SQLTable)
 	}

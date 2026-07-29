@@ -4,6 +4,8 @@ import "strings"
 
 type Cube struct {
 	Name       string               `yaml:"name"`
+	Title      string               `yaml:"title,omitempty"`
+	Display    string               `yaml:"display,omitempty"`
 	SQL        string               `yaml:"sql"`
 	SQLTable   string               `yaml:"sql_table"`
 	Dimensions map[string]Dimension `yaml:"dimensions"`
