@@ -97,7 +97,7 @@ FROM default.access_sample_raw
 WHERE {filter.ts}
 
 -- 替换后（dateRange = "from 15 minutes ago to 15 minutes from now"）
-WHERE ts >= now() - INTERVAL 15 MINUTE AND ts <= now() + INTERVAL 15 MINUTE
+WHERE ts >= now() - INTERVAL 15 MINUTE AND ts < now() + INTERVAL 15 MINUTE
 ```
 
 FROM 写入被延迟到 timeDimensions 循环结束后，确保所有占位符已替换。若循环结束仍有未替换的 `{filter.`，返回 error。
@@ -128,13 +128,13 @@ FROM 写入被延迟到 timeDimensions 循环结束后，确保所有占位符�
 
 ```
 "from 15 minutes ago to 15 minutes from now"
-→ ts >= now() - INTERVAL 15 MINUTE AND ts <= now() + INTERVAL 15 MINUTE
+→ ts >= now() - INTERVAL 15 MINUTE AND ts < now() + INTERVAL 15 MINUTE
 
 "last month"
-→ ts >= toStartOfMonth(addMonths(now(), -1)) AND ts <= toStartOfMonth(now())
+→ ts >= toStartOfMonth(addMonths(now(), -1)) AND ts < toStartOfMonth(now())
 ```
 
-绝对时间范围（数组格式 `["2026-01-01", "2026-01-31"]`）同样内联进 SQL，不使用 `?` 绑定。
+时间范围统一使用左闭右开区间 `[start, end)`。绝对时间范围（数组格式 `["2026-01-01", "2026-01-31"]`）同样内联进 SQL，不使用 `?` 绑定。
 
 ## 有意省略的功能
 
