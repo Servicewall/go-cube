@@ -4,18 +4,18 @@ cube:
     (WITH parsed_nodes AS (
        SELECT
          org,
-         splitByChar('|', JSONExtract(coalesce(req, '{}'), 'Headers', 'X-Sw-Gorid', 'Array(String)')[1])[1] AS trace_id,
+         splitByChar('|', JSONExtract(coalesce(req, '{}'), 'Header', 'X-Sw-Gorid', 'Array(String)')[1])[1] AS trace_id,
          ts, first_ts, count,
          splitByChar('|', method)[1] AS db_type,
          host AS db_host,
          splitByChar('.', splitByChar('/', url)[3]) AS db_table_parts,
          db_table_parts[-2] AS db_name,
          db_table_parts[-1] AS table_name,
-         JSONExtract(assumeNotNull(req), 'QueryMap', 'Map(String, Array(String))') AS columns_map,
+         JSONExtract(assumeNotNull(req), 'Query', 'Map(String, Array(String))') AS columns_map,
          arrayMap((k, v) -> (k, v[1]), mapKeys(columns_map), mapValues(columns_map)) AS columns_tuples
        FROM access_sample_raw
        WHERE splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE')
-         AND length(splitByChar('|', JSONExtract(coalesce(req, '{}'), 'Headers', 'X-Sw-Gorid', 'Array(String)')[1])) >= 2
+         AND length(splitByChar('|', JSONExtract(coalesce(req, '{}'), 'Header', 'X-Sw-Gorid', 'Array(String)')[1])) >= 2
      ),
      h AS (
        SELECT
@@ -29,7 +29,7 @@ cube:
            splitByChar('.', splitByChar('/', url)[3]) AS url_parts,
            multiIf(notEmpty(url_route), url_route, countSubstrings(url, '/') < 2, url,
              arrayStringConcat(arrayMap(seg -> if(countMatches(seg, '[0-9a-fA-F-]') > (0.8 * length(seg)), '{parameter}', seg), splitByChar('/', url)), '/')),
-           JSONExtract(req, 'QueryMap', 'Map(String, Array(String))') AS query_map,
+           JSONExtract(req, 'Query', 'Map(String, Array(String))') AS query_map,
            JSONExtractString(req, 'Body') AS http_req_body,
            JSONExtractString(res, 'Body') AS http_res_body
          )) AS spans
