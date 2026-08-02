@@ -1,6 +1,6 @@
 cube:
   name: AccessRawView
-  sql_table: default.access_raw
+  sql_table: default.access
 
   segments:
     org:
@@ -26,27 +26,25 @@ cube:
       title: URL
 
     gorId:
-      sql: "JSONExtractString(req, 'Headers', 'Gor-Msg-Id', 1)"
+      sql: JSONExtractString(req_head, 'Gor-Msg-Id', 1)
       type: string
       title: GorID
 
-    # 请求原文：WS/TCP 协议做 base64 解码，截取前 100000 字节
     request:
-      sql: "if(substr(JSONExtractString(req,'Method'),-3) IN ['C2S','S2C','TCP','WS'], jsonMergePatch(req, toJSONString(map('Body', tryBase64Decode(JSONExtractString(req, 'Body'))))), substr(req, 1, 100000))"
-      sql_mask: "arrayFold((acc, v) -> replaceAll(acc, v, concat(substr(v,1,1),'***',substr(v,length(v),1))), req_sens_v, if(substr(JSONExtractString(req,'Method'),-3) IN ['C2S','S2C','TCP','WS'], jsonMergePatch(req, toJSONString(map('Body', tryBase64Decode(JSONExtractString(req, 'Body'))))), substr(req, 1, 100000)))"
+      sql: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',JSONExtractRaw(req_head),'Query',JSONExtractRaw(url_param),'Body',if(substr(method,-3) IN ['C2S','S2C','TCP','WS'], req_body, if(length(req_body)>100000, subStr(req_body,1,100000), req_body))))"
+      sql_mask: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',JSONExtractRaw(req_head),'Query',JSONExtractRaw(url_param),'Body',arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, if(substr(method,-3) IN ['C2S','S2C','TCP','WS'], req_body, if(length(req_body)>100000, subStr(req_body,1,100000), req_body)))))"
       type: string
       title: 请求原文
 
-    # 响应原文：Body 超 100000 字节截断
     response:
-      sql: "if(length(JSONExtractString(res, 'Body')) > 100000, jsonMergePatch(res, toJSONString(map('Body', subStr(JSONExtractString(res, 'Body'), 1, 100000) || '......'))), res)"
-      sql_mask: "arrayFold((acc, v) -> replaceAll(acc, v, concat(substr(v,1,1),'***',substr(v,length(v),1))), res_sens_v, if(length(JSONExtractString(res, 'Body')) > 100000, jsonMergePatch(res, toJSONString(map('Body', subStr(JSONExtractString(res, 'Body'), 1, 100000) || '......'))), res))"
+      sql: "toJSONString(map('Status',status,'Header',JSONExtractRaw(res_head),'Body',if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body)))"
+      sql_mask: "toJSONString(map('Status',status,'Header',JSONExtractRaw(res_head),'Body',arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body))))"
       type: string
       title: 响应原文
 
-    # 文件内容预览（req.Files 或 res.File 存在时取 Body）
+    # 文件内容预览（下载取 res_body，上传取 req_body）
     fileContent:
-      sql: "multiIf(visitParamExtractRaw(req, 'Files') != '', JSONExtractString(req, 'Body'), visitParamExtractRaw(res, 'File') != '', JSONExtractString(res, 'Body'), '')"
-      sql_mask: "arrayFold((acc, v) -> replaceAll(acc, v, concat(substr(v,1,1),'***',substr(v,length(v),1))), arrayConcat(req_sens_v, res_sens_v), multiIf(visitParamExtractRaw(req, 'Files') != '', JSONExtractString(req, 'Body'), visitParamExtractRaw(res, 'File') != '', JSONExtractString(res, 'Body'), ''))"
+      sql: multiIf(url_action[1] = '下载', res_body, url_action[1] = '上传', req_body, '')
+      sql_mask: "arrayFold((acc, v) -> replaceAll(acc, v, '***'), arrayConcat(req_sens_v, res_sens_v), multiIf(url_action[1] = '下载', res_body, url_action[1] = '上传', req_body, ''))"
       type: string
       title: 文件内容预览
