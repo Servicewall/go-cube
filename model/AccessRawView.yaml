@@ -31,14 +31,14 @@ cube:
       title: GorID
 
     request:
-      sql: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',if(substr(method,-3) IN ['C2S','S2C','TCP','WS'], req_body, if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000), req_body),CAST(req_body,'JSON')))))"
-      sql_mask: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, if(substr(method,-3) IN ['C2S','S2C','TCP','WS'], req_body, if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000), req_body),CAST(req_body,'JSON'))))))"
+      sql: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',if(substr(method,-3) IN ['C2S','S2C','TCP','WS'], req_body, if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body),CAST(req_body,'JSON')))))"
+      sql_mask: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, if(substr(method,-3) IN ['C2S','S2C','TCP','WS'], req_body, if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body),CAST(req_body,'JSON'))))))"
       type: string
       title: 请求原文
 
     response:
-      sql: "toJSONString(map('Status',status,'Header',CAST(if(empty(res_head),'{}',res_head),'JSON'),'Body',if(JSONExtractRaw(res_body) = '',if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body),CAST(res_body,'JSON'))))"
-      sql_mask: "toJSONString(map('Status',status,'Header',CAST(if(empty(res_head),'{}',res_head),'JSON'),'Body',arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, if(JSONExtractRaw(res_body) = '',if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body),CAST(res_body,'JSON')))))"
+      sql: "toJSONString(map('Status',status,'Header',if(empty(res_head),'',CAST(res_head,'JSON')),'Body',if(JSONExtractRaw(res_body) = '',if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body),CAST(res_body,'JSON'))))"
+      sql_mask: "toJSONString(map('Status',status,'Header',if(empty(res_head),'',CAST(res_head,'JSON')),'Body',arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, if(JSONExtractRaw(res_body) = '',if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body),CAST(res_body,'JSON')))))"
       type: string
       title: 响应原文
 
