@@ -31,14 +31,14 @@ cube:
       title: GorID
 
     request:
-      sql: toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body),JSONExtract(req_body,'Dynamic'))))
-      sql_mask: toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',if(JSONExtractRaw(arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, req_body)) = '',arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body)),JSONExtract(arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, req_body),'Dynamic'))))
+      sql: toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',if(isValidJSON(req_body),JSONExtract(req_body,'Dynamic'),if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body))))
+      sql_mask: toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',if(isValidJSON(arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, req_body)),JSONExtract(arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, req_body),'Dynamic'),arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body)))))
       type: string
       title: 请求原文
 
     response:
-      sql: toJSONString(map('Status',status,'Header',if(empty(res_head),'',CAST(res_head,'JSON')),'Body',if(JSONExtractRaw(res_body) = '',if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body),JSONExtract(res_body,'Dynamic'))))
-      sql_mask: toJSONString(map('Status',status,'Header',if(empty(res_head),'',CAST(res_head,'JSON')),'Body',if(JSONExtractRaw(arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, res_body)) = '',arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body)),JSONExtract(arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, res_body),'Dynamic'))))
+      sql: toJSONString(map('Status',status,'Header',if(empty(res_head),'',CAST(res_head,'JSON')),'Body',if(isValidJSON(res_body),JSONExtract(res_body,'Dynamic'),if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body))))
+      sql_mask: toJSONString(map('Status',status,'Header',if(empty(res_head),'',CAST(res_head,'JSON')),'Body',if(isValidJSON(arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, res_body)),JSONExtract(arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, res_body),'Dynamic'),arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, if(length(res_body)>100000, subStr(res_body,1,100000) || '......', res_body)))))
       type: string
       title: 响应原文
 
