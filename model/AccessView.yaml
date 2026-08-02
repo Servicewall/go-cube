@@ -258,8 +258,8 @@ cube:
       title: 响应大小
 
     request:
-      sql: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',if(substr(method,-3) IN ['C2S','S2C','TCP','WS'], req_body, if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body),CAST(req_body,'JSON')))))"
-      sql_mask: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, if(substr(method,-3) IN ['C2S','S2C','TCP','WS'], req_body, if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body),CAST(req_body,'JSON'))))))"
+      sql: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body),CAST(req_body,'JSON'))))"
+      sql_mask: "toJSONString(map('Host',host,'Method',method,'Path',url,'Header',if(empty(req_head),'',CAST(req_head,'JSON')),'Query',if(empty(url_param),'',CAST(url_param,'JSON')),'Body',arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, if(JSONExtractRaw(req_body) = '',if(length(req_body)>100000, subStr(req_body,1,100000) || '......', req_body),CAST(req_body,'JSON')))))"
       type: string
       title: 请求报文
 
