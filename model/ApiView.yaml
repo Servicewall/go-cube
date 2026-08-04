@@ -1,7 +1,7 @@
 cube:
   name: ApiView
   sql: |
-    SELECT org,
+    SELECT groupUniqArray(org) as org,
            url,
            method,
            multiIf(arrayExists(x -> position(assumeNotNull(url), '/') != 1 or startsWith(assumeNotNull(url), x[1]), dictGet(host_dict, 'info', assumeNotNull(host))),
@@ -51,11 +51,11 @@ cube:
       ) as b
       USING (host, method, url)
       ) as final_view
-    GROUP BY org, app_name, method, url
+    GROUP BY app_name, method, url
 
   segments:
     org:
-      sql: org = {vars.org}
+      sql: has(org, {vars.org})
 
     # 每天至少访问1次的API，或手工导入的API
     onePerDay:
