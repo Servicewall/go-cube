@@ -113,6 +113,9 @@ func (l *Loader) PutCube(name string, yamlData []byte) error {
 	if patch.SQLTable != "" {
 		merged.SQLTable = patch.SQLTable
 	}
+	if patch.Title != "" {
+		merged.Title = patch.Title
+	}
 	if patch.Name != "" {
 		merged.Name = patch.Name
 	}
