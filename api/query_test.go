@@ -527,14 +527,11 @@ func TestBuildQuery_BlackSegmentNoRegex(t *testing.T) {
 }
 
 func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
-	// 空 slice 时整体跳过该 segment，不产生自动 WHERE 条件
+	// API 过滤变量未注入时，整体跳过该 segment，不产生自动 WHERE 条件
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},
 		Segments:   []string{"AccessView.black"},
-		Vars: map[string][]any{
-			"api_exact": {},
-			"api_regex": {},
-		},
+		Vars:       map[string][]any{},
 	}
 
 	sql, err := buildQuery(req, testCube())
@@ -546,6 +543,64 @@ func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
 	}
 	if contains(sql, "NOT IN ()") || contains(sql, "multiMatchAny(concat") {
 		t.Errorf("should not produce invalid SQL for empty lists, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSegmentEmptyWithSidebarDimension(t *testing.T) {
+	cube := testCube()
+	cube.Dimensions["sidebarTypeArray"] = model.Dimension{
+		SQL:  "if(concat(host, url) IN ({vars.api_exact}) OR ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}])), ['始终忽略'], ['已发现'])",
+		Type: "array",
+	}
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.sidebarTypeArray"},
+		Segments:   []string{"AccessView.black"},
+		Vars:       map[string][]any{},
+	}
+
+	sql, err := buildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(sql, " WHERE ") {
+		t.Errorf("expected black segment to be skipped for empty API filter vars, got: %s", sql)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("expected sidebar placeholders to be resolved, got: %s", sql)
+	}
+	if !contains(sql, "IN ('')") || !contains(sql, "[''] != ['']") {
+		t.Errorf("expected empty sentinels in sidebar dimension, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_ApiViewSidebarWithoutApiFilterVars(t *testing.T) {
+	loader := newTestLoaderFromFS(t, model.InternalFS)
+	cube, err := loader.Load("ApiView")
+	if err != nil {
+		t.Fatalf("load ApiView: %v", err)
+	}
+	req := &QueryRequest{
+		Dimensions: []string{
+			"ApiView.sidebarTypeArray",
+			"ApiView.sidebarFirstLevelTypeArray",
+			"ApiView.filtered",
+		},
+		Segments: []string{"ApiView.black"},
+		Vars: map[string][]any{
+			varLifecycleActiveDays: {7},
+			varLifecycleNewDays:    {1},
+		},
+	}
+
+	sql, err := buildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(sql, "{vars.") {
+		t.Errorf("expected ApiView sidebar placeholders to be resolved, got: %s", sql)
+	}
+	if contains(sql, "arrayAll(x -> concat(x, url) NOT IN") {
+		t.Errorf("expected ApiView.black to be skipped without API filter vars, got: %s", sql)
 	}
 }
 

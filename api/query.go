@@ -476,7 +476,17 @@ func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
 
 	sql.WriteString(" SETTINGS priority = 1")
 
-	if result := applyVars(sql.String()); result != "" {
+	// api_exact/api_regex are optional. When both are absent, segments that
+	// depend on them (for example ApiView.black) are skipped above. Dimensions
+	// such as sidebarTypeArray still contain the same placeholders, though, and
+	// should render as "no API filter" instead of failing the whole query.
+	finalSQL := sql.String()
+	for _, key := range []string{"api_exact", "api_regex"} {
+		if _, ok := req.Vars[key]; !ok {
+			finalSQL = strings.ReplaceAll(finalSQL, "{vars."+key+"}", "''")
+		}
+	}
+	if result := applyVars(finalSQL); result != "" {
 		return result, nil
 	}
 	return "", fmt.Errorf("unresolved vars placeholder")

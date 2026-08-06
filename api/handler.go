@@ -123,11 +123,14 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Mask = r.Header.Get("X-Auth-Mask") == "true"
-	// api_exact/api_regex 始终注入，未传时 Split("", ",") 返回 [""]，SQL 中条件短路无影响
 	req.Vars = map[string][]any{
-		"org":       {r.Header.Get("X-Sw-Org")},
-		"api_exact": stringVars(strings.Split(r.Header.Get("X-Sw-Api-Exact"), ",")),
-		"api_regex": stringVars(strings.Split(r.Header.Get("X-Sw-Api-Regex"), ",")),
+		"org": {r.Header.Get("X-Sw-Org")},
+	}
+	if v := r.Header.Get("X-Sw-Api-Exact"); strings.TrimSpace(v) != "" {
+		req.Vars["api_exact"] = stringVars(strings.Split(v, ","))
+	}
+	if v := r.Header.Get("X-Sw-Api-Regex"); strings.TrimSpace(v) != "" {
+		req.Vars["api_regex"] = stringVars(strings.Split(v, ","))
 	}
 	for key, header := range map[string]string{
 		varFilterMinCount:      "X-Sw-Api-Filter-Min-Count",
