@@ -34,7 +34,7 @@ cube:
            uniqMapMerge(res_sens_uniq) as res_sens_uniq_map
     FROM (
       select coalesce (org, '') as org, coalesce (ts, toDateTime(0)) as ts, coalesce (first_ts, toDateTime(0)) as first_ts, url, req_key,
-      coalesce (a.host, b.host) as host, method, url_action, channel, coalesce (count, 0) as count, type, source,
+      if(empty(a.host), b.host, a.host) as host, method, url_action, channel, coalesce (count, 0) as count, type, source,
       conf_tag, mgt_status, importance, biz_analysis, hour_count, risk_count,
       weak_count, metric_count, req_sens_uniq, res_sens_uniq
       from (
