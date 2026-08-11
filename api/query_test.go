@@ -360,6 +360,9 @@ func TestBuildQuery_TimeDimensionRelative(t *testing.T) {
 	if !contains(sql, "now()") {
 		t.Errorf("expected ClickHouse now() expr, got: %s", sql)
 	}
+	if !contains(sql, "< now()") {
+		t.Errorf("expected a half-open relative range, got: %s", sql)
+	}
 }
 
 func TestBuildQuery_TimeDimensionThisMonth(t *testing.T) {
@@ -400,8 +403,8 @@ func TestBuildQuery_TimeDimensionLastMonth(t *testing.T) {
 	if !contains(sql, "toStartOfMonth(addMonths(now(), -1))") {
 		t.Errorf("expected toStartOfMonth(addMonths(now(), -1)) in SQL, got: %s", sql)
 	}
-	if !contains(sql, ">=") || !contains(sql, "<=") {
-		t.Errorf("expected >= and <= for range, got: %s", sql)
+	if !contains(sql, ">= toStartOfMonth(addMonths(now(), -1))") || !contains(sql, "< toStartOfMonth(now())") {
+		t.Errorf("expected a half-open range for last month, got: %s", sql)
 	}
 }
 
@@ -915,6 +918,7 @@ func TestParseRelativeTimeRange(t *testing.T) {
 		{"from 1 hour ago to now", "now() - INTERVAL 1 HOUR", "now()", true},
 		{"from 7 days ago to now", "now() - INTERVAL 7 DAY", "now()", true},
 		{"today", "toStartOfDay(now())", "toStartOfDay(addDays(now(), 1))", true},
+		{"last month", "toStartOfMonth(addMonths(now(), -1))", "toStartOfMonth(now())", true},
 	}
 	for _, c := range cases {
 		start, end, isRange := parseRelativeTimeRange(c.input)
