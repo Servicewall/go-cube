@@ -199,7 +199,7 @@ func buildTimeDimensionClause(colSQL string, dr DateRange) string {
 	case string:
 		if v != "" {
 			if start, end, ok := parseRelativeTimeRange(v); ok {
-				return fmt.Sprintf("%s >= %s AND %s <= %s", colSQL, start, colSQL, end)
+				return fmt.Sprintf("%s >= %s AND %s < %s", colSQL, start, colSQL, end)
 			}
 			return fmt.Sprintf("toDate(%s) = %s", colSQL, convertToClickHouseTimeExpr(v))
 		}
@@ -572,8 +572,9 @@ func processFilterValue(fieldSQL string, operator string, valuesArr []interface{
 	return combined
 }
 
-// parseRelativeTimeRange 解析 "from X to Y" 格式为 ClickHouse 时间表达式对
-func parseRelativeTimeRange(s string) (string, string, bool) {
+// parseRelativeTimeRange 解析相对时间范围为 ClickHouse 时间表达式对。
+// 时间范围统一使用右开区间，避免重复纳入边界时刻的数据。
+func parseRelativeTimeRange(s string) (start, end string, ok bool) {
 	s = strings.TrimSpace(s)
 	switch s {
 	case "this week":
