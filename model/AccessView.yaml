@@ -29,7 +29,7 @@ cube:
       title: 设备ID
 
     uid:
-      sql: uid
+      sql: if(uid!='',uid,dictGet(token_dict,'uid',ext_id[1]))
       type: string
       title: 用户标识
 
