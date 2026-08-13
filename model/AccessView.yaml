@@ -621,13 +621,23 @@ cube:
       sql: req_body
       sql_mask: "arrayFold((acc, v) -> replaceAll(acc, v, '***'), req_sens_v, req_body)"
       type: string
-      title: 请求Body
+      title: 请求体
 
     respBody:
       sql: res_body
       sql_mask: "arrayFold((acc, v) -> replaceAll(acc, v, '***'), res_sens_v, res_body)"
       type: string
-      title: 响应Body
+      title: 响应体
+
+    reqHeader:
+      sql: req_head
+      type: string
+      title: 请求头
+
+    respHeader:
+      sql: res_head
+      type: string
+      title: 响应头
 
     reqSampleKey:
       sql: arraySlice(req_sens_k,1,1000)
