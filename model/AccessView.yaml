@@ -13,11 +13,6 @@ cube:
       type: time
       title: 时间
 
-    tsMs:
-      sql: ts_ms
-      type: number
-      title: 时间
-
     nameGroup:
       sql: dictGet('default.name_group_dict', 'groups', ip)
       type: string
@@ -406,16 +401,6 @@ cube:
       type: string
       title: 响应敏感数据
 
-    dbType:
-      sql: if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')
-      type: string
-      title: 数据库类型
-
-    dbName:
-      sql: if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-2], '')
-      type: string
-      title: 数据库名
-
     tableName:
       sql: if(notEmpty(if(splitByChar('|', method)[1] IN ('MYSQL', 'POSTGRESQL', 'ORACLE'), splitByChar('|', method)[1], '')), splitByChar('.', splitByChar('/', url)[3])[-1], '')
       type: string
@@ -576,11 +561,6 @@ cube:
       sql: multiIf(multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=80,'高风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=50,'中风险',multiIf(arrayExists(x -> dictGetInt64('default.risk_dict','score',x)=-100,req_risk),-100,notEmpty(req_risk),100-(100*arrayProduct(arrayMap(x -> 1-dictGetInt64('default.risk_dict','score',x)*0.01,req_risk))),0)>=20,'低风险','无风险')
       type: string
       title: 风险级别
-
-    maskRule:
-      sql: arrayFilter(x -> position(x,'脱敏')>0, res_risk)
-      type: array
-      title: 脱敏规则
 
     isSens:
       sql: multiIf(notEmpty(req_sens_k),'request',notEmpty(res_sens_k),'response','')
@@ -771,11 +751,6 @@ cube:
       sql: count()
       type: number
       title: 访问量
-
-    sensLevelCount:
-      sql: uniqMap(mapFromArrays((arrayFilter(x->x.3 != '',arrayZip(arrayConcat(req_sens_k, res_sens_k), arrayConcat(req_sens_v, res_sens_v),arrayMap(k -> if(dictGetString('default.privacy_dict', 'enabled_standard', k) == '通用', '通用', arrayStringConcat(arraySlice(splitByChar(':', arrayFilter(fullLevel -> startsWith(fullLevel,dictGetString('default.privacy_dict', 'enabled_standard', k)), splitByChar(';',assumeNotNull(dictGetString('default.privacy_dict', 'level', k))))[1]), 2), ':')), arrayConcat(req_sens_k, res_sens_k)), arrayMap(k -> dictGetInt64('default.privacy_dict', 'score', k), arrayConcat(req_sens_k, res_sens_k)))) AS _scl).3, arrayZip(_scl.1, _scl.2, arrayMap(x -> host, _scl), arrayMap(x -> channel, _scl))))
-      type: string
-      title: 敏感分类计数
 
     minCountArray:
       sql: sumMap([toUnixTimestamp(toStartOfMinute(ts))], [1])

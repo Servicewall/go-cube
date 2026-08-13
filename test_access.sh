@@ -226,7 +226,7 @@ echo "=== 25. privacy file detail list: ungrouped, 24 dims, fileCategory=隐私�
 # order: ts desc
 # filters: isSens!='' & sensScore>=0 & fileName!='' & fileCategory=隐私文件
 # limit: 20, segments: org, black
-result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3A%20true%2C%20%22measures%22%3A%20%5B%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22AccessView.ts%22%2C%20%22dateRange%22%3A%20%22from%207%20days%20ago%20to%20now%22%7D%5D%2C%20%22order%22%3A%20%7B%22AccessView.ts%22%3A%20%22desc%22%7D%2C%20%22filters%22%3A%20%5B%7B%22member%22%3A%20%22AccessView.isSens%22%2C%20%22operator%22%3A%20%22notEquals%22%2C%20%22values%22%3A%20%5B%22%22%5D%7D%2C%20%7B%22member%22%3A%20%22AccessView.sensScore%22%2C%20%22operator%22%3A%20%22gte%22%2C%20%22values%22%3A%20%5B%220%22%5D%7D%2C%20%7B%22member%22%3A%20%22AccessView.fileName%22%2C%20%22operator%22%3A%20%22notEquals%22%2C%20%22values%22%3A%20%5B%22%22%5D%7D%2C%20%7B%22member%22%3A%20%22AccessView.fileCategory%22%2C%20%22operator%22%3A%20%22equals%22%2C%20%22values%22%3A%20%5B%22%5Cu9690%5Cu79c1%5Cu6587%5Cu4ef6%22%5D%7D%5D%2C%20%22dimensions%22%3A%20%5B%22AccessView.ts%22%2C%20%22AccessView.tsMs%22%2C%20%22AccessView.id%22%2C%20%22AccessView.channel%22%2C%20%22AccessView.host%22%2C%20%22AccessView.method%22%2C%20%22AccessView.url%22%2C%20%22AccessView.urlRoute%22%2C%20%22AccessView.fileName%22%2C%20%22AccessView.fileType%22%2C%20%22AccessView.fileCategory%22%2C%20%22AccessView.fileMd5%22%2C%20%22AccessView.fileSha1%22%2C%20%22AccessView.fileSensKeyNum%22%2C%20%22AccessView.sid%22%2C%20%22AccessView.uid%22%2C%20%22AccessView.ip%22%2C%20%22AccessView.ua%22%2C%20%22AccessView.status%22%2C%20%22AccessView.fileDirection%22%2C%20%22AccessView.sensScore%22%2C%20%22AccessView.responseRisk%22%2C%20%22AccessView.responseAction%22%2C%20%22AccessView.responseReason%22%5D%2C%20%22limit%22%3A%2020%2C%20%22offset%22%3A%200%2C%20%22segments%22%3A%20%5B%22AccessView.org%22%2C%20%22AccessView.black%22%5D%2C%20%22timezone%22%3A%20%22Asia/Shanghai%22%7D")
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3A%20true%2C%20%22measures%22%3A%20%5B%5D%2C%20%22timeDimensions%22%3A%20%5B%7B%22dimension%22%3A%20%22AccessView.ts%22%2C%20%22dateRange%22%3A%20%22from%207%20days%20ago%20to%20now%22%7D%5D%2C%20%22order%22%3A%20%7B%22AccessView.ts%22%3A%20%22desc%22%7D%2C%20%22filters%22%3A%20%5B%7B%22member%22%3A%20%22AccessView.isSens%22%2C%20%22operator%22%3A%20%22notEquals%22%2C%20%22values%22%3A%20%5B%22%22%5D%7D%2C%20%7B%22member%22%3A%20%22AccessView.sensScore%22%2C%20%22operator%22%3A%20%22gte%22%2C%20%22values%22%3A%20%5B%220%22%5D%7D%2C%20%7B%22member%22%3A%20%22AccessView.fileName%22%2C%20%22operator%22%3A%20%22notEquals%22%2C%20%22values%22%3A%20%5B%22%22%5D%7D%2C%20%7B%22member%22%3A%20%22AccessView.fileCategory%22%2C%20%22operator%22%3A%20%22equals%22%2C%20%22values%22%3A%20%5B%22%5Cu9690%5Cu79c1%5Cu6587%5Cu4ef6%22%5D%7D%5D%2C%20%22dimensions%22%3A%20%5B%22AccessView.ts%22%2C%20%22AccessView.id%22%2C%20%22AccessView.channel%22%2C%20%22AccessView.host%22%2C%20%22AccessView.method%22%2C%20%22AccessView.url%22%2C%20%22AccessView.urlRoute%22%2C%20%22AccessView.fileName%22%2C%20%22AccessView.fileType%22%2C%20%22AccessView.fileCategory%22%2C%20%22AccessView.fileMd5%22%2C%20%22AccessView.fileSha1%22%2C%20%22AccessView.fileSensKeyNum%22%2C%20%22AccessView.sid%22%2C%20%22AccessView.uid%22%2C%20%22AccessView.ip%22%2C%20%22AccessView.ua%22%2C%20%22AccessView.status%22%2C%20%22AccessView.fileDirection%22%2C%20%22AccessView.sensScore%22%2C%20%22AccessView.responseRisk%22%2C%20%22AccessView.responseAction%22%2C%20%22AccessView.responseReason%22%5D%2C%20%22limit%22%3A%2020%2C%20%22offset%22%3A%200%2C%20%22segments%22%3A%20%5B%22AccessView.org%22%2C%20%22AccessView.black%22%5D%2C%20%22timezone%22%3A%20%22Asia/Shanghai%22%7D")
 check "privacy file detail list ungrouped 24 dims fileCategory=隐私文件 limit 20" "$result"
 
 echo ""
@@ -271,10 +271,10 @@ echo "=== AccessView: identity / raw dimensions ==="
 echo "========================================"
 
 echo ""
-echo "=== 30. ungrouped: id+tsMs+sid+uid+ts+ip (limit 5) ==="
-# Tests: id, tsMs, sid, uid dimensions in ungrouped row scan
-result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22$RANGE%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AccessView.id%22%2C%22AccessView.tsMs%22%2C%22AccessView.sid%22%2C%22AccessView.uid%22%2C%22AccessView.ts%22%2C%22AccessView.ip%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22AccessView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
-check "ungrouped id+tsMs+sid+uid+ts+ip limit 5" "$result"
+echo "=== 30. ungrouped: id+sid+uid+ts+ip (limit 5) ==="
+# Tests: id, sid, uid dimensions in ungrouped row scan
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22$RANGE%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AccessView.id%22%2C%22AccessView.sid%22%2C%22AccessView.uid%22%2C%22AccessView.ts%22%2C%22AccessView.ip%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22AccessView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+check "ungrouped id+sid+uid+ts+ip limit 5" "$result"
 
 echo ""
 echo "=== 31. ungrouped: result+resultType+resultAction+resultScore+resultLevel+reason (limit 5) ==="
@@ -333,7 +333,7 @@ check "ungrouped sysProcessTime+upstreamProcessTime+reqEncryptMethod+respEncrypt
 echo ""
 echo "=== 40. ungrouped: dbType+dbName+tableName+dbInfo+dbSensKV (limit 5) ==="
 # Tests: dbType, dbName, tableName, dbInfo, dbSensKV
-result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22$RANGE%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AccessView.dbType%22%2C%22AccessView.dbName%22%2C%22AccessView.tableName%22%2C%22AccessView.dbInfo%22%2C%22AccessView.dbSensKV%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22AccessView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22$RANGE%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AccessView.tableName%22%2C%22AccessView.dbInfo%22%2C%22AccessView.dbSensKV%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22AccessView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
 check "ungrouped dbType+dbName+tableName+dbInfo+dbSensKV limit 5" "$result"
 
 echo ""
@@ -357,7 +357,7 @@ check "ungrouped reqBody+respBody+request+response limit 3" "$result"
 echo ""
 echo "=== 44. ungrouped: weakVal+weakKey+maskRule+responseRisk+responseAction+responseReason (limit 5) ==="
 # Tests: weakVal, weakKey, maskRule, responseRisk, responseAction, responseReason
-result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22$RANGE%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AccessView.weakVal%22%2C%22AccessView.weakKey%22%2C%22AccessView.maskRule%22%2C%22AccessView.responseRisk%22%2C%22AccessView.responseAction%22%2C%22AccessView.responseReason%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22AccessView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22ungrouped%22%3Atrue%2C%22measures%22%3A%5B%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%22$RANGE%22%7D%5D%2C%22filters%22%3A%5B%5D%2C%22dimensions%22%3A%5B%22AccessView.weakVal%22%2C%22AccessView.weakKey%22%2C%22AccessView.responseRisk%22%2C%22AccessView.responseAction%22%2C%22AccessView.responseReason%22%5D%2C%22limit%22%3A5%2C%22segments%22%3A%5B%22AccessView.org%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
 check "ungrouped weakVal+weakKey+maskRule+responseRisk+responseAction+responseReason limit 5" "$result"
 
 echo ""
