@@ -102,7 +102,6 @@ const CONFIG = {
     'AccessView': {
       // 基础信息
       'AccessView.ts': { name: '时间', group: '基础信息', width: 'w-32' },
-      'AccessView.tsMs': { name: '时间(毫秒)', group: '基础信息', width: 'w-32' },
       'AccessView.id': { name: 'ID', group: '基础信息', width: 'w-24' },
       
       // 用户标识
