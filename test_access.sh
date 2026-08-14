@@ -220,7 +220,7 @@ check "count of privacy files (fileCategory=隐私文件)" "$result"
 echo ""
 echo "=== 25. privacy file detail list: ungrouped, 24 dims, fileCategory=隐私文件, limit 20 ==="
 # ungrouped: true, no measures
-# dimensions: ts, tsMs, id, channel, host, method, url, urlRoute, fileName, fileType, fileCategory,
+# dimensions: ts, id, channel, host, method, url, urlRoute, fileName, fileType, fileCategory,
 #             fileMd5, fileSha1, fileSensKeyNum, sid, uid, ip, ua, status, fileDirection,
 #             sensScore, responseRisk, responseAction, responseReason
 # order: ts desc
