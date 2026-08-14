@@ -41,7 +41,7 @@ func testCube() *model.Cube {
 		},
 		Segments: map[string]model.Segment{
 			"org":   {SQL: "org = {vars.org}"},
-			"black": {SQL: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"},
+			"black": {SQL: "([{vars.api_filter_exact_hosts}] = [''] OR (host, url) NOT IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}])) AND ([{vars.api_filter_regex_hosts}] = [''] OR host NOT IN ({vars.api_filter_regex_hosts})) AND NOT ([{vars.api_filter_regex_suffixes}] != [''] AND arrayExists(suffix -> endsWith(url, suffix), [{vars.api_filter_regex_suffixes}]))"},
 		},
 	}
 }
@@ -482,8 +482,8 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 		Dimensions: []string{"AccessView.id"},
 		Segments:   []string{"AccessView.black"},
 		Vars: map[string][]any{
-			"api_exact": {"host1/api/v1", "host2/api/v2"},
-			"api_regex": {"\\.php$", "^/admin/.*"},
+			"api_filter_exact": {"host1/api/v1", "s1.g.mi.comdownload/AppStore/x.apk"},
+			"api_filter_regex": {".apk$|.ipsw$", "admin.example.com/.*"},
 		},
 	}
 
@@ -494,22 +494,24 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 	if !contains(sql, "WHERE") {
 		t.Errorf("expected WHERE clause, got: %s", sql)
 	}
-	if !contains(sql, "concat(host, url) NOT IN ('host1/api/v1','host2/api/v2')") {
-		t.Errorf("expected exact list quoted in NOT IN, got: %s", sql)
+	if !contains(sql, "arrayZip(['host1','s1.g.mi.comdownload'], ['/api/v1','/AppStore/x.apk'])") {
+		t.Errorf("expected exact filters split at the first slash, got: %s", sql)
 	}
-	if !contains(sql, "multiMatchAny(concat(host, url), ['\\.php$','^/admin/.*'])") {
-		t.Errorf("expected regex list quoted in multiMatchAny, got: %s", sql)
+	if !contains(sql, "host NOT IN ('admin.example.com')") || !contains(sql, "['.apk','.ipsw']") {
+		t.Errorf("expected regex filters split into host and suffix conditions, got: %s", sql)
+	}
+	if contains(sql, "concat(host, url)") || contains(sql, "multiMatchAny") {
+		t.Errorf("optimized black segment must not use concat or multiMatchAny, got: %s", sql)
 	}
 }
 
 func TestBuildQuery_BlackSegmentNoRegex(t *testing.T) {
-	// 调用侧（sheikah）api_regex 未配置时注入哨兵 [""]，black segment 仍生效，multiMatchAny 被短路跳过
+	// 调用侧（sheikah）未配置正则时，black segment 仍生效，URL 后缀判断被短路跳过。
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},
 		Segments:   []string{"AccessView.black"},
 		Vars: map[string][]any{
-			"api_exact": {"host1/api/v1"},
-			"api_regex": {""}, // 调用侧注入哨兵
+			"api_filter_exact": {"host1/api/v1"},
 		},
 	}
 
@@ -520,12 +522,66 @@ func TestBuildQuery_BlackSegmentNoRegex(t *testing.T) {
 	if !contains(sql, "WHERE") {
 		t.Errorf("expected WHERE clause, got: %s", sql)
 	}
-	if !contains(sql, "concat(host, url) NOT IN ('host1/api/v1')") {
+	if !contains(sql, "arrayZip(['host1'], ['/api/v1'])") {
 		t.Errorf("expected exact NOT IN, got: %s", sql)
 	}
-	// 参数 [{vars.api_regex}] 渲染为 ['']，触发 != [''] 为 false，短路跳过 multiMatchAny
-	if !contains(sql, "[''] != ['']") {
+	if !contains(sql, "([''] = [''] OR host NOT IN (''))") || !contains(sql, "[''] != ['']") {
 		t.Errorf("expected sentinel [''] != [''] in SQL, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSegmentExactWithCommaAndSlash(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Segments:   []string{"AccessView.black"},
+		Vars: map[string][]any{
+			"api_exact": parseStringVars(`["host/a,b/c","host2/path"]`),
+		},
+	}
+
+	sql, err := buildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "arrayZip(['host','host2'], ['/a,b/c','/path'])") {
+		t.Errorf("expected JSON header values to preserve commas and slashes, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSegmentRejectsUnsupportedRegex(t *testing.T) {
+	for _, rule := range []string{"^/admin/.*", `(?i)\.apk$`, `[.]apk$`, `^\.apk$`} {
+		req := &QueryRequest{
+			Dimensions: []string{"AccessView.id"},
+			Segments:   []string{"AccessView.black"},
+			Vars: map[string][]any{
+				"api_filter_regex": {rule},
+			},
+		}
+		if _, err := buildQuery(req, testCube()); err == nil {
+			t.Errorf("expected unsupported api_filter_regex %q error", rule)
+		}
+	}
+}
+
+func TestBuildQuery_BlackSegmentAnchoredSuffix(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Segments:   []string{"AccessView.black"},
+		Vars: map[string][]any{
+			"api_filter_regex": {`^.*\.apk$|.*\.ipsw$`},
+		},
+	}
+
+	sql, err := buildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "['.apk','.ipsw']") {
+		t.Errorf("expected anchored literal suffixes, got: %s", sql)
+	}
+	if !contains(sql, "([''] = [''] OR (host, url) NOT IN arrayZip([''], ['']))") ||
+		!contains(sql, "([''] = [''] OR host NOT IN (''))") {
+		t.Errorf("expected empty exact and host filters to be guarded, got: %s", sql)
 	}
 }
 

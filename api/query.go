@@ -223,6 +223,9 @@ const (
 )
 
 func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
+	if err := prepareAccessBlackVars(req, cube.Name); err != nil {
+		return "", err
+	}
 	mask := req.Mask
 
 	var sql strings.Builder

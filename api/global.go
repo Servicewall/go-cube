@@ -64,8 +64,8 @@ func HTTPHandler() http.Handler {
 //   - org:            组织标识（注入 segment 变量）
 //   - mask:           数据脱敏开关
 //   - clickhouseNode: 目标 ClickHouse 节点地址（空则使用 Init 配置的默认地址）
-//   - apiExact:       精确匹配的 API 列表（逗号分隔）
-//   - apiRegex:       正则匹配的 API 列表（逗号分隔）
+//   - apiExact:       精确匹配的 API 列表（JSON 数组，兼容逗号分隔）
+//   - apiRegex:       正则匹配的 API 列表（JSON 数组，兼容逗号分隔）
 //   - queryJSON:      标准 cube query 的 JSON 字节（必须基于 AccessView）
 func OfflineTrace(ctx context.Context, taskID, org string, mask bool, clickhouseNode, apiExact, apiRegex string, queryJSON []byte) error {
 	if defaultHandler == nil {
@@ -83,10 +83,10 @@ func OfflineTrace(ctx context.Context, taskID, org string, mask bool, clickhouse
 		"org": {org},
 	}
 	if strings.TrimSpace(apiExact) != "" {
-		req.Vars["api_exact"] = stringVars(strings.Split(apiExact, ","))
+		req.Vars["api_exact"] = parseStringVars(apiExact)
 	}
 	if strings.TrimSpace(apiRegex) != "" {
-		req.Vars["api_regex"] = stringVars(strings.Split(apiRegex, ","))
+		req.Vars["api_regex"] = parseStringVars(apiRegex)
 	}
 
 	if err := validateQuery(req); err != nil {

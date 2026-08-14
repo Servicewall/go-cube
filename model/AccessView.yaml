@@ -739,7 +739,10 @@ cube:
     org:
       sql: "org = {vars.org}"
     black:
-      sql: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"
+      sql: >-
+        ([{vars.api_filter_exact_hosts}] = [''] OR (host, url) NOT IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}]))
+        AND ([{vars.api_filter_regex_hosts}] = [''] OR host NOT IN ({vars.api_filter_regex_hosts}))
+        AND NOT ([{vars.api_filter_regex_suffixes}] != [''] AND arrayExists(suffix -> endsWith(url, suffix), [{vars.api_filter_regex_suffixes}]))
     riskConfirmed:
       sql: 1=1 # Placeholder - requires custom dim filter
     riskNotConfirmed:
