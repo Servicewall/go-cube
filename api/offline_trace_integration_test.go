@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -56,7 +57,7 @@ func TestOfflineTrace_Integration(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	err = OfflineTrace(ctx, taskID, "test-org", false, "", "", "", queryJSON)
+	err = OfflineTrace(ctx, taskID, http.Header{"X-Sw-Org": {"test-org"}}, queryJSON)
 	if err != nil {
 		t.Fatalf("OfflineTrace failed: %v", err)
 	}

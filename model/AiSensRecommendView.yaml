@@ -10,7 +10,7 @@ cube:
       sql: "org = {vars.org}"
 
     black:
-      sql: "concat(host, if(notEmpty(url_route), url_route, url)) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, if(notEmpty(url_route), url_route, url)), [{vars.api_regex}]))"
+      sql: "(host, if(notEmpty(url_route), url_route, url)) NOT IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}]) AND host NOT IN ({vars.api_filter_regex_hosts}) AND NOT arrayExists(suffix -> endsWith(if(notEmpty(url_route), url_route, url), suffix), [{vars.api_filter_regex_suffixes}])"
 
   measures:
     lastTime:

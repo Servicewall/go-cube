@@ -60,14 +60,7 @@ func HTTPHandler() http.Handler {
 }
 
 // OfflineTrace 离线溯源：根据 queryJSON 生成数据 SQL，插入 access_offline_local 表。
-//   - taskID:         任务标识
-//   - org:            组织标识（注入 segment 变量）
-//   - mask:           数据脱敏开关
-//   - clickhouseNode: 目标 ClickHouse 节点地址（空则使用 Init 配置的默认地址）
-//   - apiExact:       精确匹配的 API 列表（逗号分隔）
-//   - apiRegex:       正则匹配的 API 列表（逗号分隔）
-//   - queryJSON:      标准 cube query 的 JSON 字节（必须基于 AccessView）
-func OfflineTrace(ctx context.Context, taskID, org string, mask bool, clickhouseNode, apiExact, apiRegex string, queryJSON []byte) error {
+func OfflineTrace(ctx context.Context, taskID string, headers http.Header, queryJSON []byte) error {
 	if defaultHandler == nil {
 		return fmt.Errorf("go-cube: call Init before OfflineTrace")
 	}
@@ -78,16 +71,9 @@ func OfflineTrace(ctx context.Context, taskID, org string, mask bool, clickhouse
 		return fmt.Errorf("parse query: %w", err)
 	}
 
-	req.Mask = mask
-	req.Vars = map[string][]any{
-		"org": {org},
-	}
-	if strings.TrimSpace(apiExact) != "" {
-		req.Vars["api_exact"] = stringVars(strings.Split(apiExact, ","))
-	}
-	if strings.TrimSpace(apiRegex) != "" {
-		req.Vars["api_regex"] = stringVars(strings.Split(apiRegex, ","))
-	}
+	req.Mask = headers.Get("X-Auth-Mask") == "true"
+	req.Vars = map[string][]any{"org": {headers.Get("X-Sw-Org")}}
+	addAPIFilterVars(req.Vars, headers)
 
 	if err := validateQuery(req); err != nil {
 		return fmt.Errorf("validate query: %w", err)
@@ -116,6 +102,7 @@ func OfflineTrace(ctx context.Context, taskID, org string, mask bool, clickhouse
 	}
 
 	// 获取 access 表列名
+	clickhouseNode := headers.Get("X-Sw-Node")
 	colRows, err := h.chClient.Query(ctx, clickhouseNode,
 		"SELECT name FROM system.columns WHERE database = currentDatabase() AND table = 'access' ORDER BY position")
 	if err != nil {

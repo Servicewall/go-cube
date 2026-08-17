@@ -62,10 +62,10 @@ cube:
       sql: "org = {vars.org}"
 
     white:
-      sql: "db_host IN ({vars.api_exact}) OR ([{vars.api_regex}] != [''] AND multiMatchAny(db_host, [{vars.api_regex}]))"
+      sql: "db_host IN arrayConcat([{vars.api_filter_exact_hosts}], [{vars.api_filter_regex_hosts}])"
 
     black:
-      sql: "db_host NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(db_host, [{vars.api_regex}]))"
+      sql: "db_host NOT IN arrayConcat([{vars.api_filter_exact_hosts}], [{vars.api_filter_regex_hosts}])"
 
   dimensions:
     ts:

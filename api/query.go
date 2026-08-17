@@ -307,12 +307,15 @@ func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
 	}
 
 	// applyVars 替换 SQL 中的 {vars.key} 和 {filter.field} 占位符。
-	// {vars.key}：有值内联带引号；key 不存在或值为空时返回 "" 跳过整个模板。
+	// {vars.key}：有值内联带引号；归一化 API filter 的空数组展开为空元素列表。
 	// {filter.field}：查预计算的 filterVars，无匹配降级为 1=1。
 	applyVars := func(tmpl string) string {
 		for k, vals := range req.Vars {
 			ph := "{vars." + k + "}"
-			if !strings.Contains(tmpl, ph) || len(vals) == 0 {
+			if !strings.Contains(tmpl, ph) {
+				continue
+			}
+			if len(vals) == 0 && !strings.HasPrefix(k, "api_filter_") {
 				continue
 			}
 			quoted := make([]string, len(vals))
@@ -476,14 +479,15 @@ func buildQuery(req *QueryRequest, cube *model.Cube) (string, error) {
 
 	sql.WriteString(" SETTINGS priority = 1")
 
-	// api_exact/api_regex are optional. When both are absent, segments that
-	// depend on them (for example ApiView.black) are skipped above. Dimensions
-	// such as sidebarTypeArray still contain the same placeholders, though, and
-	// should render as "no API filter" instead of failing the whole query.
 	finalSQL := sql.String()
-	for _, key := range []string{"api_exact", "api_regex"} {
+	for key, fallback := range map[string]string{
+		"api_filter_exact_hosts":    "",
+		"api_filter_exact_urls":     "",
+		"api_filter_regex_hosts":    "''",
+		"api_filter_regex_suffixes": "",
+	} {
 		if _, ok := req.Vars[key]; !ok {
-			finalSQL = strings.ReplaceAll(finalSQL, "{vars."+key+"}", "''")
+			finalSQL = strings.ReplaceAll(finalSQL, "{vars."+key+"}", fallback)
 		}
 	}
 	if result := applyVars(finalSQL); result != "" {

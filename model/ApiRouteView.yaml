@@ -46,7 +46,7 @@ cube:
       sql: ""
 
     black:
-      sql: "concat(host, url_route) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url_route), [{vars.api_regex}]))"
+      sql: "(host, url_route) NOT IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}]) AND host NOT IN ({vars.api_filter_regex_hosts}) AND NOT arrayExists(suffix -> endsWith(url_route, suffix), [{vars.api_filter_regex_suffixes}])"
 
   dimensions:
     host:

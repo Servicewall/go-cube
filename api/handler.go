@@ -96,8 +96,7 @@ func (h *Handler) setupQuery(req *QueryRequest) (*model.Cube, string, error) {
 //   - X-Sw-Node:      目标 ClickHouse 节点地址
 //   - X-Auth-Mask:    数据脱敏开关
 //   - X-Sw-Org:       org 模板变量
-//   - X-Sw-Api-Exact: api_exact 模板变量（逗号分隔多值）
-//   - X-Sw-Api-Regex: api_regex 模板变量（逗号分隔多值）
+//   - X-Sw-Api-Filter-*: sheikah 标准化后的 API 过滤变量
 //   - X-Sw-Api-Filter-Min-Count:      api_filter_min_count 数值模板变量
 //   - X-Sw-Api-Lifecycle-Active-Days: api_lifecycle_active_days 数值模板变量
 //   - X-Sw-Api-Lifecycle-New-Days:    api_lifecycle_new_days 数值模板变量
@@ -126,12 +125,7 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	req.Vars = map[string][]any{
 		"org": {r.Header.Get("X-Sw-Org")},
 	}
-	if v := r.Header.Get("X-Sw-Api-Exact"); strings.TrimSpace(v) != "" {
-		req.Vars["api_exact"] = stringVars(strings.Split(v, ","))
-	}
-	if v := r.Header.Get("X-Sw-Api-Regex"); strings.TrimSpace(v) != "" {
-		req.Vars["api_regex"] = stringVars(strings.Split(v, ","))
-	}
+	addAPIFilterVars(req.Vars, r.Header)
 	for key, header := range map[string]string{
 		varFilterMinCount:      "X-Sw-Api-Filter-Min-Count",
 		varLifecycleActiveDays: "X-Sw-Api-Lifecycle-Active-Days",
@@ -166,12 +160,29 @@ func (h *Handler) HandleLoad(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func addAPIFilterVars(vars map[string][]any, headers http.Header) {
+	for _, suffix := range []string{"Exact-Hosts", "Exact-Urls", "Regex-Hosts", "Regex-Suffixes"} {
+		if value := strings.TrimSpace(headers.Get("X-Sw-Api-Filter-" + suffix)); value != "" {
+			key := strings.ToLower(strings.ReplaceAll(suffix, "-", "_"))
+			vars["api_filter_"+key] = parseStringVars(value)
+		}
+	}
+}
+
 func stringVars(vals []string) []any {
 	out := make([]any, len(vals))
 	for i, v := range vals {
 		out[i] = v
 	}
 	return out
+}
+
+func parseStringVars(value string) []any {
+	var values []string
+	if json.Unmarshal([]byte(value), &values) == nil {
+		return stringVars(values)
+	}
+	return stringVars(strings.Split(value, ","))
 }
 
 // handleLoadStream 流式处理 ungrouped 查询，使用 NDJSON 逐行返回。

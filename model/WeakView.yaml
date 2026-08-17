@@ -28,7 +28,7 @@ cube:
     org:
       sql: ""
     black:
-      sql: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"
+      sql: "(host, url) NOT IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}]) AND host NOT IN ({vars.api_filter_regex_hosts}) AND NOT arrayExists(suffix -> endsWith(url, suffix), [{vars.api_filter_regex_suffixes}])"
 
   dimensions:
     topoNetwork:
@@ -186,4 +186,3 @@ cube:
       sql: "sumMapIf(([dictGetString('weak_dict', 'owasp_top10', weak_name)],[1]), if(coalesce(tag,'')='', if(first_time>=today(), 'first', 'repeated'), if(tag='fix' AND last_time > toUnixTimestamp(add_time), 'reproduced', coalesce(tag,'')))<>'ignore' AND dictGetString('weak_dict', 'owasp_top10', weak_name) != '')"
       type: number
       title: OWASP Top 10 分类统计
-

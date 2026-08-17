@@ -41,7 +41,7 @@ func testCube() *model.Cube {
 		},
 		Segments: map[string]model.Segment{
 			"org":   {SQL: "org = {vars.org}"},
-			"black": {SQL: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"},
+			"black": {SQL: `(host, url) NOT IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}]) AND host NOT IN ({vars.api_filter_regex_hosts}) AND NOT arrayExists(suffix -> endsWith(url, suffix), [{vars.api_filter_regex_suffixes}])`},
 		},
 	}
 }
@@ -482,8 +482,10 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 		Dimensions: []string{"AccessView.id"},
 		Segments:   []string{"AccessView.black"},
 		Vars: map[string][]any{
-			"api_exact": {"host1/api/v1", "host2/api/v2"},
-			"api_regex": {"\\.php$", "^/admin/.*"},
+			"api_filter_exact_hosts":    {"host1", "s1.g.mi.comdownload"},
+			"api_filter_exact_urls":     {"/api/v1", "/AppStore/x.apk"},
+			"api_filter_regex_hosts":    {"admin.example.com"},
+			"api_filter_regex_suffixes": {".apk", ".ipsw"},
 		},
 	}
 
@@ -494,22 +496,27 @@ func TestBuildQuery_BlackSegment(t *testing.T) {
 	if !contains(sql, "WHERE") {
 		t.Errorf("expected WHERE clause, got: %s", sql)
 	}
-	if !contains(sql, "concat(host, url) NOT IN ('host1/api/v1','host2/api/v2')") {
-		t.Errorf("expected exact list quoted in NOT IN, got: %s", sql)
+	if !contains(sql, "arrayZip(['host1','s1.g.mi.comdownload'], ['/api/v1','/AppStore/x.apk'])") {
+		t.Errorf("expected normalized exact filters, got: %s", sql)
 	}
-	if !contains(sql, "multiMatchAny(concat(host, url), ['\\.php$','^/admin/.*'])") {
-		t.Errorf("expected regex list quoted in multiMatchAny, got: %s", sql)
+	if !contains(sql, "host NOT IN ('admin.example.com')") || !contains(sql, "['.apk','.ipsw']") {
+		t.Errorf("expected normalized host and suffix filters, got: %s", sql)
+	}
+	if contains(sql, "concat(host, url)") || contains(sql, "multiMatchAny") || contains(sql, "replaceRegexp") {
+		t.Errorf("black segment must use only preprocessed values, got: %s", sql)
 	}
 }
 
 func TestBuildQuery_BlackSegmentNoRegex(t *testing.T) {
-	// 调用侧（sheikah）api_regex 未配置时注入哨兵 [""]，black segment 仍生效，multiMatchAny 被短路跳过
+	// 调用侧（sheikah）未配置正则 host 时传空字符串哨兵，black segment 仍生效。
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.id"},
 		Segments:   []string{"AccessView.black"},
 		Vars: map[string][]any{
-			"api_exact": {"host1/api/v1"},
-			"api_regex": {""}, // 调用侧注入哨兵
+			"api_filter_exact_hosts":    {"host1"},
+			"api_filter_exact_urls":     {"/api/v1"},
+			"api_filter_regex_hosts":    {""},
+			"api_filter_regex_suffixes": {},
 		},
 	}
 
@@ -520,12 +527,52 @@ func TestBuildQuery_BlackSegmentNoRegex(t *testing.T) {
 	if !contains(sql, "WHERE") {
 		t.Errorf("expected WHERE clause, got: %s", sql)
 	}
-	if !contains(sql, "concat(host, url) NOT IN ('host1/api/v1')") {
+	if !contains(sql, "arrayZip(['host1'], ['/api/v1'])") {
 		t.Errorf("expected exact NOT IN, got: %s", sql)
 	}
-	// 参数 [{vars.api_regex}] 渲染为 ['']，触发 != [''] 为 false，短路跳过 multiMatchAny
-	if !contains(sql, "[''] != ['']") {
-		t.Errorf("expected sentinel [''] != [''] in SQL, got: %s", sql)
+	if !contains(sql, "host NOT IN ('')") || !contains(sql, "endsWith(url, suffix), [])") {
+		t.Errorf("expected regex host sentinel and empty suffix array in SQL, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSegmentNoExact(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Segments:   []string{"AccessView.black"},
+		Vars: map[string][]any{
+			"api_filter_exact_hosts":    {},
+			"api_filter_exact_urls":     {},
+			"api_filter_regex_hosts":    {"admin.example.com"},
+			"api_filter_regex_suffixes": {},
+		},
+	}
+	sql, err := buildQuery(req, testCube())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(sql, "arrayZip([], [])") || !contains(sql, "host NOT IN ('admin.example.com')") {
+		t.Errorf("expected empty exact arrays and normalized host filter, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_BlackSegmentExactWithCommaAndSlash(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		Segments:   []string{"AccessView.black"},
+		Vars: map[string][]any{
+			"api_filter_exact_hosts":    parseStringVars(`["host","host2"]`),
+			"api_filter_exact_urls":     parseStringVars(`["/a,b/c","/path"]`),
+			"api_filter_regex_hosts":    {""},
+			"api_filter_regex_suffixes": {},
+		},
+	}
+
+	sql, err := buildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "arrayZip(['host','host2'], ['/a,b/c','/path'])") {
+		t.Errorf("expected JSON header values to preserve commas and slashes, got: %s", sql)
 	}
 }
 
@@ -546,33 +593,6 @@ func TestBuildQuery_BlackSegmentEmpty(t *testing.T) {
 	}
 	if contains(sql, "NOT IN ()") || contains(sql, "multiMatchAny(concat") {
 		t.Errorf("should not produce invalid SQL for empty lists, got: %s", sql)
-	}
-}
-
-func TestBuildQuery_BlackSegmentEmptyWithSidebarDimension(t *testing.T) {
-	cube := testCube()
-	cube.Dimensions["sidebarTypeArray"] = model.Dimension{
-		SQL:  "if(concat(host, url) IN ({vars.api_exact}) OR ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}])), ['始终忽略'], ['已发现'])",
-		Type: "array",
-	}
-	req := &QueryRequest{
-		Dimensions: []string{"AccessView.sidebarTypeArray"},
-		Segments:   []string{"AccessView.black"},
-		Vars:       map[string][]any{},
-	}
-
-	sql, err := buildQuery(req, cube)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if contains(sql, " WHERE ") {
-		t.Errorf("expected black segment to be skipped for empty API filter vars, got: %s", sql)
-	}
-	if contains(sql, "{vars.") {
-		t.Errorf("expected sidebar placeholders to be resolved, got: %s", sql)
-	}
-	if !contains(sql, "IN ('')") || !contains(sql, "[''] != ['']") {
-		t.Errorf("expected empty sentinels in sidebar dimension, got: %s", sql)
 	}
 }
 
@@ -602,8 +622,11 @@ func TestBuildQuery_ApiViewSidebarWithoutApiFilterVars(t *testing.T) {
 	if contains(sql, "{vars.") {
 		t.Errorf("expected ApiView sidebar placeholders to be resolved, got: %s", sql)
 	}
-	if contains(sql, "arrayAll(x -> concat(x, url) NOT IN") {
+	if contains(sql, "arrayAll(x -> (x, url) NOT IN arrayZip") {
 		t.Errorf("expected ApiView.black to be skipped without API filter vars, got: %s", sql)
+	}
+	if !contains(sql, "arrayZip([], [])") || !contains(sql, "last_host IN ('')") || !contains(sql, "endsWith(url, suffix), [])") {
+		t.Errorf("expected empty arrays in ApiView dimensions, got: %s", sql)
 	}
 }
 
@@ -1123,6 +1146,62 @@ func TestHandleLoad_MissingOrgHeaderGeneratesEmptyOrg(t *testing.T) {
 	// org 未传时应生成 org = ''，而非跳过 segment
 	if !contains(capturedQuery, "org = ''") {
 		t.Fatalf("expected org = '' when org header missing, got: %s", capturedQuery)
+	}
+}
+
+func TestHandleLoadReadsPreprocessedAPIFilterHeaders(t *testing.T) {
+	modelFS := fstest.MapFS{
+		"AccessView.yaml": &fstest.MapFile{Data: []byte(`cube:
+  name: AccessView
+  sql_table: default.access
+  segments:
+    black:
+      sql: "(host, url) NOT IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}]) AND host NOT IN ({vars.api_filter_regex_hosts}) AND NOT arrayExists(suffix -> endsWith(url, suffix), [{vars.api_filter_regex_suffixes}])"
+  dimensions:
+    id:
+      sql: id
+      type: string
+`)},
+	}
+	var captured string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		captured = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer server.Close()
+	client, err := sql.NewClient(&config.ClickHouseConfig{Hosts: []string{strings.TrimPrefix(server.URL, "http://")}, Database: "default"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/load", strings.NewReader(`{"dimensions":["AccessView.id"],"segments":["AccessView.black"]}`))
+	req.Header.Set("X-Sw-Api-Filter-Exact-Hosts", `["host"]`)
+	req.Header.Set("X-Sw-Api-Filter-Exact-Urls", `["/a,b"]`)
+	req.Header.Set("X-Sw-Api-Filter-Regex-Hosts", `["admin.example.com"]`)
+	req.Header.Set("X-Sw-Api-Filter-Regex-Suffixes", `[".apk"]`)
+	rr := httptest.NewRecorder()
+	(&Handler{modelLoader: newTestLoaderFromFS(t, modelFS), chClient: client}).HandleLoad(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	for _, want := range []string{"arrayZip(['host'], ['/a,b'])", "host NOT IN ('admin.example.com')", "endsWith(url, suffix), ['.apk']"} {
+		if !contains(captured, want) {
+			t.Errorf("query missing %q: %s", want, captured)
+		}
+	}
+}
+
+func TestRequestVarsPreservesEmptyAPIFilterArrays(t *testing.T) {
+	vars := map[string][]any{}
+	addAPIFilterVars(vars, http.Header{
+		"X-Sw-Api-Filter-Exact-Hosts": {"[]"},
+		"X-Sw-Api-Filter-Exact-Urls":  {"[]"},
+	})
+	for _, key := range []string{"api_filter_exact_hosts", "api_filter_exact_urls"} {
+		if values, ok := vars[key]; !ok || len(values) != 0 {
+			t.Errorf("%s = %#v, want a present empty array", key, values)
+		}
 	}
 }
 
@@ -1705,7 +1784,7 @@ func TestOfflineTrace(t *testing.T) {
 	}`)
 
 	ctx := t.Context()
-	err = OfflineTrace(ctx, "test-task-001", "test-org", false, "", "", "", queryJSON)
+	err = OfflineTrace(ctx, "test-task-001", http.Header{"X-Sw-Org": {"test-org"}}, queryJSON)
 	if err != nil {
 		t.Fatalf("OfflineTrace returned error: %v", err)
 	}

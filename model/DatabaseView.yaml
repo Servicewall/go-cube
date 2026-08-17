@@ -32,10 +32,10 @@ cube:
       sql: "org = {vars.org}"
 
     white:
-      sql: "concat(host, url) IN ({vars.api_exact}) OR ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"
+      sql: "(host, url) IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}]) OR host IN ({vars.api_filter_regex_hosts}) OR arrayExists(suffix -> endsWith(url, suffix), [{vars.api_filter_regex_suffixes}])"
 
     black:
-      sql: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"
+      sql: "(host, url) NOT IN arrayZip([{vars.api_filter_exact_hosts}], [{vars.api_filter_exact_urls}]) AND host NOT IN ({vars.api_filter_regex_hosts}) AND NOT arrayExists(suffix -> endsWith(url, suffix), [{vars.api_filter_regex_suffixes}])"
 
   measures:
     sum:
