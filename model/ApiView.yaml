@@ -285,7 +285,7 @@ cube:
       title: 成功率
 
     hourCount:
-      sql: (arrayFilter((k) -> k >= toUnixTimestamp(today()), hour_count.1), arrayFilter((v, k) -> k >= toUnixTimestamp(today()), hour_count.2, hour_count.1))
+      sql: (arrayFilter((k) -> k >= toUnixTimestamp(toStartOfDay(now())), hour_count.1), arrayFilter((v, k) -> k >= toUnixTimestamp(toStartOfDay(now())), hour_count.2, hour_count.1))
       type: string
       title: 今日访问趋势
 
@@ -437,12 +437,12 @@ cube:
       title: 响应涉敏API数
 
     hourCountArray:
-      sql: (arrayFilter((k) -> k >= toUnixTimestamp(today()), sumMap(hour_count).1), arrayFilter((v, k) -> k >= toUnixTimestamp(today()), sumMap(hour_count).2, sumMap(hour_count).1))
+      sql: (arrayFilter((k) -> k >= toUnixTimestamp(toStartOfDay(now())), sumMap(hour_count).1), arrayFilter((v, k) -> k >= toUnixTimestamp(toStartOfDay(now())), sumMap(hour_count).2, sumMap(hour_count).1))
       type: string
       title: 今日小时趋势
 
     daySum:
-      sql: arraySum(arrayFilter((v, k) -> k >= toUnixTimestamp(today()), sumMap(hour_count).2, sumMap(hour_count).1))
+      sql: arraySum(arrayFilter((v, k) -> k >= toUnixTimestamp(toStartOfDay(now())), sumMap(hour_count).2, sumMap(hour_count).1))
       type: number
       title: 今日访问量
 
