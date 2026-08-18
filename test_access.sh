@@ -559,6 +559,20 @@ result=$(curl -s "$BASE/load?query=%7B%22measures%22%3A%5B%22AccessView.aggSensS
 echo "Raw: $result"
 check "AccessView 数据筛选" "$result"
 
+echo ""
+echo "=== AccessView 绝对时间范围（秒级，DateTime 路径） ==="
+#{"measures":["AccessView.count"],"timeDimensions":[{"dimension":"AccessView.ts","dateRange":["2026-08-18 00:00:00","2026-08-19 23:59:59"]}],"dimensions":[],"segments":["AccessView.org","AccessView.black"],"timezone":"Asia/Shanghai"}
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AccessView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%5B%222026-08-18%2000%3A00%3A00%22%2C%222026-08-19%2023%3A59%3A59%22%5D%7D%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22AccessView.org%22%2C%22AccessView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+echo "Raw: $result"
+check "AccessView 绝对时间范围（秒级，DateTime 路径）" "$result"
+
+echo ""
+echo "=== AccessView 绝对时间范围（毫秒级，DateTime64 路径） ==="
+#{"measures":["AccessView.count"],"timeDimensions":[{"dimension":"AccessView.ts","dateRange":["2026-08-18 00:00:00.000","2026-08-19 23:59:59.999"]}],"dimensions":[],"segments":["AccessView.org","AccessView.black"],"timezone":"Asia/Shanghai"}
+result=$(curl -s "$BASE/load?queryType=multi&query=%7B%22measures%22%3A%5B%22AccessView.count%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22AccessView.ts%22%2C%22dateRange%22%3A%5B%222026-08-18%2000%3A00%3A00.000%22%2C%222026-08-19%2023%3A59%3A59.999%22%5D%7D%5D%2C%22dimensions%22%3A%5B%5D%2C%22segments%22%3A%5B%22AccessView.org%22%2C%22AccessView.black%22%5D%2C%22timezone%22%3A%22Asia%2FShanghai%22%7D")
+echo "Raw: $result"
+check "AccessView 绝对时间范围（毫秒级，DateTime64 路径）" "$result"
+
 echo "--- $pass passed, $fail failed ---"
 
 echo ""

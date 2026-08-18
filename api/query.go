@@ -190,10 +190,10 @@ func buildTimeDimensionClause(colSQL string, dr DateRange) string {
 	switch v := dr.V.(type) {
 	case []string:
 		if len(v) == 2 {
-			// 值侧用 toDateTime() 包裹：保留列裸露以走分区/主键裁剪；
-			// 对 Date 列 CH 会把常量降到 Date 比较，避免 'YYYY-MM-DD HH:MM:SS' 直接对 Date 触发 TYPE_MISMATCH。
-			start := "toDateTime('" + strings.ReplaceAll(v[0], "'", "''") + "')"
-			end := "toDateTime('" + strings.ReplaceAll(v[1], "'", "''") + "')"
+			// 绝对时间范围：秒级值走 toDateTime()；带小数秒值走 toDateTime64(3)。
+			// 保留列裸露以走分区/主键裁剪；对 Date 列，秒级常量仍能保持兼容比较行为。
+			start := formatAbsoluteTimeExpr(v[0])
+			end := formatAbsoluteTimeExpr(v[1])
 			return fmt.Sprintf("%s >= %s AND %s <= %s", colSQL, start, colSQL, end)
 		}
 	case string:
@@ -205,6 +205,14 @@ func buildTimeDimensionClause(colSQL string, dr DateRange) string {
 		}
 	}
 	return ""
+}
+
+func formatAbsoluteTimeExpr(s string) string {
+	escaped := strings.ReplaceAll(strings.TrimSpace(s), "'", "''")
+	if strings.Contains(escaped, ".") {
+		return fmt.Sprintf("toDateTime64('%s', 3)", escaped)
+	}
+	return fmt.Sprintf("toDateTime('%s')", escaped)
 }
 
 // formatArg 将绑定参数格式化为 SQL 字面值：字符串加单引号并转义，其余 fmt.Sprintf。
