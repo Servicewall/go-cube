@@ -342,6 +342,26 @@ func TestBuildQuery_TimeDimensionRange(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_TimeDimensionRangeWithFractionalSeconds(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.ts"},
+		TimeDimensions: []TimeDimension{
+			{
+				Dimension: "AccessView.ts",
+				DateRange: DateRange{V: []string{"2026-08-18 15:38:25.375", "2026-08-18 15:38:25.375"}},
+			},
+		},
+	}
+
+	sql, err := buildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "ts >= toDateTime64('2026-08-18 15:38:25.375', 3)") || !contains(sql, "ts <= toDateTime64('2026-08-18 15:38:25.375', 3)") {
+		t.Errorf("expected DateTime64 range WHERE clause, got: %s", sql)
+	}
+}
+
 func TestBuildQuery_TimeDimensionRelative(t *testing.T) {
 	req := &QueryRequest{
 		Dimensions: []string{"AccessView.ts"},
@@ -1256,6 +1276,28 @@ func TestBuildQuery_TimeDimension_PhysicalTableToWhere(t *testing.T) {
 	}
 }
 
+func TestBuildQuery_SegmentsWithFractionalSecondTimeRange(t *testing.T) {
+	req := &QueryRequest{
+		Dimensions: []string{"AccessView.id"},
+		TimeDimensions: []TimeDimension{
+			{Dimension: "AccessView.ts", DateRange: DateRange{V: []string{"2026-08-18 15:38:25.375", "2026-08-18 15:38:25.375"}}},
+		},
+		Segments: []string{"AccessView.org"},
+		Vars:     map[string][]any{"org": {"tenant_abc"}},
+	}
+
+	sql, err := buildQuery(req, testCube())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, "org = 'tenant_abc'") {
+		t.Errorf("expected segment in WHERE, got: %s", sql)
+	}
+	if !contains(sql, "ts >= toDateTime64('2026-08-18 15:38:25.375', 3) AND ts <= toDateTime64('2026-08-18 15:38:25.375', 3)") {
+		t.Errorf("expected DateTime64 time dimension in WHERE, got: %s", sql)
+	}
+}
+
 func TestBuildQuery_TimeDimension_SubqueryStaysInWhere(t *testing.T) {
 	cube := &model.Cube{
 		Name: "WeakView",
@@ -1288,6 +1330,38 @@ func TestBuildQuery_TimeDimension_SubqueryStaysInWhere(t *testing.T) {
 	}
 	if !contains(sql, "SELECT ts, host FROM weak WHERE ts >= toDateTime('2026-04-01 00:00:00') AND ts <= toDateTime('2026-04-07 23:59:59')") {
 		t.Errorf("expected {filter.ts} replacement in subquery, got: %s", sql)
+	}
+}
+
+func TestBuildQuery_TimeDimension_SubqueryUsesDateTime64ForFractionalSeconds(t *testing.T) {
+	cube := &model.Cube{
+		Name: "WeakView",
+		SQL:  "SELECT ts, host FROM weak WHERE {filter.ts}",
+		Dimensions: map[string]model.Dimension{
+			"host": {SQL: "host", Type: "string"},
+			"ts":   {SQL: "ts", Type: "time"},
+		},
+		Measures: map[string]model.Measure{
+			"count": {SQL: "count()", Type: "number"},
+		},
+	}
+
+	req := &QueryRequest{
+		Measures: []string{"WeakView.count"},
+		TimeDimensions: []TimeDimension{
+			{Dimension: "WeakView.ts", DateRange: DateRange{V: []string{"2026-08-18 15:38:25.375", "2026-08-18 15:38:25.375"}}},
+		},
+	}
+
+	sql, err := buildQuery(req, cube)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !contains(sql, ") AS WeakView WHERE ts >= toDateTime64('2026-08-18 15:38:25.375', 3) AND ts <= toDateTime64('2026-08-18 15:38:25.375', 3)") {
+		t.Errorf("expected DateTime64 time dimension in outer WHERE, got: %s", sql)
+	}
+	if !contains(sql, "SELECT ts, host FROM weak WHERE ts >= toDateTime64('2026-08-18 15:38:25.375', 3) AND ts <= toDateTime64('2026-08-18 15:38:25.375', 3)") {
+		t.Errorf("expected DateTime64 {filter.ts} replacement in subquery, got: %s", sql)
 	}
 }
 func TestOrderList_MarshalJSON_Nil(t *testing.T) {
@@ -1753,5 +1827,88 @@ func TestOfflineTrace(t *testing.T) {
 	if strings.Contains(insertSQL, `SELECT min("AccessView.ts")`) ||
 		strings.Contains(insertSQL, `SELECT max("AccessView.ts")`) {
 		t.Errorf("should not execute CubeSQL again for min/max, got: %s", insertSQL)
+	}
+}
+
+func TestOfflineTrace_UsesDateTime64ForFractionalSecondTimeRange(t *testing.T) {
+	requests := make([]string, 0, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		q := string(body)
+		requests = append(requests, q)
+
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(q, "system.columns"):
+			_, _ = w.Write([]byte(`{"data":[{"name":"id"},{"name":"ts"},{"name":"ip"}]}`))
+		case strings.Contains(q, "INSERT INTO access_offline_local"):
+			_, _ = w.Write([]byte(`{"rows":0}`))
+		default:
+			http.Error(w, "unexpected query", http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+
+	chClient, err := sql.NewClient(&config.ClickHouseConfig{
+		Hosts:        []string{strings.TrimPrefix(server.URL, "http://")},
+		Database:     "default",
+		Username:     "default",
+		Password:     "",
+		QueryTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("create clickhouse client: %v", err)
+	}
+
+	modelFS := fstest.MapFS{
+		"AccessView.yaml": &fstest.MapFile{Data: []byte(`cube:
+  name: AccessView
+  sql_table: default.access
+  dimensions:
+    id:
+      sql: id
+      type: string
+    ts:
+      sql: ts
+      type: time
+    ip:
+      sql: ip
+      type: string
+`)},
+	}
+
+	h := &Handler{
+		modelLoader:  newTestLoaderFromFS(t, modelFS),
+		chClient:     chClient,
+		queryTimeout: 5 * time.Second,
+	}
+	oldHandler := defaultHandler
+	defaultHandler = h
+	defer func() { defaultHandler = oldHandler }()
+
+	queryJSON := []byte(`{
+		"dimensions": ["AccessView.id", "AccessView.ts", "AccessView.ip"],
+		"filters": [{"member": "AccessView.ip", "operator": "equals", "values": ["10.0.0.1"]}],
+		"timeDimensions": [{
+			"dimension": "AccessView.ts",
+			"dateRange": ["2026-08-18 15:38:25.375", "2026-08-18 15:38:25.375"]
+		}],
+		"limit": 100
+	}`)
+
+	ctx := t.Context()
+	err = OfflineTrace(ctx, "test-task-001", "test-org", false, "", "", "", queryJSON)
+	if err != nil {
+		t.Fatalf("OfflineTrace returned error: %v", err)
+	}
+
+	if len(requests) != 2 {
+		t.Fatalf("expected 2 requests to ClickHouse, got %d", len(requests))
+	}
+
+	insertSQL := requests[1]
+	if !strings.Contains(insertSQL,
+		`FROM default.access WHERE ts >= toDateTime64('2026-08-18 15:38:25.375', 3) AND ts <= toDateTime64('2026-08-18 15:38:25.375', 3)`) {
+		t.Errorf("expected DateTime64 outer time range pruning, got: %s", insertSQL)
 	}
 }
