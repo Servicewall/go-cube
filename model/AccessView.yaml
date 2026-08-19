@@ -126,12 +126,12 @@ cube:
     nodeIp:
       sql: data[1]
       type: string
-      title: 节点IP
+      title: 来源节点
 
     nodeName:
       sql: data[2]
       type: string
-      title: 节点名字
+      title: 来源探针
 
     reqAction:
       sql: arrayFilter((action, risk) -> dictGetInt64('default.risk_dict','score',risk)!=0, req_action, req_risk)
