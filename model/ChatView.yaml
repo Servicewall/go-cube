@@ -23,6 +23,34 @@ cube:
       sql: uniq(uid)
       type: number
       title: 用户数量
+    countSession:
+      sql: uniq(if(empty(session_id), uid, session_id))
+      type: number
+      title: 会话数
+    maxScore:
+      sql: max(multiIf(arrayExists(x -> dictGetInt64('default.risk_dict', 'score', x) = -100, risk.1), -100, notEmpty(risk.1), 100 - (100 * arrayProduct(arrayMap(x -> 1 - dictGetInt64('default.risk_dict', 'score', x) * 0.01, risk.1))), 0))
+      type: number
+      title: 最高风险分
+    firstTs:
+      sql: min(ts)
+      type: time
+      title: 首条时间
+    lastTs:
+      sql: max(ts)
+      type: time
+      title: 末条时间
+    groupModelName:
+      sql: groupUniqArrayArray(model.model)
+      type: array
+      title: 模型列表
+    reqSensKeySet:
+      sql: groupUniqArrayArray(req_sens_k)
+      type: array
+      title: 请求敏感标签
+    resSensKeySet:
+      sql: groupUniqArrayArray(res_sens_k)
+      type: array
+      title: 响应敏感标签
 
   dimensions:
     ts:
@@ -117,6 +145,26 @@ cube:
       sql: model.user
       type: string
       title: 模型用户标识
+    sessionId:
+      sql: session_id
+      type: string
+      title: 会话ID
+    sessionKey:
+      sql: if(empty(session_id), uid, session_id)
+      type: string
+      title: 会话聚合键
+    toolCall:
+      sql: tool_call
+      type: string
+      title: 工具调用
+    cachedTokens:
+      sql: usage.prompt_tokens_details.cached_tokens
+      type: number
+      title: 缓存token
+    reasoningTokens:
+      sql: usage.completion_tokens_details.reasoning_tokens
+      type: number
+      title: 推理token
     reqSensKeyNum:
       sql: "toJSONString(arrayReduce('sumMap', arrayMap(x -> map(x, 1), req_sens_k)))"
       type: string
