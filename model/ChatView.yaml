@@ -40,13 +40,17 @@ cube:
       type: time
       title: 末条时间
     groupModelName:
-      sql: arrayStringConcat(arrayFilter(x -> x != '', arrayDistinct(arrayFlatten(groupArray(model.model)))), ',')
-      type: string
+      sql: groupUniqArrayArray(model.model)
+      type: array
       title: 模型列表
-    hasSens:
-      sql: max(if(notEmpty(req_sens_k) or notEmpty(res_sens_k), 1, 0))
-      type: number
-      title: 是否含敏感
+    reqSensKeySet:
+      sql: groupUniqArrayArray(req_sens_k)
+      type: array
+      title: 请求敏感标签
+    resSensKeySet:
+      sql: groupUniqArrayArray(res_sens_k)
+      type: array
+      title: 响应敏感标签
 
   dimensions:
     ts:
