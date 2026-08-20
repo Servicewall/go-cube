@@ -43,6 +43,14 @@ cube:
       sql: groupUniqArrayArray(model.model)
       type: array
       title: 模型列表
+    groupAgentNames:
+      sql: groupUniqArrayArray(agent_name)
+      type: array
+      title: Agent列表
+    groupToolNames:
+      sql: "groupUniqArrayArray(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(arrayMap(el -> JSONExtractArrayRaw(el, 'function', 'name'), JSONExtractArrayRaw(tool_call))))))"
+      type: array
+      title: 工具列表
     reqSensKeySet:
       sql: groupUniqArrayArray(req_sens_k)
       type: array
@@ -85,6 +93,18 @@ cube:
       sql: model.model
       type: string
       title: 模型名称
+    agentName:
+      sql: agent_name
+      type: string
+      title: Agent名称
+    latency:
+      sql: perf[1]
+      type: number
+      title: 耗时(ms)
+    cost:
+      sql: perf[2]
+      type: number
+      title: 成本
     modelUser:
       sql: model.user
       type: string
