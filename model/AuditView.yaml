@@ -53,32 +53,32 @@ cube:
       title: IP属地(省份)
 
     department:
-      sql: dictGetOrDefault('default.employee_dict', 'department', (org, content), '')
+      sql: dictGetOrDefault('default.user_dict', 'department', (org, content), '')
       type: string
       title: 所属部门
 
     employeeId:
-      sql: dictGetOrDefault('default.employee_dict', 'employee_id', (org, content), toUInt64(0))
+      sql: dictGetOrDefault('default.user_dict', 'employee_id', (org, content), toUInt64(0))
       type: number
       title: 员工ID
 
     employeeName:
-      sql: dictGetOrDefault('default.employee_dict', 'name', (org, content), '')
+      sql: dictGetOrDefault('default.user_dict', 'name', (org, content), '')
       type: string
       title: 员工姓名
 
     employeePosition:
-      sql: dictGetOrDefault('default.employee_dict', 'position', (org, content), '')
+      sql: dictGetOrDefault('default.user_dict', 'role', (org, content), '')
       type: string
       title: 员工职位
 
     employeeStatus:
-      sql: dictGetOrDefault('default.employee_dict', 'employment_status', (org, content), '')
+      sql: dictGetOrDefault('default.user_dict', 'status', (org, content), '')
       type: string
       title: 员工在职状态
 
     employeeExtraInfo:
-      sql: dictGetOrDefault('default.employee_dict', 'extra_info', (org, content), '{}')
+      sql: dictGetOrDefault('default.user_dict', 'info', (org, content), '{}')
       type: string
       title: 员工扩展信息
 
@@ -186,7 +186,7 @@ cube:
 
     # 地图: 部门->唯一用户数
     departmentUserSumMap:
-      sql: uniqMapIf(CAST(([dictGetOrDefault('default.employee_dict', 'department', (org, content), '')], [content]), 'Map(String, String)'), type = 'User' and dictGetOrDefault('default.employee_dict', 'department', (org, content), '') <> '')
+      sql: uniqMapIf(CAST(([dictGetOrDefault('default.user_dict', 'department', (org, content), '')], [content]), 'Map(String, String)'), type = 'User' and dictGetOrDefault('default.user_dict', 'department', (org, content), '') <> '')
       type: string
       title: 部门用户数
 

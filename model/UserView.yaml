@@ -5,7 +5,7 @@ cube:
 
   segments:
     org:
-      sql: ""
+      sql: org = {vars.org}
 
   measures:
     count:
