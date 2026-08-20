@@ -149,7 +149,7 @@ cube:
       title: 涉敏访问次数
 
     accountAssetUniq:
-      sql: uniq(content, channel)
+      sql: uniqIf(content, channel, type = 'User')
       type: number
       title: 应用账号数
 
