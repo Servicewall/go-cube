@@ -1,32 +1,42 @@
 cube:
   name: WeakView
   sql: |
-    SELECT org, host, channel, url, method, weak_name, url_action, weak_data,
-           countm AS count, last_time_max AS last_time, first_time, res_sens_count,
-           tag, manage_id, add_time
-    FROM (
-      SELECT org, host, channel, url, method, weak_name,
-             argMax(url_action, last_time)      AS url_action,
-             argMax(weak_data, last_time)       AS weak_data,
-             argMax(count, last_time)           AS countm,
-             max(last_time)                     AS last_time_max,
-             min(first_time)                    AS first_time,
-             argMax(res_sens_count, last_time)  AS res_sens_count
-       FROM weak
-       PREWHERE org = {vars.org}
-      GROUP BY org, host, channel, url, method, weak_name
-    ) AS w
-    LEFT JOIN (
-      SELECT host, method, url, defect_id AS weak_name, tag,
-             id AS manage_id, add_time,
-             coalesce(org_id, '') AS org
+    SELECT
+      org,
+      host,
+      channel,
+      url,
+      method,
+      weak_name,
+      url_action,
+      weak_data,
+      count,
+      last_time,
+      first_time,
+      res_sens_count,
+      tag,
+      manage_id,
+      add_time
+    FROM weak
+    FINAL
+    LEFT JOIN
+    (
+      SELECT
+        host,
+        method,
+        url,
+        defect_id AS weak_name,
+        tag,
+        id AS manage_id,
+        add_time,
+        coalesce(org_id, '') AS org
       FROM postgres.api_weak_mgts
       WHERE tag != ''
     ) AS tb2 USING (org, host, method, url, weak_name)
 
   segments:
     org:
-      sql: ""
+      sql: "org = {vars.org}"
     black:
       sql: "concat(host, url) NOT IN ({vars.api_exact}) AND NOT ([{vars.api_regex}] != [''] AND multiMatchAny(concat(host, url), [{vars.api_regex}]))"
 
