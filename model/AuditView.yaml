@@ -143,10 +143,10 @@ cube:
       type: time
       title: 首次识别时间
 
-    sensCount:
-      sql: sum(sens_count)
+    hasSensitive:
+      sql: if(notEmpty(mapKeys(uniqMapMerge(req_sens_uniq))) OR notEmpty(mapKeys(uniqMapMerge(res_sens_uniq))), 1, 0)
       type: number
-      title: 涉敏访问次数
+      title: 是否涉敏
 
     accountAssetUniq:
       sql: uniqIf(content, channel, type = 'User')
