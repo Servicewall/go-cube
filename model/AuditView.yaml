@@ -53,9 +53,34 @@ cube:
       title: IP属地(省份)
 
     department:
-      sql: dictGetString('default.user_dict', 'department', content)
+      sql: dictGetOrDefault('default.user_dict', 'department', (org, content), '')
       type: string
       title: 所属部门
+
+    employeeId:
+      sql: dictGetOrDefault('default.user_dict', 'employee_id', (org, content), toUInt64(0))
+      type: number
+      title: 员工ID
+
+    employeeName:
+      sql: dictGetOrDefault('default.user_dict', 'name', (org, content), '')
+      type: string
+      title: 员工姓名
+
+    employeePosition:
+      sql: dictGetOrDefault('default.user_dict', 'role', (org, content), '')
+      type: string
+      title: 员工职位
+
+    employeeStatus:
+      sql: dictGetOrDefault('default.user_dict', 'status', (org, content), '')
+      type: string
+      title: 员工在职状态
+
+    employeeExtraInfo:
+      sql: dictGetOrDefault('default.user_dict', 'info', (org, content), '{}')
+      type: string
+      title: 员工扩展信息
 
     deviceType:
       sql: multiIf(startsWith(content, 'S1') OR startsWith(content, 'TS1'), 'H5', startsWith(content, 'S2') OR startsWith(content, 'TS2'), 'iOS', startsWith(content, 'S3') OR startsWith(content, 'TS3'), 'Android', startsWith(content, 'S4') OR startsWith(content, 'TS4'), '小程序', startsWith(content, 'S5') OR startsWith(content, 'TS5'), 'Harmony', '')
@@ -113,6 +138,21 @@ cube:
       type: time
       title: 最近发现时间
 
+    firstTs:
+      sql: min(if(first_ts = toDateTime(0), toDateTime(dt), first_ts))
+      type: time
+      title: 首次识别时间
+
+    hasSensitive:
+      sql: if(notEmpty(mapKeys(uniqMapMerge(req_sens_uniq))) OR notEmpty(mapKeys(uniqMapMerge(res_sens_uniq))), 1, 0)
+      type: number
+      title: 是否涉敏
+
+    accountAssetUniq:
+      sql: uniqIf(content, channel, type = 'User')
+      type: number
+      title: 应用账号数
+
     # 风险规则相关（与请求/响应涉敏结构一致）
     # riskCount: arrayFilter过滤掉score=0的规则
     riskScoreTuple:
@@ -146,7 +186,7 @@ cube:
 
     # 地图: 部门->唯一用户数
     departmentUserSumMap:
-      sql: uniqMapIf(CAST(([dictGetString('default.user_dict', 'department', content)], [content]), 'Map(String, String)'), type = 'User' and dictGetString('default.user_dict', 'department', content) <> '')
+      sql: uniqMapIf(CAST(([dictGetOrDefault('default.user_dict', 'department', (org, content), '')], [content]), 'Map(String, String)'), type = 'User' and dictGetOrDefault('default.user_dict', 'department', (org, content), '') <> '')
       type: string
       title: 部门用户数
 
